@@ -1,0 +1,42 @@
+version: "1.0"
+name: Prompt Workbench
+description: Local web UI for prompt template editing with Raycast sync
+
+documentation:
+  index: context/README.md
+  ai_instructions: context/AGENTS.md
+  architecture: context/concepts/architecture.md
+
+tasks:
+  tool: beads
+  storage: .beads/
+  commands:
+    list: bd ready
+    show: bd show <id>
+    start: bd update <id> --status in_progress
+    close: bd close <id>
+
+commands:
+  dev: pnpm dev
+  build: pnpm build
+  test: pnpm test
+  lint: pnpm lint
+  typecheck: npx tsc --noEmit
+
+stack:
+  framework: next.js-15
+  language: typescript
+  ui: shadcn-ui
+  editor: codemirror-6
+  database: supabase-local  # Docker, same as NoticeWise
+  package_manager: pnpm
+
+sync:
+  method: file-watcher + interval
+  watcher: chokidar
+  interval_default: 30m
+  configurable: true
+
+ai_workflow:
+  task_assignment: explicit
+  documentation_updates: context/
