@@ -1,5 +1,7 @@
 # Dependencies
 /node_modules
+node_modules/
+.pnpm-store/
 /.pnp
 .pnp.*
 .yarn/*
@@ -10,16 +12,36 @@
 
 # Testing
 /coverage
+coverage/
+.nyc_output/
 
 # Next.js
 /.next/
+.next/
 /out/
+out/
 
 # Production
 /build
+build/
+dist/
+*.tsbuildinfo
 
-# Misc
+# Environment
+.env
+.env.local
+.env*.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
 .DS_Store
+Thumbs.db
 *.pem
 
 # Debug
@@ -28,15 +50,14 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Local env files
-.env*.local
-
 # Vercel
 .vercel
 
 # TypeScript
-*.tsbuildinfo
 next-env.d.ts
 
 # Ralph prompts
 .ralph-prompt-*.md
+
+# Supabase local data (not migrations)
+supabase/.env
