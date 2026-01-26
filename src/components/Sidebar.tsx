@@ -5,7 +5,10 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useSnippetStore } from '@/lib/store'
 import { exportSnippets } from '@/lib/raycast/export'
+import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
+import { ValidationDialog } from '@/components/ValidationDialog'
 import { FileText, Plus } from 'lucide-react'
+import type { Snippet } from '@/types'
 
 interface ContextMenuState {
   x: number
@@ -24,6 +27,8 @@ export function Sidebar() {
   const clearSelection = useSnippetStore((s) => s.clearSelection)
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false })
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
+  const [pendingExport, setPendingExport] = useState<Snippet[] | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const handleContextMenu = useCallback((e: React.MouseEvent, snippetId: string) => {
@@ -60,7 +65,18 @@ export function Sidebar() {
     }
   }, [contextMenu.visible, closeContextMenu])
 
-  const handleExportSelected = useCallback(async () => {
+  const doExport = useCallback(async (toExport: Snippet[]) => {
+    try {
+      const filename = await exportSnippets(toExport)
+      toast.success(`Exported ${toExport.length} snippet${toExport.length > 1 ? 's' : ''} to ${filename}`)
+      clearSelection()
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      toast.error('Export failed')
+    }
+  }, [clearSelection])
+
+  const handleExportSelected = useCallback(() => {
     closeContextMenu()
     const selected = getSelectedSnippets()
     if (selected.length === 0) {
@@ -68,20 +84,34 @@ export function Sidebar() {
       return
     }
 
-    // Confirmation with count
-    const count = selected.length
-    const confirmed = window.confirm(`Export ${count} snippet${count > 1 ? 's' : ''} to Raycast?`)
-    if (!confirmed) return
-
-    try {
-      const filename = await exportSnippets(selected)
-      toast.success(`Exported ${count} snippet${count > 1 ? 's' : ''} to ${filename}`)
-      clearSelection()
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') return
-      toast.error('Export failed')
+    // Validate before export
+    const result = validateSnippets(selected)
+    if (result.issues.length > 0) {
+      setValidationResult(result)
+      setPendingExport(selected)
+      return
     }
-  }, [getSelectedSnippets, clearSelection, closeContextMenu])
+
+    // No issues, export directly
+    doExport(selected)
+  }, [getSelectedSnippets, closeContextMenu, doExport])
+
+  const handleValidationClose = useCallback(() => {
+    setValidationResult(null)
+    setPendingExport(null)
+  }, [])
+
+  const handleValidationProceed = useCallback(() => {
+    if (pendingExport) {
+      doExport(pendingExport)
+    }
+    setValidationResult(null)
+    setPendingExport(null)
+  }, [pendingExport, doExport])
+
+  const handleNavigateToSnippet = useCallback((snippetId: string) => {
+    selectSnippet(snippetId)
+  }, [selectSnippet])
 
   const handleClick = useCallback((e: React.MouseEvent, id: string) => {
     if (e.metaKey || e.ctrlKey) {
@@ -160,6 +190,16 @@ export function Sidebar() {
             Export Selected ({selectedIds.size})
           </button>
         </div>
+      )}
+
+      {validationResult && (
+        <ValidationDialog
+          result={validationResult}
+          open={!!validationResult}
+          onClose={handleValidationClose}
+          onProceed={handleValidationProceed}
+          onNavigateToSnippet={handleNavigateToSnippet}
+        />
       )}
     </aside>
   )

@@ -6,9 +6,12 @@ import { Editor } from '@/components/editor/Editor'
 import { Preview } from '@/components/preview/Preview'
 import { ResizableDivider } from '@/components/ResizableDivider'
 import { Sidebar } from '@/components/Sidebar'
+import { ValidationDialog } from '@/components/ValidationDialog'
 import { useSnippetStore } from '@/lib/store'
 import { exportSnippets } from '@/lib/raycast/export'
+import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
 import { PanelRight, PanelRightClose, Download } from 'lucide-react'
+import type { Snippet } from '@/types'
 
 const STORAGE_KEY = 'prompt-workbench-content'
 const DIVIDER_KEY = 'prompt-workbench-divider'
@@ -19,6 +22,8 @@ export default function HomePage() {
   const [content, setContent] = useState('')
   const [leftPercent, setLeftPercent] = useState(DEFAULT_LEFT_PERCENT)
   const [mounted, setMounted] = useState(false)
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
+  const [pendingExport, setPendingExport] = useState<Snippet[] | null>(null)
 
   const previewVisible = useSnippetStore((s) => s.previewVisible)
   const togglePreview = useSnippetStore((s) => s.togglePreview)
@@ -81,8 +86,19 @@ export default function HomePage() {
   }, [])
 
   const snippets = useSnippetStore((s) => s.snippets)
+  const selectSnippet = useSnippetStore((s) => s.selectSnippet)
 
-  const handleExport = useCallback(async () => {
+  const doExport = useCallback(async (toExport: Snippet[]) => {
+    try {
+      const filename = await exportSnippets(toExport)
+      toast.success(`Exported ${toExport.length} snippet${toExport.length > 1 ? 's' : ''} to ${filename}`)
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      toast.error('Export failed')
+    }
+  }, [])
+
+  const handleExport = useCallback(() => {
     // Use store snippets if available, otherwise create one from current editor content
     const toExport = snippets.length > 0
       ? snippets
@@ -93,17 +109,34 @@ export default function HomePage() {
       return
     }
 
-    try {
-      const filename = await exportSnippets(toExport)
-      toast.success(`Exported to ${filename}`)
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        // User cancelled - no toast needed
-        return
-      }
-      toast.error('Export failed')
+    // Validate before export
+    const result = validateSnippets(toExport)
+    if (result.issues.length > 0) {
+      setValidationResult(result)
+      setPendingExport(toExport)
+      return
     }
-  }, [snippets, content])
+
+    // No issues, export directly
+    doExport(toExport)
+  }, [snippets, content, doExport])
+
+  const handleValidationClose = useCallback(() => {
+    setValidationResult(null)
+    setPendingExport(null)
+  }, [])
+
+  const handleValidationProceed = useCallback(() => {
+    if (pendingExport) {
+      doExport(pendingExport)
+    }
+    setValidationResult(null)
+    setPendingExport(null)
+  }, [pendingExport, doExport])
+
+  const handleNavigateToSnippet = useCallback((snippetId: string) => {
+    selectSnippet(snippetId)
+  }, [selectSnippet])
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -152,6 +185,16 @@ export default function HomePage() {
           )}
         </div>
       </div>
+
+      {validationResult && (
+        <ValidationDialog
+          result={validationResult}
+          open={!!validationResult}
+          onClose={handleValidationClose}
+          onProceed={handleValidationProceed}
+          onNavigateToSnippet={handleNavigateToSnippet}
+        />
+      )}
     </main>
   )
 }
