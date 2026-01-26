@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Editor } from '@/components/editor/Editor'
 import { Preview } from '@/components/preview/Preview'
 import { ResizableDivider } from '@/components/ResizableDivider'
+import { Sidebar } from '@/components/Sidebar'
 import { useSnippetStore } from '@/lib/store'
 import { exportSnippets } from '@/lib/raycast/export'
 import { PanelRight, PanelRightClose, Download } from 'lucide-react'
@@ -131,9 +132,10 @@ export default function HomePage() {
           </div>
         </header>
         <div className="flex-1 flex overflow-hidden">
+          <Sidebar />
           <div
             style={{ width: previewVisible ? `${leftPercent}%` : '100%' }}
-            className="overflow-auto transition-[width] duration-200 ease-out"
+            className="flex-1 overflow-auto transition-[width] duration-200 ease-out"
           >
             <Editor initialValue={content} onChange={setContent} />
           </div>

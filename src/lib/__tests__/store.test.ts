@@ -8,6 +8,7 @@ describe('useSnippetStore', () => {
       snippets: [],
       folders: [],
       selectedId: null,
+      selectedIds: new Set<string>(),
       searchQuery: '',
       editorDirty: false,
     })
@@ -238,6 +239,92 @@ describe('useSnippetStore', () => {
       selectSnippet(null)
 
       expect(getSelectedSnippet()).toBeUndefined()
+    })
+  })
+
+  describe('multi-select', () => {
+    it('should have empty selectedIds initially', () => {
+      const { selectedIds } = useSnippetStore.getState()
+      expect(selectedIds.size).toBe(0)
+    })
+
+    it('selectSnippet should also set selectedIds', () => {
+      const { selectSnippet } = useSnippetStore.getState()
+      selectSnippet('snippet-1')
+      expect(useSnippetStore.getState().selectedIds.has('snippet-1')).toBe(true)
+    })
+
+    it('toggleSelectSnippet should add to selection', () => {
+      const { createSnippet, toggleSelectSnippet } = useSnippetStore.getState()
+      const s1 = createSnippet({ name: 'S1', text: 'Text' })
+      const s2 = createSnippet({ name: 'S2', text: 'Text' })
+
+      toggleSelectSnippet(s1.id)
+      toggleSelectSnippet(s2.id)
+
+      const { selectedIds } = useSnippetStore.getState()
+      expect(selectedIds.has(s1.id)).toBe(true)
+      expect(selectedIds.has(s2.id)).toBe(true)
+    })
+
+    it('toggleSelectSnippet should remove if already selected', () => {
+      const { createSnippet, toggleSelectSnippet } = useSnippetStore.getState()
+      const s1 = createSnippet({ name: 'S1', text: 'Text' })
+
+      toggleSelectSnippet(s1.id)
+      toggleSelectSnippet(s1.id)
+
+      const { selectedIds } = useSnippetStore.getState()
+      expect(selectedIds.has(s1.id)).toBe(false)
+    })
+
+    it('selectAllSnippets should select all', () => {
+      const { createSnippet, selectAllSnippets } = useSnippetStore.getState()
+      createSnippet({ name: 'S1', text: 'Text' })
+      createSnippet({ name: 'S2', text: 'Text' })
+
+      selectAllSnippets()
+
+      const { selectedIds, snippets } = useSnippetStore.getState()
+      expect(selectedIds.size).toBe(snippets.length)
+    })
+
+    it('clearSelection should clear all selected', () => {
+      const { createSnippet, toggleSelectSnippet, clearSelection } = useSnippetStore.getState()
+      const s1 = createSnippet({ name: 'S1', text: 'Text' })
+      toggleSelectSnippet(s1.id)
+
+      clearSelection()
+
+      const { selectedIds } = useSnippetStore.getState()
+      expect(selectedIds.size).toBe(0)
+    })
+
+    it('getSelectedSnippets should return selected snippets', () => {
+      const { createSnippet, toggleSelectSnippet, getSelectedSnippets } = useSnippetStore.getState()
+      const s1 = createSnippet({ name: 'S1', text: 'Text1' })
+      createSnippet({ name: 'S2', text: 'Text2' })
+
+      toggleSelectSnippet(s1.id)
+
+      const selected = getSelectedSnippets()
+      expect(selected).toHaveLength(1)
+      expect(selected[0].id).toBe(s1.id)
+    })
+
+    it('shift+click range select should select range', () => {
+      const { createSnippet, selectSnippet, toggleSelectSnippet } = useSnippetStore.getState()
+      const s1 = createSnippet({ name: 'S1', text: 'Text' })
+      const s2 = createSnippet({ name: 'S2', text: 'Text' })
+      const s3 = createSnippet({ name: 'S3', text: 'Text' })
+
+      selectSnippet(s1.id)
+      toggleSelectSnippet(s3.id, true) // shift+click
+
+      const { selectedIds } = useSnippetStore.getState()
+      expect(selectedIds.has(s1.id)).toBe(true)
+      expect(selectedIds.has(s2.id)).toBe(true)
+      expect(selectedIds.has(s3.id)).toBe(true)
     })
   })
 

@@ -10,12 +10,17 @@ interface SnippetStore {
   snippets: Snippet[]
   folders: Folder[]
   selectedId: string | null
+  selectedIds: Set<string>
   searchQuery: string
   editorDirty: boolean
   previewVisible: boolean
 
   // Snippet actions
   selectSnippet: (id: string | null) => void
+  toggleSelectSnippet: (id: string, shiftKey?: boolean) => void
+  selectAllSnippets: () => void
+  clearSelection: () => void
+  getSelectedSnippets: () => Snippet[]
   createSnippet: (data: Partial<Snippet>) => Snippet
   updateSnippet: (id: string, data: Partial<Snippet>) => void
   deleteSnippet: (id: string) => void
@@ -41,12 +46,52 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   snippets: [],
   folders: [],
   selectedId: null,
+  selectedIds: new Set<string>(),
   searchQuery: '',
   editorDirty: false,
   previewVisible: true,
 
   // Snippet actions
-  selectSnippet: (id) => set({ selectedId: id }),
+  selectSnippet: (id) => set({ selectedId: id, selectedIds: id ? new Set([id]) : new Set() }),
+
+  toggleSelectSnippet: (id, shiftKey = false) => {
+    const { selectedIds, snippets, selectedId } = get()
+    const newSelection = new Set(selectedIds)
+
+    if (shiftKey && selectedId) {
+      // Range select: select all between last selected and current
+      const ids = snippets.map((s) => s.id)
+      const lastIndex = ids.indexOf(selectedId)
+      const currentIndex = ids.indexOf(id)
+      if (lastIndex !== -1 && currentIndex !== -1) {
+        const [start, end] = lastIndex < currentIndex ? [lastIndex, currentIndex] : [currentIndex, lastIndex]
+        for (let i = start; i <= end; i++) {
+          newSelection.add(ids[i])
+        }
+      }
+    } else {
+      // Toggle single item
+      if (newSelection.has(id)) {
+        newSelection.delete(id)
+      } else {
+        newSelection.add(id)
+      }
+    }
+
+    set({ selectedIds: newSelection, selectedId: id })
+  },
+
+  selectAllSnippets: () => {
+    const { snippets } = get()
+    set({ selectedIds: new Set(snippets.map((s) => s.id)) })
+  },
+
+  clearSelection: () => set({ selectedIds: new Set() }),
+
+  getSelectedSnippets: () => {
+    const { snippets, selectedIds } = get()
+    return snippets.filter((s) => selectedIds.has(s.id))
+  },
 
   createSnippet: (data) => {
     const now = Date.now()
