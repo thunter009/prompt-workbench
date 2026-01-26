@@ -1,44 +1,104 @@
 'use client'
 
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useSnippetStore } from '@/lib/store'
 import { exportSnippets } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
 import { ValidationDialog } from '@/components/ValidationDialog'
-import { FileText, Plus } from 'lucide-react'
-import type { Snippet } from '@/types'
+import { ExportFolderDialog } from '@/components/ExportFolderDialog'
+import { FileText, Plus, Folder as FolderIcon, ChevronRight } from 'lucide-react'
+import type { Snippet, Folder } from '@/types'
+
+type ContextMenuType = 'snippet' | 'folder'
 
 interface ContextMenuState {
   x: number
   y: number
   visible: boolean
+  type: ContextMenuType
+  folderId?: string
 }
 
 export function Sidebar() {
   const snippets = useSnippetStore((s) => s.snippets)
+  const folders = useSnippetStore((s) => s.folders)
   const selectedId = useSnippetStore((s) => s.selectedId)
   const selectedIds = useSnippetStore((s) => s.selectedIds)
+  const selectedFolderId = useSnippetStore((s) => s.selectedFolderId)
   const selectSnippet = useSnippetStore((s) => s.selectSnippet)
+  const selectFolder = useSnippetStore((s) => s.selectFolder)
   const toggleSelectSnippet = useSnippetStore((s) => s.toggleSelectSnippet)
   const createSnippet = useSnippetStore((s) => s.createSnippet)
   const getSelectedSnippets = useSnippetStore((s) => s.getSelectedSnippets)
+  const getSnippetsInFolder = useSnippetStore((s) => s.getSnippetsInFolder)
   const clearSelection = useSnippetStore((s) => s.clearSelection)
 
-  const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false })
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false, type: 'snippet' })
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const [pendingExport, setPendingExport] = useState<Snippet[] | null>(null)
+  const [exportFolderDialog, setExportFolderDialog] = useState<{ open: boolean; folderId: string | null }>({ open: false, folderId: null })
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const handleContextMenu = useCallback((e: React.MouseEvent, snippetId: string) => {
+  // Build folder tree structure
+  const { rootFolders, folderMap, rootSnippets } = useMemo(() => {
+    const folderMap = new Map<string, Folder[]>()
+    const rootFolders: Folder[] = []
+
+    for (const folder of folders) {
+      if (folder.parentId) {
+        const children = folderMap.get(folder.parentId) || []
+        children.push(folder)
+        folderMap.set(folder.parentId, children)
+      } else {
+        rootFolders.push(folder)
+      }
+    }
+
+    // Sort folders by orderIndex
+    rootFolders.sort((a, b) => a.orderIndex - b.orderIndex)
+    for (const children of folderMap.values()) {
+      children.sort((a, b) => a.orderIndex - b.orderIndex)
+    }
+
+    // Snippets without a folder
+    const rootSnippets = snippets.filter((s) => !s.folderId)
+
+    return { rootFolders, folderMap, rootSnippets }
+  }, [folders, snippets])
+
+  const getSnippetsForFolder = useCallback((folderId: string) => {
+    return snippets.filter((s) => s.folderId === folderId)
+  }, [snippets])
+
+  const toggleFolder = useCallback((folderId: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev)
+      if (next.has(folderId)) {
+        next.delete(folderId)
+      } else {
+        next.add(folderId)
+      }
+      return next
+    })
+  }, [])
+
+  const handleSnippetContextMenu = useCallback((e: React.MouseEvent, snippetId: string) => {
     e.preventDefault()
-    // If right-clicking on unselected item, select only that item
     if (!selectedIds.has(snippetId)) {
       selectSnippet(snippetId)
     }
-    setContextMenu({ x: e.clientX, y: e.clientY, visible: true })
+    setContextMenu({ x: e.clientX, y: e.clientY, visible: true, type: 'snippet' })
   }, [selectedIds, selectSnippet])
+
+  const handleFolderContextMenu = useCallback((e: React.MouseEvent, folderId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    selectFolder(folderId)
+    setContextMenu({ x: e.clientX, y: e.clientY, visible: true, type: 'folder', folderId })
+  }, [selectFolder])
 
   const closeContextMenu = useCallback(() => {
     setContextMenu((prev) => ({ ...prev, visible: false }))
@@ -84,7 +144,6 @@ export function Sidebar() {
       return
     }
 
-    // Validate before export
     const result = validateSnippets(selected)
     if (result.issues.length > 0) {
       setValidationResult(result)
@@ -92,9 +151,38 @@ export function Sidebar() {
       return
     }
 
-    // No issues, export directly
     doExport(selected)
   }, [getSelectedSnippets, closeContextMenu, doExport])
+
+  const handleExportFolder = useCallback(() => {
+    closeContextMenu()
+    if (contextMenu.folderId) {
+      setExportFolderDialog({ open: true, folderId: contextMenu.folderId })
+    }
+  }, [closeContextMenu, contextMenu.folderId])
+
+  const handleExportFolderConfirm = useCallback((includeSubfolders: boolean) => {
+    if (!exportFolderDialog.folderId) return
+
+    const toExport = getSnippetsInFolder(exportFolderDialog.folderId, includeSubfolders)
+
+    if (toExport.length === 0) {
+      toast.error('No snippets in folder')
+      setExportFolderDialog({ open: false, folderId: null })
+      return
+    }
+
+    const result = validateSnippets(toExport)
+    if (result.issues.length > 0) {
+      setValidationResult(result)
+      setPendingExport(toExport)
+      setExportFolderDialog({ open: false, folderId: null })
+      return
+    }
+
+    doExport(toExport)
+    setExportFolderDialog({ open: false, folderId: null })
+  }, [exportFolderDialog.folderId, getSnippetsInFolder, doExport])
 
   const handleValidationClose = useCallback(() => {
     setValidationResult(null)
@@ -113,22 +201,82 @@ export function Sidebar() {
     selectSnippet(snippetId)
   }, [selectSnippet])
 
-  const handleClick = useCallback((e: React.MouseEvent, id: string) => {
+  const handleSnippetClick = useCallback((e: React.MouseEvent, id: string) => {
     if (e.metaKey || e.ctrlKey) {
-      // Cmd/Ctrl+click: toggle selection
       toggleSelectSnippet(id, false)
     } else if (e.shiftKey) {
-      // Shift+click: range select
       toggleSelectSnippet(id, true)
     } else {
-      // Normal click: select only this item
       selectSnippet(id)
     }
   }, [toggleSelectSnippet, selectSnippet])
 
+  const handleFolderClick = useCallback((e: React.MouseEvent, folderId: string) => {
+    e.stopPropagation()
+    toggleFolder(folderId)
+  }, [toggleFolder])
+
   const handleNewSnippet = useCallback(() => {
     createSnippet({ name: 'New Snippet', text: '' })
   }, [createSnippet])
+
+  const renderSnippet = (snippet: Snippet, depth: number = 0) => (
+    <li
+      key={snippet.id}
+      onClick={(e) => handleSnippetClick(e, snippet.id)}
+      onContextMenu={(e) => handleSnippetContextMenu(e, snippet.id)}
+      style={{ paddingLeft: `${depth * 12 + 8}px` }}
+      className={cn(
+        'flex items-center gap-2 pr-2 py-1.5 rounded cursor-pointer text-sm transition-colors',
+        selectedIds.has(snippet.id)
+          ? 'bg-blue-600/30 text-blue-200'
+          : selectedId === snippet.id
+            ? 'bg-zinc-800 text-zinc-200'
+            : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300'
+      )}
+    >
+      <FileText className="w-4 h-4 shrink-0" />
+      <span className="truncate">{snippet.name}</span>
+    </li>
+  )
+
+  const renderFolder = (folder: Folder, depth: number = 0): React.ReactNode => {
+    const isExpanded = expandedFolders.has(folder.id)
+    const childFolders = folderMap.get(folder.id) || []
+    const folderSnippets = getSnippetsForFolder(folder.id)
+
+    return (
+      <li key={folder.id}>
+        <div
+          onClick={(e) => handleFolderClick(e, folder.id)}
+          onContextMenu={(e) => handleFolderContextMenu(e, folder.id)}
+          style={{ paddingLeft: `${depth * 12 + 8}px` }}
+          className={cn(
+            'flex items-center gap-1 pr-2 py-1.5 rounded cursor-pointer text-sm transition-colors',
+            selectedFolderId === folder.id
+              ? 'bg-zinc-800 text-zinc-200'
+              : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300'
+          )}
+        >
+          <ChevronRight
+            className={cn('w-4 h-4 shrink-0 transition-transform', isExpanded && 'rotate-90')}
+          />
+          <FolderIcon className="w-4 h-4 shrink-0" />
+          <span className="truncate">{folder.name}</span>
+        </div>
+        {isExpanded && (
+          <ul className="space-y-0.5">
+            {childFolders.map((child) => renderFolder(child, depth + 1))}
+            {folderSnippets.map((snippet) => renderSnippet(snippet, depth + 1))}
+          </ul>
+        )}
+      </li>
+    )
+  }
+
+  const currentFolder = exportFolderDialog.folderId
+    ? folders.find((f) => f.id === exportFolderDialog.folderId)
+    : null
 
   return (
     <aside className="w-64 border-r border-zinc-800 flex flex-col bg-zinc-900/50">
@@ -144,28 +292,12 @@ export function Sidebar() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
-        {snippets.length === 0 ? (
+        {folders.length === 0 && snippets.length === 0 ? (
           <p className="text-sm text-zinc-500 p-2">No snippets yet</p>
         ) : (
-          <ul className="space-y-1">
-            {snippets.map((snippet) => (
-              <li
-                key={snippet.id}
-                onClick={(e) => handleClick(e, snippet.id)}
-                onContextMenu={(e) => handleContextMenu(e, snippet.id)}
-                className={cn(
-                  'flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-sm transition-colors',
-                  selectedIds.has(snippet.id)
-                    ? 'bg-blue-600/30 text-blue-200'
-                    : selectedId === snippet.id
-                      ? 'bg-zinc-800 text-zinc-200'
-                      : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300'
-                )}
-              >
-                <FileText className="w-4 h-4 shrink-0" />
-                <span className="truncate">{snippet.name}</span>
-              </li>
-            ))}
+          <ul className="space-y-0.5">
+            {rootFolders.map((folder) => renderFolder(folder))}
+            {rootSnippets.map((snippet) => renderSnippet(snippet))}
           </ul>
         )}
       </div>
@@ -183,12 +315,22 @@ export function Sidebar() {
           style={{ top: contextMenu.y, left: contextMenu.x }}
           className="fixed z-50 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg py-1 min-w-[160px]"
         >
-          <button
-            onClick={handleExportSelected}
-            className="w-full text-left px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
-          >
-            Export Selected ({selectedIds.size})
-          </button>
+          {contextMenu.type === 'snippet' && (
+            <button
+              onClick={handleExportSelected}
+              className="w-full text-left px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
+            >
+              Export Selected ({selectedIds.size})
+            </button>
+          )}
+          {contextMenu.type === 'folder' && (
+            <button
+              onClick={handleExportFolder}
+              className="w-full text-left px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
+            >
+              Export Folder
+            </button>
+          )}
         </div>
       )}
 
@@ -199,6 +341,15 @@ export function Sidebar() {
           onClose={handleValidationClose}
           onProceed={handleValidationProceed}
           onNavigateToSnippet={handleNavigateToSnippet}
+        />
+      )}
+
+      {exportFolderDialog.open && currentFolder && (
+        <ExportFolderDialog
+          open={exportFolderDialog.open}
+          folderName={currentFolder.name}
+          onClose={() => setExportFolderDialog({ open: false, folderId: null })}
+          onConfirm={handleExportFolderConfirm}
         />
       )}
     </aside>

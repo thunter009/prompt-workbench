@@ -11,6 +11,7 @@ interface SnippetStore {
   folders: Folder[]
   selectedId: string | null
   selectedIds: Set<string>
+  selectedFolderId: string | null
   searchQuery: string
   editorDirty: boolean
   previewVisible: boolean
@@ -32,9 +33,12 @@ interface SnippetStore {
   setPreviewVisible: (visible: boolean) => void
 
   // Folder actions
+  selectFolder: (id: string | null) => void
   createFolder: (data: Partial<Folder>) => Folder
   updateFolder: (id: string, data: Partial<Folder>) => void
   deleteFolder: (id: string) => void
+  getSnippetsInFolder: (folderId: string, includeSubfolders: boolean) => Snippet[]
+  getSubfolderIds: (folderId: string) => string[]
 
   // Computed
   getSelectedSnippet: () => Snippet | undefined
@@ -47,6 +51,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   folders: [],
   selectedId: null,
   selectedIds: new Set<string>(),
+  selectedFolderId: null,
   searchQuery: '',
   editorDirty: false,
   previewVisible: true,
@@ -147,6 +152,8 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   setPreviewVisible: (visible) => set({ previewVisible: visible }),
 
   // Folder actions
+  selectFolder: (id) => set({ selectedFolderId: id, selectedId: null, selectedIds: new Set() }),
+
   createFolder: (data) => {
     const folder: Folder = {
       id: generateId(),
@@ -178,6 +185,30 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         s.folderId === id ? { ...s, folderId: undefined } : s
       ),
     }))
+  },
+
+  getSubfolderIds: (folderId) => {
+    const { folders } = get()
+    const result: string[] = []
+    const collectChildren = (parentId: string) => {
+      for (const f of folders) {
+        if (f.parentId === parentId) {
+          result.push(f.id)
+          collectChildren(f.id)
+        }
+      }
+    }
+    collectChildren(folderId)
+    return result
+  },
+
+  getSnippetsInFolder: (folderId, includeSubfolders) => {
+    const { snippets, getSubfolderIds } = get()
+    if (includeSubfolders) {
+      const folderIds = new Set([folderId, ...getSubfolderIds(folderId)])
+      return snippets.filter((s) => s.folderId && folderIds.has(s.folderId))
+    }
+    return snippets.filter((s) => s.folderId === folderId)
   },
 
   // Computed
