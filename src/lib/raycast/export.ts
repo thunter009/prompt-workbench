@@ -5,9 +5,22 @@ interface FilePickerOptions {
   types?: { description: string; accept: Record<string, string[]> }[]
 }
 
+interface DirectoryPickerOptions {
+  mode?: 'read' | 'readwrite'
+  startIn?: 'desktop' | 'documents' | 'downloads'
+}
+
 interface FileSystemFileHandle {
   name: string
   createWritable(): Promise<FileSystemWritableFileStream>
+}
+
+interface FileSystemDirectoryHandle {
+  name: string
+  kind: 'directory'
+  getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle>
+  queryPermission(descriptor: { mode: 'readwrite' }): Promise<'granted' | 'denied' | 'prompt'>
+  requestPermission(descriptor: { mode: 'readwrite' }): Promise<'granted' | 'denied' | 'prompt'>
 }
 
 interface FileSystemWritableFileStream {
@@ -18,6 +31,107 @@ interface FileSystemWritableFileStream {
 declare global {
   interface Window {
     showSaveFilePicker?: (options?: FilePickerOptions) => Promise<FileSystemFileHandle>
+    showDirectoryPicker?: (options?: DirectoryPickerOptions) => Promise<FileSystemDirectoryHandle>
+  }
+}
+
+const EXPORT_DIR_KEY = 'prompt-workbench-export-dir'
+const EXPORT_PATH_KEY = 'prompt-workbench-export-path'
+let cachedDirectoryHandle: FileSystemDirectoryHandle | null = null
+
+// Store directory handle in IndexedDB for persistence
+async function storeDirectoryHandle(handle: FileSystemDirectoryHandle): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('prompt-workbench', 1)
+    request.onerror = () => reject(request.error)
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore('handles')
+    }
+    request.onsuccess = () => {
+      const db = request.result
+      const tx = db.transaction('handles', 'readwrite')
+      tx.objectStore('handles').put(handle, EXPORT_DIR_KEY)
+      tx.oncomplete = () => {
+        cachedDirectoryHandle = handle
+        localStorage.setItem(EXPORT_PATH_KEY, handle.name)
+        resolve()
+      }
+      tx.onerror = () => reject(tx.error)
+    }
+  })
+}
+
+// Retrieve directory handle from IndexedDB
+async function getStoredDirectoryHandle(): Promise<FileSystemDirectoryHandle | null> {
+  if (cachedDirectoryHandle) return cachedDirectoryHandle
+
+  return new Promise((resolve) => {
+    const request = indexedDB.open('prompt-workbench', 1)
+    request.onerror = () => resolve(null)
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore('handles')
+    }
+    request.onsuccess = () => {
+      const db = request.result
+      const tx = db.transaction('handles', 'readonly')
+      const getReq = tx.objectStore('handles').get(EXPORT_DIR_KEY)
+      getReq.onsuccess = () => {
+        cachedDirectoryHandle = getReq.result || null
+        resolve(getReq.result || null)
+      }
+      getReq.onerror = () => resolve(null)
+    }
+  })
+}
+
+// Clear stored directory handle
+export async function clearDefaultExportPath(): Promise<void> {
+  cachedDirectoryHandle = null
+  localStorage.removeItem(EXPORT_PATH_KEY)
+  return new Promise((resolve) => {
+    const request = indexedDB.open('prompt-workbench', 1)
+    request.onerror = () => resolve()
+    request.onsuccess = () => {
+      const db = request.result
+      const tx = db.transaction('handles', 'readwrite')
+      tx.objectStore('handles').delete(EXPORT_DIR_KEY)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => resolve()
+    }
+  })
+}
+
+// Get stored export path for display
+export function getStoredExportPath(): string | null {
+  return localStorage.getItem(EXPORT_PATH_KEY)
+}
+
+// Check if we have a valid directory handle stored
+export async function hasValidExportHandle(): Promise<boolean> {
+  const handle = await getStoredDirectoryHandle()
+  if (!handle) return false
+  try {
+    const permission = await handle.queryPermission({ mode: 'readwrite' })
+    return permission === 'granted'
+  } catch {
+    return false
+  }
+}
+
+// Pick and store a default export directory
+export async function pickDefaultExportDirectory(): Promise<string | null> {
+  if (!window.showDirectoryPicker) return null
+
+  try {
+    const handle = await window.showDirectoryPicker({
+      mode: 'readwrite',
+      startIn: 'documents'
+    })
+    await storeDirectoryHandle(handle)
+    return handle.name
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') return null
+    throw err
   }
 }
 
@@ -75,4 +189,33 @@ export async function exportSnippets(snippets: Snippet[]): Promise<string> {
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
   return `~/Downloads/${defaultFilename}`
+}
+
+// Quick export to default directory (no file picker)
+export async function quickExportSnippets(snippets: Snippet[]): Promise<string> {
+  const handle = await getStoredDirectoryHandle()
+  if (!handle) {
+    throw new Error('No default export path set')
+  }
+
+  // Request permission if needed
+  let permission = await handle.queryPermission({ mode: 'readwrite' })
+  if (permission !== 'granted') {
+    permission = await handle.requestPermission({ mode: 'readwrite' })
+    if (permission !== 'granted') {
+      throw new Error('Permission denied')
+    }
+  }
+
+  const raycastSnippets = snippetsToRaycastJson(snippets)
+  const json = JSON.stringify(raycastSnippets, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const filename = 'raycast-snippets.json'
+
+  const fileHandle = await handle.getFileHandle(filename, { create: true })
+  const writable = await fileHandle.createWritable()
+  await writable.write(blob)
+  await writable.close()
+
+  return `${handle.name}/${filename}`
 }

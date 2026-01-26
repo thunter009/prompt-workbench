@@ -7,6 +7,11 @@ function generateId(): string {
 
 type ExportFilter = 'all' | 'unexported' | 'modified'
 
+interface ExportSettings {
+  defaultPath: string | null  // Display path for UI
+  hasDirectoryHandle: boolean // Whether we have a stored handle
+}
+
 interface SnippetStore {
   // State
   snippets: Snippet[]
@@ -18,6 +23,7 @@ interface SnippetStore {
   editorDirty: boolean
   previewVisible: boolean
   exportFilter: ExportFilter
+  exportSettings: ExportSettings
 
   // Snippet actions
   selectSnippet: (id: string | null) => void
@@ -36,6 +42,9 @@ interface SnippetStore {
   // UI actions
   togglePreview: () => void
   setPreviewVisible: (visible: boolean) => void
+
+  // Export settings actions
+  setExportSettings: (settings: Partial<ExportSettings>) => void
 
   // Folder actions
   selectFolder: (id: string | null) => void
@@ -61,6 +70,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   editorDirty: false,
   previewVisible: true,
   exportFilter: 'all' as ExportFilter,
+  exportSettings: { defaultPath: null, hasDirectoryHandle: false },
 
   // Snippet actions
   selectSnippet: (id) => set({ selectedId: id, selectedIds: id ? new Set([id]) : new Set() }),
@@ -167,6 +177,11 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   // UI actions
   togglePreview: () => set((state) => ({ previewVisible: !state.previewVisible })),
   setPreviewVisible: (visible) => set({ previewVisible: visible }),
+
+  // Export settings actions
+  setExportSettings: (settings) => set((state) => ({
+    exportSettings: { ...state.exportSettings, ...settings }
+  })),
 
   // Folder actions
   selectFolder: (id) => set({ selectedFolderId: id, selectedId: null, selectedIds: new Set() }),
