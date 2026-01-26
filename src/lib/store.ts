@@ -12,6 +12,7 @@ interface SnippetStore {
   selectedId: string | null
   searchQuery: string
   editorDirty: boolean
+  previewVisible: boolean
 
   // Snippet actions
   selectSnippet: (id: string | null) => void
@@ -20,6 +21,10 @@ interface SnippetStore {
   deleteSnippet: (id: string) => void
   search: (query: string) => void
   setEditorDirty: (dirty: boolean) => void
+
+  // UI actions
+  togglePreview: () => void
+  setPreviewVisible: (visible: boolean) => void
 
   // Folder actions
   createFolder: (data: Partial<Folder>) => Folder
@@ -38,6 +43,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   selectedId: null,
   searchQuery: '',
   editorDirty: false,
+  previewVisible: true,
 
   // Snippet actions
   selectSnippet: (id) => set({ selectedId: id }),
@@ -90,6 +96,10 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   search: (query) => set({ searchQuery: query }),
 
   setEditorDirty: (dirty) => set({ editorDirty: dirty }),
+
+  // UI actions
+  togglePreview: () => set((state) => ({ previewVisible: !state.previewVisible })),
+  setPreviewVisible: (visible) => set({ previewVisible: visible }),
 
   // Folder actions
   createFolder: (data) => {
