@@ -9,6 +9,7 @@ export interface Snippet {
   updatedAt: number
   version: number
   raycastSyncedAt?: number
+  lastExportedAt?: number
 }
 
 export interface Folder {

@@ -8,7 +8,7 @@ import { exportSnippets } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ExportFolderDialog } from '@/components/ExportFolderDialog'
-import { FileText, Plus, Folder as FolderIcon, ChevronRight } from 'lucide-react'
+import { FileText, Plus, Folder as FolderIcon, ChevronRight, Filter } from 'lucide-react'
 import type { Snippet, Folder } from '@/types'
 
 type ContextMenuType = 'snippet' | 'folder'
@@ -27,6 +27,7 @@ export function Sidebar() {
   const selectedId = useSnippetStore((s) => s.selectedId)
   const selectedIds = useSnippetStore((s) => s.selectedIds)
   const selectedFolderId = useSnippetStore((s) => s.selectedFolderId)
+  const exportFilter = useSnippetStore((s) => s.exportFilter)
   const selectSnippet = useSnippetStore((s) => s.selectSnippet)
   const selectFolder = useSnippetStore((s) => s.selectFolder)
   const toggleSelectSnippet = useSnippetStore((s) => s.toggleSelectSnippet)
@@ -34,6 +35,8 @@ export function Sidebar() {
   const getSelectedSnippets = useSnippetStore((s) => s.getSelectedSnippets)
   const getSnippetsInFolder = useSnippetStore((s) => s.getSnippetsInFolder)
   const clearSelection = useSnippetStore((s) => s.clearSelection)
+  const markExported = useSnippetStore((s) => s.markExported)
+  const setExportFilter = useSnippetStore((s) => s.setExportFilter)
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false, type: 'snippet' })
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
@@ -43,7 +46,7 @@ export function Sidebar() {
   const menuRef = useRef<HTMLDivElement>(null)
 
   // Build folder tree structure
-  const { rootFolders, folderMap, rootSnippets } = useMemo(() => {
+  const { rootFolders, folderMap } = useMemo(() => {
     const folderMap = new Map<string, Folder[]>()
     const rootFolders: Folder[] = []
 
@@ -63,15 +66,8 @@ export function Sidebar() {
       children.sort((a, b) => a.orderIndex - b.orderIndex)
     }
 
-    // Snippets without a folder
-    const rootSnippets = snippets.filter((s) => !s.folderId)
-
-    return { rootFolders, folderMap, rootSnippets }
-  }, [folders, snippets])
-
-  const getSnippetsForFolder = useCallback((folderId: string) => {
-    return snippets.filter((s) => s.folderId === folderId)
-  }, [snippets])
+    return { rootFolders, folderMap }
+  }, [folders])
 
   const toggleFolder = useCallback((folderId: string) => {
     setExpandedFolders((prev) => {
@@ -128,13 +124,14 @@ export function Sidebar() {
   const doExport = useCallback(async (toExport: Snippet[]) => {
     try {
       const filename = await exportSnippets(toExport)
+      markExported(toExport.map((s) => s.id))
       toast.success(`Exported ${toExport.length} snippet${toExport.length > 1 ? 's' : ''} to ${filename}`)
       clearSelection()
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       toast.error('Export failed')
     }
-  }, [clearSelection])
+  }, [clearSelection, markExported])
 
   const handleExportSelected = useCallback(() => {
     closeContextMenu()
@@ -220,30 +217,45 @@ export function Sidebar() {
     createSnippet({ name: 'New Snippet', text: '' })
   }, [createSnippet])
 
-  const renderSnippet = (snippet: Snippet, depth: number = 0) => (
-    <li
-      key={snippet.id}
-      onClick={(e) => handleSnippetClick(e, snippet.id)}
-      onContextMenu={(e) => handleSnippetContextMenu(e, snippet.id)}
-      style={{ paddingLeft: `${depth * 12 + 8}px` }}
-      className={cn(
-        'flex items-center gap-2 pr-2 py-1.5 rounded cursor-pointer text-sm transition-colors',
-        selectedIds.has(snippet.id)
-          ? 'bg-blue-600/30 text-blue-200'
-          : selectedId === snippet.id
-            ? 'bg-zinc-800 text-zinc-200'
-            : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300'
-      )}
-    >
-      <FileText className="w-4 h-4 shrink-0" />
-      <span className="truncate">{snippet.name}</span>
-    </li>
-  )
+  const needsExport = (snippet: Snippet) =>
+    !snippet.lastExportedAt || snippet.updatedAt > snippet.lastExportedAt
+
+  const renderSnippet = (snippet: Snippet, depth: number = 0) => {
+    const showIndicator = needsExport(snippet)
+    return (
+      <li
+        key={snippet.id}
+        onClick={(e) => handleSnippetClick(e, snippet.id)}
+        onContextMenu={(e) => handleSnippetContextMenu(e, snippet.id)}
+        style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        className={cn(
+          'flex items-center gap-2 pr-2 py-1.5 rounded cursor-pointer text-sm transition-colors',
+          selectedIds.has(snippet.id)
+            ? 'bg-blue-600/30 text-blue-200'
+            : selectedId === snippet.id
+              ? 'bg-zinc-800 text-zinc-200'
+              : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300'
+        )}
+      >
+        <FileText className="w-4 h-4 shrink-0" />
+        <span className="truncate flex-1">{snippet.name}</span>
+        {showIndicator && (
+          <span
+            className={cn(
+              'w-2 h-2 rounded-full shrink-0',
+              snippet.lastExportedAt ? 'bg-amber-500' : 'bg-blue-500'
+            )}
+            title={snippet.lastExportedAt ? 'Modified since export' : 'Never exported'}
+          />
+        )}
+      </li>
+    )
+  }
 
   const renderFolder = (folder: Folder, depth: number = 0): React.ReactNode => {
     const isExpanded = expandedFolders.has(folder.id)
     const childFolders = folderMap.get(folder.id) || []
-    const folderSnippets = getSnippetsForFolder(folder.id)
+    const folderSnippets = getFilteredSnippetsForFolder(folder.id)
 
     return (
       <li key={folder.id}>
@@ -278,26 +290,98 @@ export function Sidebar() {
     ? folders.find((f) => f.id === exportFolderDialog.folderId)
     : null
 
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false)
+  const filterMenuRef = useRef<HTMLDivElement>(null)
+
+  // Close filter menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) {
+        setFilterMenuOpen(false)
+      }
+    }
+    if (filterMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [filterMenuOpen])
+
+  // Filter snippets based on export status
+  const filteredSnippets = useMemo(() => {
+    if (exportFilter === 'all') return snippets
+    return snippets.filter((s) => {
+      const notExported = !s.lastExportedAt
+      const modified = s.lastExportedAt && s.updatedAt > s.lastExportedAt
+      if (exportFilter === 'unexported') return notExported
+      if (exportFilter === 'modified') return modified
+      return true
+    })
+  }, [snippets, exportFilter])
+
+  // Recalculate root snippets with filter
+  const filteredRootSnippets = useMemo(() => {
+    return filteredSnippets.filter((s) => !s.folderId)
+  }, [filteredSnippets])
+
+  const getFilteredSnippetsForFolder = useCallback((folderId: string) => {
+    return filteredSnippets.filter((s) => s.folderId === folderId)
+  }, [filteredSnippets])
+
   return (
     <aside className="w-64 border-r border-zinc-800 flex flex-col bg-zinc-900/50">
       <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
         <span className="text-sm font-medium text-zinc-400">Snippets</span>
-        <button
-          onClick={handleNewSnippet}
-          className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
-          title="New snippet"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <div className="relative" ref={filterMenuRef}>
+            <button
+              onClick={() => setFilterMenuOpen((v) => !v)}
+              className={cn(
+                'p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200',
+                exportFilter !== 'all' && 'text-blue-400'
+              )}
+              title="Filter by export status"
+            >
+              <Filter className="w-4 h-4" />
+            </button>
+            {filterMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg py-1 min-w-[140px] z-50">
+                {(['all', 'unexported', 'modified'] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => {
+                      setExportFilter(f)
+                      setFilterMenuOpen(false)
+                    }}
+                    className={cn(
+                      'w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-700',
+                      exportFilter === f ? 'text-blue-400' : 'text-zinc-300'
+                    )}
+                  >
+                    {f === 'all' ? 'All' : f === 'unexported' ? 'Never exported' : 'Modified'}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleNewSnippet}
+            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            title="New snippet"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
         {folders.length === 0 && snippets.length === 0 ? (
           <p className="text-sm text-zinc-500 p-2">No snippets yet</p>
+        ) : filteredSnippets.length === 0 && exportFilter !== 'all' ? (
+          <p className="text-sm text-zinc-500 p-2">No {exportFilter} snippets</p>
         ) : (
           <ul className="space-y-0.5">
             {rootFolders.map((folder) => renderFolder(folder))}
-            {rootSnippets.map((snippet) => renderSnippet(snippet))}
+            {filteredRootSnippets.map((snippet) => renderSnippet(snippet))}
           </ul>
         )}
       </div>

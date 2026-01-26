@@ -5,6 +5,8 @@ function generateId(): string {
   return crypto.randomUUID()
 }
 
+type ExportFilter = 'all' | 'unexported' | 'modified'
+
 interface SnippetStore {
   // State
   snippets: Snippet[]
@@ -15,6 +17,7 @@ interface SnippetStore {
   searchQuery: string
   editorDirty: boolean
   previewVisible: boolean
+  exportFilter: ExportFilter
 
   // Snippet actions
   selectSnippet: (id: string | null) => void
@@ -25,8 +28,10 @@ interface SnippetStore {
   createSnippet: (data: Partial<Snippet>) => Snippet
   updateSnippet: (id: string, data: Partial<Snippet>) => void
   deleteSnippet: (id: string) => void
+  markExported: (ids: string[]) => void
   search: (query: string) => void
   setEditorDirty: (dirty: boolean) => void
+  setExportFilter: (filter: ExportFilter) => void
 
   // UI actions
   togglePreview: () => void
@@ -55,6 +60,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   searchQuery: '',
   editorDirty: false,
   previewVisible: true,
+  exportFilter: 'all' as ExportFilter,
 
   // Snippet actions
   selectSnippet: (id) => set({ selectedId: id, selectedIds: id ? new Set([id]) : new Set() }),
@@ -146,6 +152,17 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   search: (query) => set({ searchQuery: query }),
 
   setEditorDirty: (dirty) => set({ editorDirty: dirty }),
+
+  setExportFilter: (filter) => set({ exportFilter: filter }),
+
+  markExported: (ids) => {
+    const now = Date.now()
+    set((state) => ({
+      snippets: state.snippets.map((s) =>
+        ids.includes(s.id) ? { ...s, lastExportedAt: now } : s
+      ),
+    }))
+  },
 
   // UI actions
   togglePreview: () => set((state) => ({ previewVisible: !state.previewVisible })),
