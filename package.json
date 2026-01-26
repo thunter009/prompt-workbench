@@ -16,6 +16,7 @@
     "@codemirror/language": "^6.11.0",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.36.5",
+    "chokidar": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "codemirror": "^6.0.1",
