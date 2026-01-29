@@ -1,19 +1,130 @@
 'use client'
 
-import { useCallback } from 'react'
-import { X, AlertTriangle, Check, RefreshCw, Copy } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { X, AlertTriangle, Check, RefreshCw, Copy, GitMerge } from 'lucide-react'
 import { useConflictStore } from '@/lib/conflict-store'
 import { useSnippetStore } from '@/lib/store'
 import { getConflictLabel } from '@/lib/sync/conflict-detection'
-import type { SnippetConflict, ConflictResolution } from '@/types'
+import type { SnippetConflict, ConflictResolution, MergeData } from '@/types'
 
 interface ConflictItemProps {
   conflict: SnippetConflict
-  onResolve: (id: string, resolution: ConflictResolution) => void
+  onResolve: (id: string, resolution: ConflictResolution, mergeData?: MergeData) => void
 }
 
 function ConflictItem({ conflict, onResolve }: ConflictItemProps) {
   const { type, localSnippet, remoteSnippet } = conflict
+  const [mergeMode, setMergeMode] = useState(false)
+  const [mergeName, setMergeName] = useState(localSnippet?.name || remoteSnippet?.name || '')
+  const [mergeText, setMergeText] = useState(() => {
+    // Start with local content, or remote if no local
+    return localSnippet?.text || remoteSnippet?.text || ''
+  })
+  const [mergeKeyword, setMergeKeyword] = useState(
+    localSnippet?.keyword || remoteSnippet?.keyword || ''
+  )
+
+  const handleMerge = () => {
+    onResolve(conflict.id, 'merge', {
+      name: mergeName,
+      text: mergeText,
+      keyword: mergeKeyword || undefined,
+    })
+  }
+
+  const canMerge = localSnippet && remoteSnippet && type === 'modified'
+
+  if (mergeMode && canMerge) {
+    return (
+      <div className="border border-zinc-700 rounded-lg overflow-hidden">
+        {/* Header */}
+        <div className="px-3 py-2 bg-zinc-800/50 border-b border-zinc-700 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <GitMerge className="w-4 h-4 text-green-400" />
+            <span className="font-medium text-sm">Merge: {mergeName}</span>
+          </div>
+          <button
+            onClick={() => setMergeMode(false)}
+            className="text-xs text-zinc-400 hover:text-zinc-200"
+          >
+            Cancel
+          </button>
+        </div>
+
+        {/* Reference views */}
+        <div className="grid grid-cols-2 divide-x divide-zinc-700 bg-zinc-900/30">
+          <div className="p-2">
+            <div className="text-xs text-zinc-500 mb-1 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-blue-500" />
+              Local (reference)
+            </div>
+            <pre className="text-xs text-zinc-400 whitespace-pre-wrap font-mono bg-zinc-900/50 p-2 rounded max-h-24 overflow-auto">
+              {localSnippet.text || '(empty)'}
+            </pre>
+          </div>
+          <div className="p-2">
+            <div className="text-xs text-zinc-500 mb-1 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-purple-500" />
+              Raycast (reference)
+            </div>
+            <pre className="text-xs text-zinc-400 whitespace-pre-wrap font-mono bg-zinc-900/50 p-2 rounded max-h-24 overflow-auto">
+              {remoteSnippet.text || '(empty)'}
+            </pre>
+          </div>
+        </div>
+
+        {/* Merge editor */}
+        <div className="p-3 border-t border-zinc-700">
+          <div className="text-xs text-zinc-500 mb-2 flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-green-500" />
+            Merged result
+          </div>
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={mergeName}
+              onChange={(e) => setMergeName(e.target.value)}
+              placeholder="Name"
+              className="w-full px-2 py-1 text-xs bg-zinc-800 border border-zinc-700 rounded text-zinc-200 focus:outline-none focus:border-green-500"
+            />
+            <textarea
+              value={mergeText}
+              onChange={(e) => setMergeText(e.target.value)}
+              placeholder="Snippet text..."
+              rows={5}
+              className="w-full px-2 py-1.5 text-xs font-mono bg-zinc-800 border border-zinc-700 rounded text-zinc-200 focus:outline-none focus:border-green-500 resize-none"
+            />
+            <input
+              type="text"
+              value={mergeKeyword}
+              onChange={(e) => setMergeKeyword(e.target.value)}
+              placeholder="Keyword (optional)"
+              className="w-full px-2 py-1 text-xs bg-zinc-800 border border-zinc-700 rounded text-zinc-200 focus:outline-none focus:border-green-500"
+            />
+          </div>
+        </div>
+
+        {/* Merge actions */}
+        <div className="px-3 py-2 bg-zinc-800/30 border-t border-zinc-700 flex items-center gap-2">
+          <button
+            onClick={handleMerge}
+            disabled={!mergeName.trim() || !mergeText.trim()}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded bg-green-600 hover:bg-green-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white transition-colors"
+          >
+            <Check className="w-3.5 h-3.5" />
+            Apply Merge
+          </button>
+          <button
+            onClick={() => setMergeMode(false)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+            Cancel
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="border border-zinc-700 rounded-lg overflow-hidden">
@@ -83,13 +194,13 @@ function ConflictItem({ conflict, onResolve }: ConflictItemProps) {
             Use Raycast
           </button>
         )}
-        {localSnippet && remoteSnippet && type === 'modified' && (
+        {canMerge && (
           <button
-            onClick={() => onResolve(conflict.id, 'keep_both')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-colors"
+            onClick={() => setMergeMode(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded bg-green-600 hover:bg-green-500 text-white transition-colors"
           >
-            <Copy className="w-3.5 h-3.5" />
-            Keep Both
+            <GitMerge className="w-3.5 h-3.5" />
+            Merge
           </button>
         )}
       </div>
@@ -102,12 +213,20 @@ export function ConflictPanel() {
   const panelOpen = useConflictStore((s) => s.panelOpen)
   const closePanel = useConflictStore((s) => s.closePanel)
   const removeConflict = useConflictStore((s) => s.removeConflict)
+  const [applyToAllOpen, setApplyToAllOpen] = useState(false)
 
   const updateSnippet = useSnippetStore((s) => s.updateSnippet)
   const createSnippet = useSnippetStore((s) => s.createSnippet)
 
+  // Count applicable conflicts for each resolution type
+  const conflictsWithLocal = conflicts.filter((c) => c.localSnippet)
+  const conflictsWithRemote = conflicts.filter((c) => c.remoteSnippet)
+  const modifiedConflicts = conflicts.filter(
+    (c) => c.type === 'modified' && c.localSnippet && c.remoteSnippet
+  )
+
   const handleResolve = useCallback(
-    (conflictId: string, resolution: ConflictResolution) => {
+    (conflictId: string, resolution: ConflictResolution, mergeData?: MergeData) => {
       const conflict = conflicts.find((c) => c.id === conflictId)
       if (!conflict) return
 
@@ -149,6 +268,18 @@ export function ConflictPanel() {
               keyword: remoteSnippet.keyword
                 ? `${remoteSnippet.keyword}-raycast`
                 : undefined,
+              raycastSyncedAt: Date.now(),
+            })
+          }
+          break
+
+        case 'merge':
+          if (mergeData && localSnippet) {
+            // Update local snippet with merged content
+            updateSnippet(localSnippet.id, {
+              name: mergeData.name,
+              text: mergeData.text,
+              keyword: mergeData.keyword,
               raycastSyncedAt: Date.now(),
             })
           }
@@ -206,21 +337,81 @@ export function ConflictPanel() {
         {/* Footer */}
         <div className="px-4 py-3 border-t border-zinc-700 flex items-center justify-between shrink-0">
           <p className="text-xs text-zinc-500">
-            Review each conflict and choose which version to keep
+            {conflicts.length} conflict{conflicts.length !== 1 ? 's' : ''} remaining
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
             <button
-              onClick={() => handleResolveAll('keep_local')}
-              className="px-3 py-1.5 text-sm rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-colors"
+              onClick={() => setApplyToAllOpen(!applyToAllOpen)}
+              className="px-3 py-1.5 text-sm rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-colors flex items-center gap-1.5"
             >
-              Keep All Local
+              Apply to All
+              <svg
+                className={`w-3 h-3 transition-transform ${applyToAllOpen ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
             </button>
-            <button
-              onClick={() => handleResolveAll('keep_remote')}
-              className="px-3 py-1.5 text-sm rounded bg-purple-600 hover:bg-purple-500 text-white transition-colors"
-            >
-              Use All Raycast
-            </button>
+
+            {applyToAllOpen && (
+              <>
+                {/* Backdrop */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setApplyToAllOpen(false)}
+                />
+                {/* Dropdown menu */}
+                <div className="absolute bottom-full right-0 mb-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg overflow-hidden z-50 min-w-48">
+                  {conflictsWithLocal.length > 0 && (
+                    <button
+                      onClick={() => {
+                        handleResolveAll('keep_local')
+                        setApplyToAllOpen(false)
+                      }}
+                      className="w-full px-3 py-2 text-sm text-left text-zinc-200 hover:bg-zinc-700 flex items-center gap-2"
+                    >
+                      <Check className="w-4 h-4 text-blue-400" />
+                      <span>Keep All Local</span>
+                      <span className="ml-auto text-xs text-zinc-500">
+                        {conflictsWithLocal.length}
+                      </span>
+                    </button>
+                  )}
+                  {conflictsWithRemote.length > 0 && (
+                    <button
+                      onClick={() => {
+                        handleResolveAll('keep_remote')
+                        setApplyToAllOpen(false)
+                      }}
+                      className="w-full px-3 py-2 text-sm text-left text-zinc-200 hover:bg-zinc-700 flex items-center gap-2"
+                    >
+                      <RefreshCw className="w-4 h-4 text-purple-400" />
+                      <span>Use All Raycast</span>
+                      <span className="ml-auto text-xs text-zinc-500">
+                        {conflictsWithRemote.length}
+                      </span>
+                    </button>
+                  )}
+                  {modifiedConflicts.length > 0 && (
+                    <button
+                      onClick={() => {
+                        handleResolveAll('keep_both')
+                        setApplyToAllOpen(false)
+                      }}
+                      className="w-full px-3 py-2 text-sm text-left text-zinc-200 hover:bg-zinc-700 flex items-center gap-2 border-t border-zinc-700"
+                    >
+                      <Copy className="w-4 h-4 text-zinc-400" />
+                      <span>Keep All Both</span>
+                      <span className="ml-auto text-xs text-zinc-500">
+                        {modifiedConflicts.length}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

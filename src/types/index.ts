@@ -52,4 +52,11 @@ export interface SnippetConflict {
   detectedAt: number
 }
 
-export type ConflictResolution = 'keep_local' | 'keep_remote' | 'keep_both'
+export type ConflictResolution = 'keep_local' | 'keep_remote' | 'keep_both' | 'merge'
+
+// Merge data passed with merge resolution
+export interface MergeData {
+  name: string
+  text: string
+  keyword?: string
+}
