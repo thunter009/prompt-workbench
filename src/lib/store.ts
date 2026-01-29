@@ -56,6 +56,10 @@ interface SnippetStore {
 
   // Drag & Drop
   moveSnippetsToFolder: (snippetIds: string[], folderId: string | null) => { snippetId: string; previousFolderId: string | undefined }[]
+  moveFolder: (folderId: string, newParentId: string | null, newOrderIndex: number) => { previousParentId: string | undefined; previousOrderIndex: number }
+  getFolderDepth: (folderId: string) => number
+  isDescendantOf: (folderId: string, potentialAncestorId: string) => boolean
+  reorderFolderSiblings: (folderId: string, targetIndex: number) => { folderId: string; previousOrderIndex: number }[]
 
   // Computed
   getSelectedSnippet: () => Snippet | undefined
@@ -262,6 +266,84 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     }))
 
     return previousFolders
+  },
+
+  moveFolder: (folderId, newParentId, newOrderIndex) => {
+    const { folders } = get()
+    const folder = folders.find((f) => f.id === folderId)
+    if (!folder) return { previousParentId: undefined, previousOrderIndex: 0 }
+
+    const previousParentId = folder.parentId
+    const previousOrderIndex = folder.orderIndex
+
+    set((state) => ({
+      folders: state.folders.map((f) =>
+        f.id === folderId
+          ? { ...f, parentId: newParentId ?? undefined, orderIndex: newOrderIndex }
+          : f
+      ),
+    }))
+
+    return { previousParentId, previousOrderIndex }
+  },
+
+  getFolderDepth: (folderId) => {
+    const { folders } = get()
+    let depth = 0
+    let current = folders.find((f) => f.id === folderId)
+    while (current?.parentId) {
+      depth++
+      current = folders.find((f) => f.id === current!.parentId)
+    }
+    return depth
+  },
+
+  isDescendantOf: (folderId, potentialAncestorId) => {
+    const { folders } = get()
+    let current = folders.find((f) => f.id === folderId)
+    while (current?.parentId) {
+      if (current.parentId === potentialAncestorId) return true
+      current = folders.find((f) => f.id === current!.parentId)
+    }
+    return false
+  },
+
+  reorderFolderSiblings: (folderId, targetIndex) => {
+    const { folders } = get()
+    const folder = folders.find((f) => f.id === folderId)
+    if (!folder) return []
+
+    // Get siblings (folders with same parent)
+    const siblings = folders
+      .filter((f) => f.parentId === folder.parentId && f.id !== folderId)
+      .sort((a, b) => a.orderIndex - b.orderIndex)
+
+    // Track previous order indices for undo
+    const previousOrders = [{ folderId, previousOrderIndex: folder.orderIndex }]
+
+    // Insert at target position and recalculate indices
+    siblings.splice(targetIndex, 0, folder)
+    const updates: { id: string; orderIndex: number }[] = siblings.map((f, i) => ({
+      id: f.id,
+      orderIndex: i,
+    }))
+
+    // Track changes for other siblings
+    for (const f of folders.filter((f) => f.parentId === folder.parentId && f.id !== folderId)) {
+      const newOrder = updates.find((u) => u.id === f.id)?.orderIndex
+      if (newOrder !== undefined && newOrder !== f.orderIndex) {
+        previousOrders.push({ folderId: f.id, previousOrderIndex: f.orderIndex })
+      }
+    }
+
+    set((state) => ({
+      folders: state.folders.map((f) => {
+        const update = updates.find((u) => u.id === f.id)
+        return update ? { ...f, orderIndex: update.orderIndex } : f
+      }),
+    }))
+
+    return previousOrders
   },
 
   // Computed

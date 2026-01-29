@@ -8,7 +8,21 @@ interface MoveAction {
   targetFolderId: string | null
 }
 
-type UndoAction = MoveAction
+interface MoveFolderAction {
+  type: 'moveFolder'
+  folderId: string
+  previousParentId: string | undefined
+  previousOrderIndex: number
+  newParentId: string | null
+  newOrderIndex: number
+}
+
+interface ReorderFoldersAction {
+  type: 'reorderFolders'
+  changes: { folderId: string; previousOrderIndex: number }[]
+}
+
+type UndoAction = MoveAction | MoveFolderAction | ReorderFoldersAction
 
 interface UndoStore {
   history: UndoAction[]
@@ -43,6 +57,18 @@ export const useUndoStore = create<UndoStore>((set, get) => ({
       for (const { snippetId, previousFolderId } of action.previousFolders) {
         moveSnippetsToFolder([snippetId], previousFolderId ?? null)
       }
+    } else if (action.type === 'moveFolder') {
+      const moveFolder = useSnippetStore.getState().moveFolder
+      moveFolder(action.folderId, action.previousParentId ?? null, action.previousOrderIndex)
+    } else if (action.type === 'reorderFolders') {
+      const { folders } = useSnippetStore.getState()
+      // Restore all folder order indices
+      useSnippetStore.setState({
+        folders: folders.map((f) => {
+          const change = action.changes.find((c) => c.folderId === f.id)
+          return change ? { ...f, orderIndex: change.previousOrderIndex } : f
+        }),
+      })
     }
   },
 

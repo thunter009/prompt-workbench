@@ -12,10 +12,19 @@ import { ExportFolderDialog } from '@/components/ExportFolderDialog'
 import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter } from 'lucide-react'
 import type { Snippet, Folder } from '@/types'
 
+type DragItemType = 'snippet' | 'folder'
+
+interface DropPosition {
+  targetId: string | null // folder id or null for root
+  position: 'inside' | 'before' | 'after' // inside folder, or before/after sibling
+}
+
 interface DragState {
   isDragging: boolean
-  draggedIds: Set<string>
-  dropTargetId: string | null // folder id or 'root' for root level
+  dragType: DragItemType | null
+  draggedIds: Set<string>       // snippet ids when dragging snippets
+  draggedFolderId: string | null // folder id when dragging folder
+  dropTarget: DropPosition | null
 }
 
 type ContextMenuType = 'snippet' | 'folder'
@@ -47,13 +56,23 @@ export function Sidebar() {
   const createFolder = useSnippetStore((s) => s.createFolder)
   const updateFolder = useSnippetStore((s) => s.updateFolder)
   const moveSnippetsToFolder = useSnippetStore((s) => s.moveSnippetsToFolder)
+  const moveFolder = useSnippetStore((s) => s.moveFolder)
+  const getFolderDepth = useSnippetStore((s) => s.getFolderDepth)
+  const isDescendantOf = useSnippetStore((s) => s.isDescendantOf)
+  const reorderFolderSiblings = useSnippetStore((s) => s.reorderFolderSiblings)
 
   const pushUndoAction = useUndoStore((s) => s.pushAction)
   const undo = useUndoStore((s) => s.undo)
   const canUndo = useUndoStore((s) => s.canUndo)
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false, type: 'snippet' })
-  const [dragState, setDragState] = useState<DragState>({ isDragging: false, draggedIds: new Set(), dropTargetId: null })
+  const [dragState, setDragState] = useState<DragState>({
+    isDragging: false,
+    dragType: null,
+    draggedIds: new Set(),
+    draggedFolderId: null,
+    dropTarget: null,
+  })
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const [pendingExport, setPendingExport] = useState<Snippet[] | null>(null)
   const [exportFolderDialog, setExportFolderDialog] = useState<{ open: boolean; folderId: string | null }>({ open: false, folderId: null })
@@ -231,15 +250,21 @@ export function Sidebar() {
     toggleFolder(folderId)
   }, [toggleFolder])
 
-  // Drag & Drop handlers
-  const handleDragStart = useCallback((e: React.DragEvent, snippetId: string) => {
+  // Drag & Drop handlers for snippets
+  const handleSnippetDragStart = useCallback((e: React.DragEvent, snippetId: string) => {
     // If dragging a non-selected item, select only that item
     // If dragging a selected item, drag all selected items
     const idsToMove = selectedIds.has(snippetId) ? new Set(selectedIds) : new Set([snippetId])
 
-    setDragState({ isDragging: true, draggedIds: idsToMove, dropTargetId: null })
+    setDragState({
+      isDragging: true,
+      dragType: 'snippet',
+      draggedIds: idsToMove,
+      draggedFolderId: null,
+      dropTarget: null,
+    })
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', Array.from(idsToMove).join(','))
+    e.dataTransfer.setData('application/x-snippet', Array.from(idsToMove).join(','))
 
     // Custom drag image showing count
     if (idsToMove.size > 1) {
@@ -254,23 +279,81 @@ export function Sidebar() {
     }
   }, [selectedIds])
 
-  const handleDragEnd = useCallback(() => {
-    setDragState({ isDragging: false, draggedIds: new Set(), dropTargetId: null })
+  // Drag & Drop handlers for folders
+  const handleFolderDragStart = useCallback((e: React.DragEvent, folderId: string) => {
+    e.stopPropagation()
+    setDragState({
+      isDragging: true,
+      dragType: 'folder',
+      draggedIds: new Set(),
+      draggedFolderId: folderId,
+      dropTarget: null,
+    })
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('application/x-folder', folderId)
   }, [])
 
-  const handleDragOver = useCallback((e: React.DragEvent, targetFolderId: string | null) => {
+  const handleDragEnd = useCallback(() => {
+    setDragState({
+      isDragging: false,
+      dragType: null,
+      draggedIds: new Set(),
+      draggedFolderId: null,
+      dropTarget: null,
+    })
+  }, [])
+
+  // Calculate max depth of a folder's subtree
+  const getMaxSubtreeDepth = useCallback((folderId: string): number => {
+    const children = folderMap.get(folderId) || []
+    if (children.length === 0) return 0
+    return 1 + Math.max(...children.map((c) => getMaxSubtreeDepth(c.id)))
+  }, [folderMap])
+
+  // Check if folder can be dropped at target (depth + circular checks)
+  const canDropFolder = useCallback((folderId: string, targetParentId: string | null): boolean => {
+    // Can't drop on itself
+    if (folderId === targetParentId) return false
+
+    // Can't drop into own descendants (circular)
+    if (targetParentId && isDescendantOf(targetParentId, folderId)) return false
+
+    // Check depth: target depth + folder's subtree depth must be <= 2 (0-indexed, so max 3 levels)
+    const targetDepth = targetParentId ? getFolderDepth(targetParentId) + 1 : 0
+    const subtreeDepth = getMaxSubtreeDepth(folderId)
+    return targetDepth + subtreeDepth <= 2
+  }, [getFolderDepth, isDescendantOf, getMaxSubtreeDepth])
+
+  const handleDragOver = useCallback((e: React.DragEvent, targetFolderId: string | null, forcePosition?: 'inside' | 'before' | 'after') => {
     e.preventDefault()
     e.stopPropagation()
     e.dataTransfer.dropEffect = 'move'
-    setDragState((prev) => ({ ...prev, dropTargetId: targetFolderId ?? 'root' }))
-  }, [])
+
+    // Determine drop position based on mouse position within element
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const y = e.clientY - rect.top
+    const height = rect.height
+
+    let position: 'inside' | 'before' | 'after' = forcePosition || 'inside'
+    if (!forcePosition && dragState.dragType === 'folder' && targetFolderId) {
+      // For folder drops, use thirds: top = before, middle = inside, bottom = after
+      if (y < height * 0.25) position = 'before'
+      else if (y > height * 0.75) position = 'after'
+      else position = 'inside'
+    }
+
+    setDragState((prev) => ({
+      ...prev,
+      dropTarget: { targetId: targetFolderId, position },
+    }))
+  }, [dragState.dragType])
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     // Only clear if leaving to outside, not to a child element
     const relatedTarget = e.relatedTarget as Node | null
     if (!e.currentTarget.contains(relatedTarget)) {
-      setDragState((prev) => ({ ...prev, dropTargetId: null }))
+      setDragState((prev) => ({ ...prev, dropTarget: null }))
     }
   }, [])
 
@@ -278,41 +361,161 @@ export function Sidebar() {
     e.preventDefault()
     e.stopPropagation()
 
-    const data = e.dataTransfer.getData('text/plain')
-    const snippetIds = data.split(',').filter(Boolean)
+    const { dropTarget } = dragState
 
-    if (snippetIds.length === 0) return
+    // Handle snippet drop
+    const snippetData = e.dataTransfer.getData('application/x-snippet')
+    if (snippetData) {
+      const snippetIds = snippetData.split(',').filter(Boolean)
+      if (snippetIds.length === 0) {
+        handleDragEnd()
+        return
+      }
 
-    // Check if any snippet is already in target folder
-    const snippetsToMove = snippetIds.filter((id) => {
-      const snippet = snippets.find((s) => s.id === id)
-      return snippet && snippet.folderId !== targetFolderId
-    })
+      // Check if any snippet is already in target folder
+      const snippetsToMove = snippetIds.filter((id) => {
+        const snippet = snippets.find((s) => s.id === id)
+        return snippet && snippet.folderId !== targetFolderId
+      })
 
-    if (snippetsToMove.length === 0) {
-      setDragState({ isDragging: false, draggedIds: new Set(), dropTargetId: null })
+      if (snippetsToMove.length === 0) {
+        handleDragEnd()
+        return
+      }
+
+      // Move snippets and track for undo
+      const previousFolders = moveSnippetsToFolder(snippetsToMove, targetFolderId)
+      pushUndoAction({
+        type: 'move',
+        snippetIds: snippetsToMove,
+        previousFolders,
+        targetFolderId,
+      })
+
+      // Expand target folder if dropping into one
+      if (targetFolderId) {
+        setExpandedFolders((prev) => new Set([...prev, targetFolderId]))
+      }
+
+      const folderName = targetFolderId ? folders.find((f) => f.id === targetFolderId)?.name : 'root'
+      toast.success(`Moved ${snippetsToMove.length} snippet${snippetsToMove.length > 1 ? 's' : ''} to ${folderName || 'root'}`)
+      handleDragEnd()
       return
     }
 
-    // Move snippets and track for undo
-    const previousFolders = moveSnippetsToFolder(snippetsToMove, targetFolderId)
-    pushUndoAction({
-      type: 'move',
-      snippetIds: snippetsToMove,
-      previousFolders,
-      targetFolderId,
-    })
+    // Handle folder drop
+    const folderData = e.dataTransfer.getData('application/x-folder')
+    if (folderData && dropTarget) {
+      const draggedFolderId = folderData
+      const draggedFolder = folders.find((f) => f.id === draggedFolderId)
+      if (!draggedFolder) {
+        handleDragEnd()
+        return
+      }
 
-    // Expand target folder if dropping into one
-    if (targetFolderId) {
-      setExpandedFolders((prev) => new Set([...prev, targetFolderId]))
+      const { targetId, position } = dropTarget
+
+      if (position === 'inside') {
+        // Nesting into a folder
+        if (!canDropFolder(draggedFolderId, targetId)) {
+          toast.error(targetId && isDescendantOf(targetId, draggedFolderId)
+            ? "Can't move folder into its own subfolder"
+            : 'Maximum folder depth is 3 levels')
+          handleDragEnd()
+          return
+        }
+
+        // Calculate new order index (last among siblings)
+        const newSiblings = folders.filter((f) => f.parentId === (targetId ?? undefined))
+        const newOrderIndex = newSiblings.length > 0
+          ? Math.max(...newSiblings.map((f) => f.orderIndex)) + 1
+          : 0
+
+        const { previousParentId, previousOrderIndex } = moveFolder(draggedFolderId, targetId, newOrderIndex)
+        pushUndoAction({
+          type: 'moveFolder',
+          folderId: draggedFolderId,
+          previousParentId,
+          previousOrderIndex,
+          newParentId: targetId,
+          newOrderIndex,
+        })
+
+        // Expand target folder
+        if (targetId) {
+          setExpandedFolders((prev) => new Set([...prev, targetId]))
+        }
+
+        const targetName = targetId ? folders.find((f) => f.id === targetId)?.name : 'root'
+        toast.success(`Moved "${draggedFolder.name}" into ${targetName || 'root'}`)
+      } else {
+        // Reordering among siblings (before/after)
+        const targetFolder = targetId ? folders.find((f) => f.id === targetId) : null
+
+        // For before/after, the target's parent becomes the dragged folder's new parent
+        const newParentId = targetFolder?.parentId ?? null
+
+        // Check depth if parent is changing
+        if (newParentId !== (draggedFolder.parentId ?? null)) {
+          if (!canDropFolder(draggedFolderId, newParentId)) {
+            toast.error('Maximum folder depth is 3 levels')
+            handleDragEnd()
+            return
+          }
+        }
+
+        // Get current siblings at the target level
+        const siblings = folders
+          .filter((f) => f.parentId === (newParentId ?? undefined) && f.id !== draggedFolderId)
+          .sort((a, b) => a.orderIndex - b.orderIndex)
+
+        // Find target index
+        let targetIndex = siblings.findIndex((f) => f.id === targetId)
+        if (targetIndex === -1) targetIndex = siblings.length
+        if (position === 'after') targetIndex++
+
+        // If same parent, just reorder
+        if (newParentId === (draggedFolder.parentId ?? null)) {
+          const previousOrders = reorderFolderSiblings(draggedFolderId, targetIndex)
+          pushUndoAction({
+            type: 'reorderFolders',
+            changes: previousOrders,
+          })
+          toast.success(`Reordered "${draggedFolder.name}"`)
+        } else {
+          // Different parent - move then reorder
+          const { previousParentId, previousOrderIndex } = moveFolder(draggedFolderId, newParentId, targetIndex)
+
+          // Renumber all siblings
+          const newSiblings = folders
+            .filter((f) => f.parentId === (newParentId ?? undefined))
+            .sort((a, b) => a.orderIndex - b.orderIndex)
+
+          // Insert dragged folder at correct position and renumber
+          newSiblings.splice(targetIndex, 0, { ...draggedFolder, parentId: newParentId ?? undefined })
+          newSiblings.forEach((f, i) => {
+            if (f.orderIndex !== i) {
+              moveFolder(f.id, f.parentId ?? null, i)
+            }
+          })
+
+          pushUndoAction({
+            type: 'moveFolder',
+            folderId: draggedFolderId,
+            previousParentId,
+            previousOrderIndex,
+            newParentId,
+            newOrderIndex: targetIndex,
+          })
+
+          const targetName = newParentId ? folders.find((f) => f.id === newParentId)?.name : 'root'
+          toast.success(`Moved "${draggedFolder.name}" to ${targetName || 'root'}`)
+        }
+      }
     }
 
-    const folderName = targetFolderId ? folders.find((f) => f.id === targetFolderId)?.name : 'root'
-    toast.success(`Moved ${snippetsToMove.length} snippet${snippetsToMove.length > 1 ? 's' : ''} to ${folderName || 'root'}`)
-
-    setDragState({ isDragging: false, draggedIds: new Set(), dropTargetId: null })
-  }, [snippets, folders, moveSnippetsToFolder, pushUndoAction])
+    handleDragEnd()
+  }, [dragState, snippets, folders, moveSnippetsToFolder, moveFolder, reorderFolderSiblings, pushUndoAction, canDropFolder, isDescendantOf, handleDragEnd])
 
   // Cmd+Z undo handler
   useEffect(() => {
@@ -384,12 +587,12 @@ export function Sidebar() {
 
   const renderSnippet = (snippet: Snippet, depth: number = 0) => {
     const showIndicator = needsExport(snippet)
-    const isBeingDragged = dragState.isDragging && dragState.draggedIds.has(snippet.id)
+    const isBeingDragged = dragState.isDragging && dragState.dragType === 'snippet' && dragState.draggedIds.has(snippet.id)
     return (
       <li
         key={snippet.id}
         draggable
-        onDragStart={(e) => handleDragStart(e, snippet.id)}
+        onDragStart={(e) => handleSnippetDragStart(e, snippet.id)}
         onDragEnd={handleDragEnd}
         onClick={(e) => handleSnippetClick(e, snippet.id)}
         onContextMenu={(e) => handleSnippetContextMenu(e, snippet.id)}
@@ -426,11 +629,28 @@ export function Sidebar() {
     const folderSnippets = getFilteredSnippetsForFolder(folder.id)
     const snippetCount = getSnippetCount(folder.id)
     const isEmpty = childFolders.length === 0 && folderSnippets.length === 0
-    const isDropTarget = dragState.isDragging && dragState.dropTargetId === folder.id
+    const isBeingDragged = dragState.isDragging && dragState.dragType === 'folder' && dragState.draggedFolderId === folder.id
+    const isDropTarget = dragState.isDragging && dragState.dropTarget?.targetId === folder.id
+    const dropPosition = isDropTarget ? dragState.dropTarget?.position : null
+
+    // Check if this folder can receive the dragged folder
+    const canReceiveDrop = dragState.dragType === 'folder' && dragState.draggedFolderId
+      ? canDropFolder(dragState.draggedFolderId, folder.id)
+      : true
 
     return (
-      <li key={folder.id}>
+      <li key={folder.id} className="relative">
+        {/* Drop indicator line for 'before' position */}
+        {isDropTarget && dropPosition === 'before' && (
+          <div
+            className="absolute left-0 right-0 h-0.5 bg-blue-500 -top-0.5 z-10"
+            style={{ marginLeft: `${depth * 12 + 8}px` }}
+          />
+        )}
         <div
+          draggable={!isEditing}
+          onDragStart={(e) => handleFolderDragStart(e, folder.id)}
+          onDragEnd={handleDragEnd}
           onClick={(e) => handleFolderClick(e, folder.id)}
           onContextMenu={(e) => handleFolderContextMenu(e, folder.id)}
           onDragOver={(e) => handleDragOver(e, folder.id)}
@@ -439,7 +659,9 @@ export function Sidebar() {
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
           className={cn(
             'flex items-center gap-1 pr-2 py-1.5 rounded cursor-pointer text-sm transition-colors',
-            isDropTarget && 'ring-2 ring-blue-500 bg-blue-500/20',
+            isBeingDragged && 'opacity-50',
+            isDropTarget && dropPosition === 'inside' && canReceiveDrop && 'ring-2 ring-blue-500 bg-blue-500/20',
+            isDropTarget && dropPosition === 'inside' && !canReceiveDrop && 'ring-2 ring-red-500 bg-red-500/20',
             selectedFolderId === folder.id
               ? 'bg-zinc-800 text-zinc-200'
               : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300'
@@ -480,6 +702,13 @@ export function Sidebar() {
               </li>
             )}
           </ul>
+        )}
+        {/* Drop indicator line for 'after' position */}
+        {isDropTarget && dropPosition === 'after' && (
+          <div
+            className="absolute left-0 right-0 h-0.5 bg-blue-500 -bottom-0.5 z-10"
+            style={{ marginLeft: `${depth * 12 + 8}px` }}
+          />
         )}
       </li>
     )
@@ -590,9 +819,9 @@ export function Sidebar() {
       <div
         className={cn(
           'flex-1 overflow-y-auto p-2',
-          dragState.isDragging && dragState.dropTargetId === 'root' && 'bg-blue-500/10'
+          dragState.isDragging && dragState.dropTarget?.targetId === null && 'bg-blue-500/10'
         )}
-        onDragOver={(e) => handleDragOver(e, null)}
+        onDragOver={(e) => handleDragOver(e, null, 'inside')}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, null)}
       >
