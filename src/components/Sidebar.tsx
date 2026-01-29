@@ -256,6 +256,8 @@ export function Sidebar() {
     const isExpanded = expandedFolders.has(folder.id)
     const childFolders = folderMap.get(folder.id) || []
     const folderSnippets = getFilteredSnippetsForFolder(folder.id)
+    const snippetCount = getSnippetCount(folder.id)
+    const isEmpty = childFolders.length === 0 && folderSnippets.length === 0
 
     return (
       <li key={folder.id}>
@@ -274,12 +276,23 @@ export function Sidebar() {
             className={cn('w-4 h-4 shrink-0 transition-transform', isExpanded && 'rotate-90')}
           />
           <FolderIcon className="w-4 h-4 shrink-0" />
-          <span className="truncate">{folder.name}</span>
+          <span className="truncate flex-1">{folder.name}</span>
+          {snippetCount > 0 && (
+            <span className="text-xs text-zinc-500 tabular-nums">{snippetCount}</span>
+          )}
         </div>
         {isExpanded && (
           <ul className="space-y-0.5">
             {childFolders.map((child) => renderFolder(child, depth + 1))}
             {folderSnippets.map((snippet) => renderSnippet(snippet, depth + 1))}
+            {isEmpty && (
+              <li
+                style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
+                className="py-1.5 text-xs text-zinc-600 italic"
+              >
+                Empty folder
+              </li>
+            )}
           </ul>
         )}
       </li>
@@ -326,6 +339,14 @@ export function Sidebar() {
   const getFilteredSnippetsForFolder = useCallback((folderId: string) => {
     return filteredSnippets.filter((s) => s.folderId === folderId)
   }, [filteredSnippets])
+
+  // Count snippets recursively in folder (including subfolders)
+  const getSnippetCount = useCallback((folderId: string): number => {
+    const directSnippets = filteredSnippets.filter((s) => s.folderId === folderId).length
+    const childFolders = folderMap.get(folderId) || []
+    const childCount = childFolders.reduce((acc, child) => acc + getSnippetCount(child.id), 0)
+    return directSnippets + childCount
+  }, [filteredSnippets, folderMap])
 
   return (
     <aside className="w-64 border-r border-zinc-800 flex flex-col bg-zinc-900/50">
