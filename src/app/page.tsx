@@ -10,6 +10,7 @@ import { ResizableDivider } from '@/components/ResizableDivider'
 import { Sidebar } from '@/components/Sidebar'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ConflictPanel } from '@/components/ConflictPanel'
+import { SearchPalette } from '@/components/SearchPalette'
 import { useSnippetStore } from '@/lib/store'
 import { useConflictStore } from '@/lib/conflict-store'
 import { useSyncSettingsStore, SYNC_INTERVALS, type SyncInterval } from '@/lib/sync-settings-store'
@@ -48,6 +49,7 @@ export default function HomePage() {
   const markExported = useSnippetStore((s) => s.markExported)
 
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   const addConflicts = useConflictStore((s) => s.addConflicts)
   const conflictCount = useConflictStore((s) => s.conflicts.length)
@@ -290,6 +292,11 @@ export default function HomePage() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+P for search palette
+      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
       // Cmd+\ to toggle preview
       if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
         e.preventDefault()
@@ -387,6 +394,8 @@ export default function HomePage() {
       </div>
 
       <ConflictPanel />
+
+      <SearchPalette open={searchOpen} onOpenChange={setSearchOpen} />
 
       {validationResult && (
         <ValidationDialog
