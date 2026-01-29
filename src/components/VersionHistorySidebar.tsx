@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { History, X, Clock, GitCompare, Eye, RotateCcw } from 'lucide-react'
+import { History, X, Clock, GitCompare, Eye, RotateCcw, Trash2, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useVersionStore } from '@/lib/version-store'
@@ -84,11 +84,14 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
   const selectedSnippet = useSnippetStore((s) => s.getSelectedSnippet())
   const updateSnippet = useSnippetStore((s) => s.updateSnippet)
   const getVersionsForSnippet = useVersionStore((s) => s.getVersionsForSnippet)
+  const deleteVersion = useVersionStore((s) => s.deleteVersion)
+  const keepLastN = useVersionStore((s) => s.keepLastN)
 
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
   const [compareVersionId, setCompareVersionId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('preview')
   const [restoreConfirmVersion, setRestoreConfirmVersion] = useState<SnippetVersion | null>(null)
+  const [cleanupMenuOpen, setCleanupMenuOpen] = useState(false)
 
   const versions = useMemo(
     () => (selectedId ? getVersionsForSnippet(selectedId) : []),
@@ -154,6 +157,35 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
     setRestoreConfirmVersion(null)
   }, [])
 
+  const handleDeleteVersion = useCallback((versionId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    // Clear selection if we're deleting the selected version
+    if (selectedVersionId === versionId) {
+      setSelectedVersionId(null)
+      setViewMode('preview')
+    }
+    if (compareVersionId === versionId) {
+      setCompareVersionId(null)
+    }
+    deleteVersion(versionId)
+    toast.success('Version deleted')
+  }, [selectedVersionId, compareVersionId, deleteVersion])
+
+  const handleKeepLastN = useCallback((n: number) => {
+    if (!selectedId) return
+    const deletedCount = keepLastN(selectedId, n)
+    setCleanupMenuOpen(false)
+    // Clear selections that may have been deleted
+    setSelectedVersionId(null)
+    setCompareVersionId(null)
+    setViewMode('preview')
+    if (deletedCount > 0) {
+      toast.success(`Deleted ${deletedCount} old version${deletedCount !== 1 ? 's' : ''}`)
+    } else {
+      toast.info('No versions to delete')
+    }
+  }, [selectedId, keepLastN])
+
   if (!open) return null
 
   return (
@@ -164,12 +196,55 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
           <History className="w-4 h-4 text-zinc-400" />
           <span className="text-sm font-medium text-zinc-300">Version History</span>
         </div>
-        <button
-          onClick={handleClose}
-          className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Cleanup dropdown */}
+          {versions.length > 1 && (
+            <div className="relative">
+              <button
+                onClick={() => setCleanupMenuOpen(!cleanupMenuOpen)}
+                className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 flex items-center gap-0.5"
+                title="Cleanup versions"
+              >
+                <Trash2 className="w-4 h-4" />
+                <ChevronDown className="w-3 h-3" />
+              </button>
+              {cleanupMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setCleanupMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1 z-20 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg py-1 min-w-[140px]">
+                    <p className="px-3 py-1 text-[10px] text-zinc-500 uppercase tracking-wide">
+                      Keep only last...
+                    </p>
+                    {[5, 10, 20, 50].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => handleKeepLastN(n)}
+                        disabled={versions.length <= n}
+                        className={cn(
+                          'w-full text-left px-3 py-1.5 text-xs transition-colors',
+                          versions.length <= n
+                            ? 'text-zinc-600 cursor-not-allowed'
+                            : 'text-zinc-300 hover:bg-zinc-700'
+                        )}
+                      >
+                        {n} versions
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          <button
+            onClick={handleClose}
+            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -203,9 +278,10 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                   </p>
                 )}
               </div>
-              {versions.map((version) => {
+              {versions.map((version, index) => {
                 const isSelected = selectedVersionId === version.id
                 const isCompare = compareVersionId === version.id
+                const isCurrent = index === 0
 
                 return (
                   <button
@@ -223,6 +299,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-medium flex items-center gap-1">
                         {formatRelativeTime(version.createdAt)}
+                        {isCurrent && <span className="text-[10px] text-blue-400">(current)</span>}
                         {isCompare && <span className="text-[10px] text-purple-400">(comparing)</span>}
                       </span>
                       <div className="flex items-center gap-1">
@@ -245,6 +322,15 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                             title="Compare with selected"
                           >
                             <GitCompare className="w-3 h-3" />
+                          </button>
+                        )}
+                        {!isCurrent && (
+                          <button
+                            onClick={(e) => handleDeleteVersion(version.id, e)}
+                            className="p-0.5 rounded transition-colors text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100"
+                            title="Delete this version"
+                          >
+                            <Trash2 className="w-3 h-3" />
                           </button>
                         )}
                         <span className="text-[10px] text-zinc-500">

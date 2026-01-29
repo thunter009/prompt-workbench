@@ -17,6 +17,7 @@ interface VersionStore {
   getVersionsForSnippet: (snippetId: string) => SnippetVersion[]
   getVersion: (id: string) => SnippetVersion | undefined
   deleteVersion: (id: string) => void
+  keepLastN: (snippetId: string, n: number) => number
   pruneVersions: (snippetId: string) => void
   clearVersionsForSnippet: (snippetId: string) => void
 }
@@ -85,6 +86,28 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
     const newVersions = get().versions.filter((v) => v.id !== id)
     set({ versions: newVersions })
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newVersions))
+  },
+
+  keepLastN: (snippetId, n) => {
+    const { versions } = get()
+    const snippetVersions = versions
+      .filter((v) => v.snippetId === snippetId)
+      .sort((a, b) => b.createdAt - a.createdAt)
+
+    if (snippetVersions.length <= n) {
+      return 0 // Nothing to delete
+    }
+
+    const toKeepIds = new Set(snippetVersions.slice(0, n).map((v) => v.id))
+    const deletedCount = snippetVersions.length - n
+
+    const newVersions = versions.filter(
+      (v) => v.snippetId !== snippetId || toKeepIds.has(v.id)
+    )
+
+    set({ versions: newVersions })
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newVersions))
+    return deletedCount
   },
 
   pruneVersions: (snippetId) => {

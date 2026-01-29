@@ -145,6 +145,53 @@ describe('version-store', () => {
     })
   })
 
+  describe('keepLastN', () => {
+    it('keeps only the N most recent versions', () => {
+      const { saveVersion, keepLastN, getVersionsForSnippet } = useVersionStore.getState()
+
+      const now = Date.now()
+      for (let i = 0; i < 10; i++) {
+        vi.spyOn(Date, 'now').mockImplementation(() => now + i)
+        saveVersion('snippet-1', `Version ${i}`)
+      }
+      vi.restoreAllMocks()
+
+      const deletedCount = keepLastN('snippet-1', 3)
+
+      expect(deletedCount).toBe(7)
+      const versions = getVersionsForSnippet('snippet-1')
+      expect(versions).toHaveLength(3)
+      expect(versions[0].text).toBe('Version 9')
+      expect(versions[2].text).toBe('Version 7')
+    })
+
+    it('returns 0 if already at or below limit', () => {
+      const { saveVersion, keepLastN, getVersionsForSnippet } = useVersionStore.getState()
+
+      saveVersion('snippet-1', 'A')
+      saveVersion('snippet-1', 'B')
+
+      const deletedCount = keepLastN('snippet-1', 5)
+
+      expect(deletedCount).toBe(0)
+      expect(getVersionsForSnippet('snippet-1')).toHaveLength(2)
+    })
+
+    it('does not affect other snippets', () => {
+      const { saveVersion, keepLastN, getVersionsForSnippet } = useVersionStore.getState()
+
+      saveVersion('snippet-1', 'A')
+      saveVersion('snippet-1', 'B')
+      saveVersion('snippet-2', 'X')
+      saveVersion('snippet-2', 'Y')
+
+      keepLastN('snippet-1', 1)
+
+      expect(getVersionsForSnippet('snippet-1')).toHaveLength(1)
+      expect(getVersionsForSnippet('snippet-2')).toHaveLength(2)
+    })
+  })
+
   describe('load', () => {
     it('loads versions from localStorage', () => {
       const existingVersions = [
