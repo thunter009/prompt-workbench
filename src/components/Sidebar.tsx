@@ -4,12 +4,19 @@ import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useSnippetStore } from '@/lib/store'
+import { useUndoStore } from '@/lib/undo-store'
 import { exportSnippets } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ExportFolderDialog } from '@/components/ExportFolderDialog'
 import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter } from 'lucide-react'
 import type { Snippet, Folder } from '@/types'
+
+interface DragState {
+  isDragging: boolean
+  draggedIds: Set<string>
+  dropTargetId: string | null // folder id or 'root' for root level
+}
 
 type ContextMenuType = 'snippet' | 'folder'
 
@@ -39,8 +46,14 @@ export function Sidebar() {
   const setExportFilter = useSnippetStore((s) => s.setExportFilter)
   const createFolder = useSnippetStore((s) => s.createFolder)
   const updateFolder = useSnippetStore((s) => s.updateFolder)
+  const moveSnippetsToFolder = useSnippetStore((s) => s.moveSnippetsToFolder)
+
+  const pushUndoAction = useUndoStore((s) => s.pushAction)
+  const undo = useUndoStore((s) => s.undo)
+  const canUndo = useUndoStore((s) => s.canUndo)
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false, type: 'snippet' })
+  const [dragState, setDragState] = useState<DragState>({ isDragging: false, draggedIds: new Set(), dropTargetId: null })
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const [pendingExport, setPendingExport] = useState<Snippet[] | null>(null)
   const [exportFolderDialog, setExportFolderDialog] = useState<{ open: boolean; folderId: string | null }>({ open: false, folderId: null })
@@ -218,6 +231,106 @@ export function Sidebar() {
     toggleFolder(folderId)
   }, [toggleFolder])
 
+  // Drag & Drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, snippetId: string) => {
+    // If dragging a non-selected item, select only that item
+    // If dragging a selected item, drag all selected items
+    const idsToMove = selectedIds.has(snippetId) ? new Set(selectedIds) : new Set([snippetId])
+
+    setDragState({ isDragging: true, draggedIds: idsToMove, dropTargetId: null })
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', Array.from(idsToMove).join(','))
+
+    // Custom drag image showing count
+    if (idsToMove.size > 1) {
+      const dragEl = document.createElement('div')
+      dragEl.className = 'bg-blue-600 text-white px-2 py-1 rounded text-sm'
+      dragEl.textContent = `${idsToMove.size} snippets`
+      dragEl.style.position = 'absolute'
+      dragEl.style.top = '-1000px'
+      document.body.appendChild(dragEl)
+      e.dataTransfer.setDragImage(dragEl, 0, 0)
+      setTimeout(() => document.body.removeChild(dragEl), 0)
+    }
+  }, [selectedIds])
+
+  const handleDragEnd = useCallback(() => {
+    setDragState({ isDragging: false, draggedIds: new Set(), dropTargetId: null })
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent, targetFolderId: string | null) => {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    setDragState((prev) => ({ ...prev, dropTargetId: targetFolderId ?? 'root' }))
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    // Only clear if leaving to outside, not to a child element
+    const relatedTarget = e.relatedTarget as Node | null
+    if (!e.currentTarget.contains(relatedTarget)) {
+      setDragState((prev) => ({ ...prev, dropTargetId: null }))
+    }
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent, targetFolderId: string | null) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const data = e.dataTransfer.getData('text/plain')
+    const snippetIds = data.split(',').filter(Boolean)
+
+    if (snippetIds.length === 0) return
+
+    // Check if any snippet is already in target folder
+    const snippetsToMove = snippetIds.filter((id) => {
+      const snippet = snippets.find((s) => s.id === id)
+      return snippet && snippet.folderId !== targetFolderId
+    })
+
+    if (snippetsToMove.length === 0) {
+      setDragState({ isDragging: false, draggedIds: new Set(), dropTargetId: null })
+      return
+    }
+
+    // Move snippets and track for undo
+    const previousFolders = moveSnippetsToFolder(snippetsToMove, targetFolderId)
+    pushUndoAction({
+      type: 'move',
+      snippetIds: snippetsToMove,
+      previousFolders,
+      targetFolderId,
+    })
+
+    // Expand target folder if dropping into one
+    if (targetFolderId) {
+      setExpandedFolders((prev) => new Set([...prev, targetFolderId]))
+    }
+
+    const folderName = targetFolderId ? folders.find((f) => f.id === targetFolderId)?.name : 'root'
+    toast.success(`Moved ${snippetsToMove.length} snippet${snippetsToMove.length > 1 ? 's' : ''} to ${folderName || 'root'}`)
+
+    setDragState({ isDragging: false, draggedIds: new Set(), dropTargetId: null })
+  }, [snippets, folders, moveSnippetsToFolder, pushUndoAction])
+
+  // Cmd+Z undo handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        // Don't interfere with input fields
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+        if (canUndo()) {
+          e.preventDefault()
+          undo()
+          toast('Undid move')
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [undo, canUndo])
+
   const handleNewSnippet = useCallback(() => {
     createSnippet({ name: 'New Snippet', text: '' })
   }, [createSnippet])
@@ -271,14 +384,19 @@ export function Sidebar() {
 
   const renderSnippet = (snippet: Snippet, depth: number = 0) => {
     const showIndicator = needsExport(snippet)
+    const isBeingDragged = dragState.isDragging && dragState.draggedIds.has(snippet.id)
     return (
       <li
         key={snippet.id}
+        draggable
+        onDragStart={(e) => handleDragStart(e, snippet.id)}
+        onDragEnd={handleDragEnd}
         onClick={(e) => handleSnippetClick(e, snippet.id)}
         onContextMenu={(e) => handleSnippetContextMenu(e, snippet.id)}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         className={cn(
           'flex items-center gap-2 pr-2 py-1.5 rounded cursor-pointer text-sm transition-colors',
+          isBeingDragged && 'opacity-50',
           selectedIds.has(snippet.id)
             ? 'bg-blue-600/30 text-blue-200'
             : selectedId === snippet.id
@@ -308,15 +426,20 @@ export function Sidebar() {
     const folderSnippets = getFilteredSnippetsForFolder(folder.id)
     const snippetCount = getSnippetCount(folder.id)
     const isEmpty = childFolders.length === 0 && folderSnippets.length === 0
+    const isDropTarget = dragState.isDragging && dragState.dropTargetId === folder.id
 
     return (
       <li key={folder.id}>
         <div
           onClick={(e) => handleFolderClick(e, folder.id)}
           onContextMenu={(e) => handleFolderContextMenu(e, folder.id)}
+          onDragOver={(e) => handleDragOver(e, folder.id)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, folder.id)}
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
           className={cn(
             'flex items-center gap-1 pr-2 py-1.5 rounded cursor-pointer text-sm transition-colors',
+            isDropTarget && 'ring-2 ring-blue-500 bg-blue-500/20',
             selectedFolderId === folder.id
               ? 'bg-zinc-800 text-zinc-200'
               : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300'
@@ -464,7 +587,15 @@ export function Sidebar() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2">
+      <div
+        className={cn(
+          'flex-1 overflow-y-auto p-2',
+          dragState.isDragging && dragState.dropTargetId === 'root' && 'bg-blue-500/10'
+        )}
+        onDragOver={(e) => handleDragOver(e, null)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, null)}
+      >
         {folders.length === 0 && snippets.length === 0 ? (
           <p className="text-sm text-zinc-500 p-2">No snippets yet</p>
         ) : filteredSnippets.length === 0 && exportFilter !== 'all' ? (

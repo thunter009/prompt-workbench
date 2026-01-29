@@ -54,6 +54,9 @@ interface SnippetStore {
   getSnippetsInFolder: (folderId: string, includeSubfolders: boolean) => Snippet[]
   getSubfolderIds: (folderId: string) => string[]
 
+  // Drag & Drop
+  moveSnippetsToFolder: (snippetIds: string[], folderId: string | null) => { snippetId: string; previousFolderId: string | undefined }[]
+
   // Computed
   getSelectedSnippet: () => Snippet | undefined
   getFilteredSnippets: () => Snippet[]
@@ -241,6 +244,24 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       return snippets.filter((s) => s.folderId && folderIds.has(s.folderId))
     }
     return snippets.filter((s) => s.folderId === folderId)
+  },
+
+  // Drag & Drop
+  moveSnippetsToFolder: (snippetIds, folderId) => {
+    const { snippets } = get()
+    // Track previous folders for undo
+    const previousFolders = snippetIds.map((id) => {
+      const snippet = snippets.find((s) => s.id === id)
+      return { snippetId: id, previousFolderId: snippet?.folderId }
+    })
+
+    set((state) => ({
+      snippets: state.snippets.map((s) =>
+        snippetIds.includes(s.id) ? { ...s, folderId: folderId ?? undefined, updatedAt: Date.now() } : s
+      ),
+    }))
+
+    return previousFolders
   },
 
   // Computed
