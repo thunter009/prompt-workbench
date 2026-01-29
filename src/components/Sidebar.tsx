@@ -8,7 +8,7 @@ import { exportSnippets } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ExportFolderDialog } from '@/components/ExportFolderDialog'
-import { FileText, Plus, Folder as FolderIcon, ChevronRight, Filter } from 'lucide-react'
+import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter } from 'lucide-react'
 import type { Snippet, Folder } from '@/types'
 
 type ContextMenuType = 'snippet' | 'folder'
@@ -37,13 +37,18 @@ export function Sidebar() {
   const clearSelection = useSnippetStore((s) => s.clearSelection)
   const markExported = useSnippetStore((s) => s.markExported)
   const setExportFilter = useSnippetStore((s) => s.setExportFilter)
+  const createFolder = useSnippetStore((s) => s.createFolder)
+  const updateFolder = useSnippetStore((s) => s.updateFolder)
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ x: 0, y: 0, visible: false, type: 'snippet' })
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const [pendingExport, setPendingExport] = useState<Snippet[] | null>(null)
   const [exportFolderDialog, setExportFolderDialog] = useState<{ open: boolean; folderId: string | null }>({ open: false, folderId: null })
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null)
+  const [editingFolderName, setEditingFolderName] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
+  const folderInputRef = useRef<HTMLInputElement>(null)
 
   // Build folder tree structure
   const { rootFolders, folderMap } = useMemo(() => {
@@ -217,6 +222,50 @@ export function Sidebar() {
     createSnippet({ name: 'New Snippet', text: '' })
   }, [createSnippet])
 
+  const handleNewFolder = useCallback((parentId?: string) => {
+    const maxOrderIndex = folders
+      .filter((f) => f.parentId === parentId)
+      .reduce((max, f) => Math.max(max, f.orderIndex), -1)
+    const folder = createFolder({
+      name: 'New Folder',
+      parentId,
+      orderIndex: maxOrderIndex + 1,
+    })
+    // Expand parent if creating nested folder
+    if (parentId) {
+      setExpandedFolders((prev) => new Set([...prev, parentId]))
+    }
+    // Start inline editing
+    setEditingFolderId(folder.id)
+    setEditingFolderName(folder.name)
+  }, [folders, createFolder])
+
+  const handleFolderNameSubmit = useCallback(() => {
+    if (editingFolderId && editingFolderName.trim()) {
+      updateFolder(editingFolderId, { name: editingFolderName.trim() })
+    }
+    setEditingFolderId(null)
+    setEditingFolderName('')
+  }, [editingFolderId, editingFolderName, updateFolder])
+
+  const handleFolderNameKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleFolderNameSubmit()
+    } else if (e.key === 'Escape') {
+      setEditingFolderId(null)
+      setEditingFolderName('')
+    }
+  }, [handleFolderNameSubmit])
+
+  // Focus folder input when editing starts
+  useEffect(() => {
+    if (editingFolderId && folderInputRef.current) {
+      folderInputRef.current.focus()
+      folderInputRef.current.select()
+    }
+  }, [editingFolderId])
+
   const needsExport = (snippet: Snippet) =>
     !snippet.lastExportedAt || snippet.updatedAt > snippet.lastExportedAt
 
@@ -254,6 +303,7 @@ export function Sidebar() {
 
   const renderFolder = (folder: Folder, depth: number = 0): React.ReactNode => {
     const isExpanded = expandedFolders.has(folder.id)
+    const isEditing = editingFolderId === folder.id
     const childFolders = folderMap.get(folder.id) || []
     const folderSnippets = getFilteredSnippetsForFolder(folder.id)
     const snippetCount = getSnippetCount(folder.id)
@@ -276,8 +326,21 @@ export function Sidebar() {
             className={cn('w-4 h-4 shrink-0 transition-transform', isExpanded && 'rotate-90')}
           />
           <FolderIcon className="w-4 h-4 shrink-0" />
-          <span className="truncate flex-1">{folder.name}</span>
-          {snippetCount > 0 && (
+          {isEditing ? (
+            <input
+              ref={folderInputRef}
+              type="text"
+              value={editingFolderName}
+              onChange={(e) => setEditingFolderName(e.target.value)}
+              onBlur={handleFolderNameSubmit}
+              onKeyDown={handleFolderNameKeyDown}
+              onClick={(e) => e.stopPropagation()}
+              className="flex-1 bg-zinc-700 border border-zinc-600 rounded px-1 py-0.5 text-sm text-zinc-200 focus:outline-none focus:border-blue-500"
+            />
+          ) : (
+            <span className="truncate flex-1">{folder.name}</span>
+          )}
+          {!isEditing && snippetCount > 0 && (
             <span className="text-xs text-zinc-500 tabular-nums">{snippetCount}</span>
           )}
         </div>
@@ -385,6 +448,13 @@ export function Sidebar() {
             )}
           </div>
           <button
+            onClick={() => handleNewFolder()}
+            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            title="New folder"
+          >
+            <FolderPlus className="w-4 h-4" />
+          </button>
+          <button
             onClick={handleNewSnippet}
             className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
             title="New snippet"
@@ -429,12 +499,25 @@ export function Sidebar() {
             </button>
           )}
           {contextMenu.type === 'folder' && (
-            <button
-              onClick={handleExportFolder}
-              className="w-full text-left px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
-            >
-              Export Folder
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  closeContextMenu()
+                  if (contextMenu.folderId) {
+                    handleNewFolder(contextMenu.folderId)
+                  }
+                }}
+                className="w-full text-left px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
+              >
+                New Subfolder
+              </button>
+              <button
+                onClick={handleExportFolder}
+                className="w-full text-left px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
+              >
+                Export Folder
+              </button>
+            </>
           )}
         </div>
       )}
