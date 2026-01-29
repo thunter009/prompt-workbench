@@ -60,6 +60,8 @@ export function Sidebar() {
   const getFolderDepth = useSnippetStore((s) => s.getFolderDepth)
   const isDescendantOf = useSnippetStore((s) => s.isDescendantOf)
   const reorderFolderSiblings = useSnippetStore((s) => s.reorderFolderSiblings)
+  const deleteFolder = useSnippetStore((s) => s.deleteFolder)
+  const getSubfolderIds = useSnippetStore((s) => s.getSubfolderIds)
 
   const pushUndoAction = useUndoStore((s) => s.pushAction)
   const undo = useUndoStore((s) => s.undo)
@@ -79,6 +81,7 @@ export function Sidebar() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null)
   const [editingFolderName, setEditingFolderName] = useState('')
+  const [deleteFolderDialog, setDeleteFolderDialog] = useState<{ open: boolean; folderId: string | null; hasContents: boolean }>({ open: false, folderId: null, hasContents: false })
   const menuRef = useRef<HTMLDivElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
 
@@ -195,6 +198,42 @@ export function Sidebar() {
     }
   }, [closeContextMenu, contextMenu.folderId])
 
+  const handleDeleteFolder = useCallback(() => {
+    closeContextMenu()
+    if (!contextMenu.folderId) return
+
+    // Check if folder has contents (snippets or subfolders)
+    const subfolderIds = getSubfolderIds(contextMenu.folderId)
+    const hasSubfolders = subfolderIds.length > 0
+    const folderIds = [contextMenu.folderId, ...subfolderIds]
+    const hasSnippets = snippets.some((s) => s.folderId && folderIds.includes(s.folderId))
+    const hasContents = hasSubfolders || hasSnippets
+
+    if (hasContents) {
+      setDeleteFolderDialog({ open: true, folderId: contextMenu.folderId, hasContents: true })
+    } else {
+      // Delete immediately if empty
+      deleteFolder(contextMenu.folderId)
+      toast.success('Folder deleted')
+    }
+  }, [closeContextMenu, contextMenu.folderId, getSubfolderIds, snippets, deleteFolder])
+
+  const handleDeleteFolderConfirm = useCallback(() => {
+    if (!deleteFolderDialog.folderId) return
+
+    // Get all subfolders to delete
+    const subfolderIds = getSubfolderIds(deleteFolderDialog.folderId)
+    const allFolderIds = [deleteFolderDialog.folderId, ...subfolderIds]
+
+    // Delete all folders (snippets will be orphaned to root by store)
+    for (const id of allFolderIds.reverse()) {
+      deleteFolder(id)
+    }
+
+    toast.success('Folder deleted')
+    setDeleteFolderDialog({ open: false, folderId: null, hasContents: false })
+  }, [deleteFolderDialog.folderId, getSubfolderIds, deleteFolder])
+
   const handleExportFolderConfirm = useCallback((includeSubfolders: boolean) => {
     if (!exportFolderDialog.folderId) return
 
@@ -249,6 +288,15 @@ export function Sidebar() {
     e.stopPropagation()
     toggleFolder(folderId)
   }, [toggleFolder])
+
+  const handleFolderDoubleClick = useCallback((e: React.MouseEvent, folderId: string) => {
+    e.stopPropagation()
+    const folder = folders.find((f) => f.id === folderId)
+    if (folder) {
+      setEditingFolderId(folderId)
+      setEditingFolderName(folder.name)
+    }
+  }, [folders])
 
   // Drag & Drop handlers for snippets
   const handleSnippetDragStart = useCallback((e: React.DragEvent, snippetId: string) => {
@@ -652,6 +700,7 @@ export function Sidebar() {
           onDragStart={(e) => handleFolderDragStart(e, folder.id)}
           onDragEnd={handleDragEnd}
           onClick={(e) => handleFolderClick(e, folder.id)}
+          onDoubleClick={(e) => handleFolderDoubleClick(e, folder.id)}
           onContextMenu={(e) => handleFolderContextMenu(e, folder.id)}
           onDragOver={(e) => handleDragOver(e, folder.id)}
           onDragLeave={handleDragLeave}
@@ -877,6 +926,12 @@ export function Sidebar() {
               >
                 Export Folder
               </button>
+              <button
+                onClick={handleDeleteFolder}
+                className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-zinc-700 transition-colors"
+              >
+                Delete Folder
+              </button>
             </>
           )}
         </div>
@@ -899,6 +954,32 @@ export function Sidebar() {
           onClose={() => setExportFolderDialog({ open: false, folderId: null })}
           onConfirm={handleExportFolderConfirm}
         />
+      )}
+
+      {/* Delete Folder Confirmation Dialog */}
+      {deleteFolderDialog.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-4 max-w-sm mx-4">
+            <h3 className="text-lg font-medium text-zinc-100 mb-2">Delete Folder?</h3>
+            <p className="text-sm text-zinc-400 mb-4">
+              This folder contains items. Deleting it will move all snippets to the root level and remove all subfolders.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteFolderDialog({ open: false, folderId: null, hasContents: false })}
+                className="px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteFolderConfirm}
+                className="px-3 py-1.5 text-sm text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </aside>
   )
