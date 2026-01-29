@@ -9,7 +9,7 @@ import { exportSnippets } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ExportFolderDialog } from '@/components/ExportFolderDialog'
-import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter } from 'lucide-react'
+import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
 import type { Snippet, Folder } from '@/types'
 
 type DragItemType = 'snippet' | 'folder'
@@ -85,6 +85,32 @@ export function Sidebar() {
   const menuRef = useRef<HTMLDivElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
 
+  const EXPANDED_FOLDERS_KEY = 'prompt-workbench-expanded-folders'
+
+  // Initialize expanded folders from localStorage
+  const [expandedFoldersInitialized, setExpandedFoldersInitialized] = useState(false)
+  useEffect(() => {
+    if (expandedFoldersInitialized) return
+    try {
+      const stored = localStorage.getItem(EXPANDED_FOLDERS_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored) as string[]
+        // Only restore IDs that still exist
+        const validIds = parsed.filter((id) => folders.some((f) => f.id === id))
+        setExpandedFolders(new Set(validIds))
+      }
+    } catch {
+      // ignore parse errors
+    }
+    setExpandedFoldersInitialized(true)
+  }, [folders, expandedFoldersInitialized])
+
+  // Persist expanded folders to localStorage
+  useEffect(() => {
+    if (!expandedFoldersInitialized) return
+    localStorage.setItem(EXPANDED_FOLDERS_KEY, JSON.stringify([...expandedFolders]))
+  }, [expandedFolders, expandedFoldersInitialized])
+
   // Build folder tree structure
   const { rootFolders, folderMap } = useMemo(() => {
     const folderMap = new Map<string, Folder[]>()
@@ -119,6 +145,14 @@ export function Sidebar() {
       }
       return next
     })
+  }, [])
+
+  const expandAllFolders = useCallback(() => {
+    setExpandedFolders(new Set(folders.map((f) => f.id)))
+  }, [folders])
+
+  const collapseAllFolders = useCallback(() => {
+    setExpandedFolders(new Set())
   }, [])
 
   const handleSnippetContextMenu = useCallback((e: React.MouseEvent, snippetId: string) => {
@@ -848,6 +882,24 @@ export function Sidebar() {
               </div>
             )}
           </div>
+          {folders.length > 0 && (
+            <>
+              <button
+                onClick={expandAllFolders}
+                className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                title="Expand all folders"
+              >
+                <ChevronsUpDown className="w-4 h-4" />
+              </button>
+              <button
+                onClick={collapseAllFolders}
+                className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                title="Collapse all folders"
+              >
+                <ChevronsDownUp className="w-4 h-4" />
+              </button>
+            </>
+          )}
           <button
             onClick={() => handleNewFolder()}
             className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
