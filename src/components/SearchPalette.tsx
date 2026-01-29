@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Command } from 'cmdk'
 import { Search, FileText, Tag, Hash } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
@@ -51,27 +51,34 @@ function truncateContentMatch(text: string, indices: [number, number][]): { text
 
 export function SearchPalette({ open, onOpenChange, onSelect }: SearchPaletteProps) {
   const [search, setSearch] = useState('')
+  const [selectedIndex, setSelectedIndex] = useState(0)
   const snippets = useSnippetStore((s) => s.snippets)
   const selectSnippet = useSnippetStore((s) => s.selectSnippet)
+  const listRef = useRef<HTMLDivElement>(null)
 
   const results = useFuzzySearch(snippets, search)
 
-  // Reset search on close
+  // Reset search and selection on close
   useEffect(() => {
     if (!open) {
       setSearch('')
+      setSelectedIndex(0)
     }
   }, [open])
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onOpenChange(false)
-      }
-    },
-    [onOpenChange]
-  )
+  // Reset selection to first when results change
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [results])
+
+  // Scroll selected item into view
+  useEffect(() => {
+    const list = listRef.current
+    if (!list || results.length === 0) return
+    const items = list.querySelectorAll('[data-search-item]')
+    const selectedItem = items[selectedIndex] as HTMLElement | undefined
+    selectedItem?.scrollIntoView({ block: 'nearest' })
+  }, [selectedIndex, results.length])
 
   const handleSelect = useCallback(
     (snippetId: string) => {
@@ -80,6 +87,44 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
       onOpenChange(false)
     },
     [selectSnippet, onSelect, onOpenChange]
+  )
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onOpenChange(false)
+        return
+      }
+
+      if (results.length === 0) return
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault()
+          setSelectedIndex((i) => (i + 1) % results.length)
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          setSelectedIndex((i) => (i - 1 + results.length) % results.length)
+          break
+        case 'Tab':
+          e.preventDefault()
+          if (e.shiftKey) {
+            setSelectedIndex((i) => (i - 1 + results.length) % results.length)
+          } else {
+            setSelectedIndex((i) => (i + 1) % results.length)
+          }
+          break
+        case 'Enter':
+          e.preventDefault()
+          if (results[selectedIndex]) {
+            handleSelect(results[selectedIndex].snippet.id)
+          }
+          break
+      }
+    },
+    [results, selectedIndex, onOpenChange, handleSelect]
   )
 
   if (!open) return null
@@ -117,7 +162,7 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
         </div>
 
         {/* Results */}
-        <Command.List className="max-h-80 overflow-y-auto p-2">
+        <Command.List ref={listRef} className="max-h-80 overflow-y-auto p-2">
           {search.trim() === '' ? (
             <div className="py-8 text-center text-sm text-zinc-500">
               Type to search snippets by name, content, keyword, or tags
@@ -128,11 +173,13 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
             </Command.Empty>
           ) : (
             <Command.Group heading="Snippets" className="text-xs font-medium text-zinc-500 px-2 py-1.5">
-              {results.map((result) => (
+              {results.map((result, index) => (
                 <SearchResultItem
                   key={result.snippet.id}
                   result={result}
+                  selected={index === selectedIndex}
                   onSelect={() => handleSelect(result.snippet.id)}
+                  onMouseEnter={() => setSelectedIndex(index)}
                 />
               ))}
             </Command.Group>
@@ -159,7 +206,17 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
 }
 
 // Individual search result item
-function SearchResultItem({ result, onSelect }: { result: SearchResult; onSelect: () => void }) {
+function SearchResultItem({
+  result,
+  selected,
+  onSelect,
+  onMouseEnter,
+}: {
+  result: SearchResult
+  selected: boolean
+  onSelect: () => void
+  onMouseEnter: () => void
+}) {
   const { snippet, matches } = result
 
   // Find name match for highlighting
@@ -169,10 +226,13 @@ function SearchResultItem({ result, onSelect }: { result: SearchResult; onSelect
   const contentMatch = matches.find((m) => m.key === 'text')
 
   return (
-    <Command.Item
-      value={snippet.id}
-      onSelect={onSelect}
-      className="flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-zinc-300 data-[selected=true]:bg-zinc-800 data-[selected=true]:text-zinc-100 group"
+    <div
+      data-search-item
+      onClick={onSelect}
+      onMouseEnter={onMouseEnter}
+      className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-zinc-300 ${
+        selected ? 'bg-zinc-800 text-zinc-100' : ''
+      }`}
     >
       {/* Top row: icon + name + keyword */}
       <div className="flex items-center gap-2.5">
@@ -231,6 +291,6 @@ function SearchResultItem({ result, onSelect }: { result: SearchResult; onSelect
           )}
         </div>
       )}
-    </Command.Item>
+    </div>
   )
 }
