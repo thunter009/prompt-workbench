@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Command } from 'cmdk'
-import { Search, FileText, Tag, Hash, Clock } from 'lucide-react'
+import { Search, FileText, Tag, Hash, Clock, Folder, FolderTree } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
-import { useFuzzySearch, highlightMatches, type SearchResult } from '@/hooks/useFuzzySearch'
+import { useFuzzySearch, highlightMatches, type SearchResult, type FolderFilter } from '@/hooks/useFuzzySearch'
 import type { Snippet } from '@/types'
 
 interface SearchPaletteProps {
@@ -50,15 +50,59 @@ function truncateContentMatch(text: string, indices: [number, number][]): { text
   return { text: truncated, indices: adjustedIndices }
 }
 
+const SEARCH_SETTINGS_KEY = 'prompt-workbench-search-settings'
+
 export function SearchPalette({ open, onOpenChange, onSelect }: SearchPaletteProps) {
   const [search, setSearch] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const snippets = useSnippetStore((s) => s.snippets)
   const selectSnippet = useSnippetStore((s) => s.selectSnippet)
   const getRecentSnippets = useSnippetStore((s) => s.getRecentSnippets)
+  const searchSettings = useSnippetStore((s) => s.searchSettings)
+  const setSearchSettings = useSnippetStore((s) => s.setSearchSettings)
+  const getCurrentFolderContext = useSnippetStore((s) => s.getCurrentFolderContext)
+  const getSubfolderIds = useSnippetStore((s) => s.getSubfolderIds)
   const listRef = useRef<HTMLDivElement>(null)
+  const [settingsInitialized, setSettingsInitialized] = useState(false)
 
-  const results = useFuzzySearch(snippets, search)
+  // Initialize search settings from localStorage
+  useEffect(() => {
+    if (settingsInitialized) return
+    try {
+      const stored = localStorage.getItem(SEARCH_SETTINGS_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (typeof parsed.scopeToCurrentFolder === 'boolean') {
+          setSearchSettings({ scopeToCurrentFolder: parsed.scopeToCurrentFolder })
+        }
+      }
+    } catch {
+      // ignore parse errors
+    }
+    setSettingsInitialized(true)
+  }, [settingsInitialized, setSearchSettings])
+
+  // Persist search settings to localStorage
+  useEffect(() => {
+    if (!settingsInitialized) return
+    localStorage.setItem(SEARCH_SETTINGS_KEY, JSON.stringify(searchSettings))
+  }, [searchSettings, settingsInitialized])
+
+  // Get current folder context
+  const { folderId: currentFolderId, folderName: currentFolderName } = getCurrentFolderContext()
+  const hasCurrentFolder = currentFolderId !== null
+
+  // Build folder filter when scoping is enabled and we have a folder
+  const folderFilter: FolderFilter | undefined = useMemo(() => {
+    if (!searchSettings.scopeToCurrentFolder || !currentFolderId) return undefined
+    return {
+      folderId: currentFolderId,
+      includeSubfolders: true,
+      getSubfolderIds,
+    }
+  }, [searchSettings.scopeToCurrentFolder, currentFolderId, getSubfolderIds])
+
+  const results = useFuzzySearch(snippets, search, folderFilter)
   const recentSnippets = getRecentSnippets(5)
 
   // Determine which items to navigate: search results or recent snippets
@@ -210,7 +254,7 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
           )}
         </Command.List>
 
-        {/* Footer hint */}
+        {/* Footer with folder scope toggle */}
         <div className="flex items-center justify-between px-4 py-2 border-t border-zinc-700 text-xs text-zinc-500">
           <div className="flex items-center gap-4">
             <span>
@@ -220,9 +264,32 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
               <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded text-[10px] font-medium">↵</kbd> open
             </span>
           </div>
-          <span>
-            <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded text-[10px] font-medium">esc</kbd> close
-          </span>
+          <button
+            onClick={() => setSearchSettings({ scopeToCurrentFolder: !searchSettings.scopeToCurrentFolder })}
+            disabled={!hasCurrentFolder}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded transition-colors ${
+              hasCurrentFolder
+                ? searchSettings.scopeToCurrentFolder
+                  ? 'bg-blue-600/30 text-blue-300 hover:bg-blue-600/40'
+                  : 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-300'
+                : 'opacity-50 cursor-not-allowed'
+            }`}
+            title={hasCurrentFolder
+              ? `Search in "${currentFolderName}" folder${searchSettings.scopeToCurrentFolder ? ' (on)' : ' (off)'}`
+              : 'Select a snippet or folder to scope search'
+            }
+          >
+            {searchSettings.scopeToCurrentFolder ? (
+              <Folder className="w-3.5 h-3.5" />
+            ) : (
+              <FolderTree className="w-3.5 h-3.5" />
+            )}
+            {searchSettings.scopeToCurrentFolder && currentFolderName ? (
+              <span className="max-w-[120px] truncate">{currentFolderName}</span>
+            ) : (
+              <span>All folders</span>
+            )}
+          </button>
         </div>
       </Command>
     </div>

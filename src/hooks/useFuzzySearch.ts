@@ -31,8 +31,28 @@ export interface SearchResult {
   matches: SearchMatch[]
 }
 
-export function useFuzzySearch(snippets: Snippet[], query: string): SearchResult[] {
-  const fuse = useMemo(() => new Fuse(snippets, FUSE_OPTIONS), [snippets])
+export interface FolderFilter {
+  folderId: string
+  includeSubfolders: boolean
+  getSubfolderIds: (id: string) => string[]
+}
+
+export function useFuzzySearch(
+  snippets: Snippet[],
+  query: string,
+  folderFilter?: FolderFilter
+): SearchResult[] {
+  // Filter snippets by folder if filter is provided
+  const filteredSnippets = useMemo(() => {
+    if (!folderFilter) return snippets
+    const { folderId, includeSubfolders, getSubfolderIds } = folderFilter
+    const folderIds = includeSubfolders
+      ? new Set([folderId, ...getSubfolderIds(folderId)])
+      : new Set([folderId])
+    return snippets.filter((s) => s.folderId && folderIds.has(s.folderId))
+  }, [snippets, folderFilter])
+
+  const fuse = useMemo(() => new Fuse(filteredSnippets, FUSE_OPTIONS), [filteredSnippets])
 
   const results = useMemo(() => {
     if (!query.trim()) return []

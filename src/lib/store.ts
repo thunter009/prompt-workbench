@@ -12,6 +12,10 @@ interface ExportSettings {
   hasDirectoryHandle: boolean // Whether we have a stored handle
 }
 
+interface SearchSettings {
+  scopeToCurrentFolder: boolean
+}
+
 interface SnippetStore {
   // State
   snippets: Snippet[]
@@ -25,6 +29,7 @@ interface SnippetStore {
   exportFilter: ExportFilter
   exportSettings: ExportSettings
   recentSnippetIds: string[]
+  searchSettings: SearchSettings
 
   // Snippet actions
   selectSnippet: (id: string | null) => void
@@ -46,6 +51,10 @@ interface SnippetStore {
 
   // Export settings actions
   setExportSettings: (settings: Partial<ExportSettings>) => void
+
+  // Search settings actions
+  setSearchSettings: (settings: Partial<SearchSettings>) => void
+  getCurrentFolderContext: () => { folderId: string | null; folderName: string | null }
 
   // Folder actions
   selectFolder: (id: string | null) => void
@@ -83,6 +92,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   exportFilter: 'all' as ExportFilter,
   exportSettings: { defaultPath: null, hasDirectoryHandle: false },
   recentSnippetIds: [],
+  searchSettings: { scopeToCurrentFolder: false },
 
   // Snippet actions
   selectSnippet: (id) => set((state) => {
@@ -199,6 +209,29 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   setExportSettings: (settings) => set((state) => ({
     exportSettings: { ...state.exportSettings, ...settings }
   })),
+
+  // Search settings actions
+  setSearchSettings: (settings) => set((state) => ({
+    searchSettings: { ...state.searchSettings, ...settings }
+  })),
+
+  getCurrentFolderContext: () => {
+    const { selectedId, selectedFolderId, snippets, folders } = get()
+    // If a folder is selected, use that
+    if (selectedFolderId) {
+      const folder = folders.find((f) => f.id === selectedFolderId)
+      return { folderId: selectedFolderId, folderName: folder?.name ?? null }
+    }
+    // If a snippet is selected, use its folder
+    if (selectedId) {
+      const snippet = snippets.find((s) => s.id === selectedId)
+      if (snippet?.folderId) {
+        const folder = folders.find((f) => f.id === snippet.folderId)
+        return { folderId: snippet.folderId, folderName: folder?.name ?? null }
+      }
+    }
+    return { folderId: null, folderName: null }
+  },
 
   // Folder actions
   selectFolder: (id) => set({ selectedFolderId: id, selectedId: null, selectedIds: new Set() }),
