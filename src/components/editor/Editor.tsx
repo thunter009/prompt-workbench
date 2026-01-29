@@ -10,17 +10,20 @@ import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@cod
 export interface EditorProps {
   initialValue?: string
   onChange?: (value: string) => void
+  onScrollProgress?: (progress: number) => void
 }
 
-export function Editor({ initialValue = '', onChange }: EditorProps) {
+export function Editor({ initialValue = '', onChange, onScrollProgress }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
+  const onScrollProgressRef = useRef(onScrollProgress)
   const initialValueRef = useRef(initialValue)
   const [mounted, setMounted] = useState(false)
 
   // Keep refs in sync
   onChangeRef.current = onChange
+  onScrollProgressRef.current = onScrollProgress
   initialValueRef.current = initialValue
 
   useEffect(() => {
@@ -34,6 +37,19 @@ export function Editor({ initialValue = '', onChange }: EditorProps) {
       if (update.docChanged && onChangeRef.current) {
         onChangeRef.current(update.state.doc.toString())
       }
+    })
+
+    // Scroll listener extension
+    const scrollListener = EditorView.domEventHandlers({
+      scroll: (event, view) => {
+        if (onScrollProgressRef.current) {
+          const scroller = view.scrollDOM
+          const maxScroll = scroller.scrollHeight - scroller.clientHeight
+          const progress = maxScroll > 0 ? scroller.scrollTop / maxScroll : 0
+          onScrollProgressRef.current(progress)
+        }
+        return false
+      },
     })
 
     const theme = EditorView.theme({
@@ -84,6 +100,7 @@ export function Editor({ initialValue = '', onChange }: EditorProps) {
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         updateListener,
+        scrollListener,
         theme,
         EditorView.lineWrapping,
       ],

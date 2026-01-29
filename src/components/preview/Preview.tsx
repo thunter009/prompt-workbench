@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Link, Unlink } from 'lucide-react'
 import { remarkRaycastPlaceholders } from '@/lib/remark-raycast-placeholders'
 import { PlaceholderPill } from './PlaceholderPill'
 import { useSnippetStore } from '@/lib/store'
@@ -12,15 +12,19 @@ import type { ParsedPlaceholder } from '@/lib/raycast/placeholder-parser'
 
 export interface PreviewProps {
   content: string
+  scrollProgress?: number
 }
 
 const DEBOUNCE_MS = 100
 
-export function Preview({ content }: PreviewProps) {
+export function Preview({ content, scrollProgress }: PreviewProps) {
   const [debouncedContent, setDebouncedContent] = useState(content)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const previewValues = useSnippetStore((s) => s.previewValues)
   const togglePreviewValues = useSnippetStore((s) => s.togglePreviewValues)
+  const syncScroll = useSnippetStore((s) => s.syncScroll)
+  const toggleSyncScroll = useSnippetStore((s) => s.toggleSyncScroll)
 
   // Debounce content updates
   useEffect(() => {
@@ -37,6 +41,14 @@ export function Preview({ content }: PreviewProps) {
       }
     }
   }, [content])
+
+  // Sync scroll with editor
+  useEffect(() => {
+    if (scrollProgress === undefined || !scrollContainerRef.current) return
+    const container = scrollContainerRef.current
+    const maxScroll = container.scrollHeight - container.clientHeight
+    container.scrollTop = scrollProgress * maxScroll
+  }, [scrollProgress])
 
   // Memoize markdown components to avoid re-creating on every render
   const components = useMemo(() => ({
@@ -179,15 +191,26 @@ export function Preview({ content }: PreviewProps) {
       <div className="h-full flex flex-col bg-zinc-900">
         <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
           <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Preview</span>
-          <button
-            onClick={togglePreviewValues}
-            className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
-              previewValues ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-            title={previewValues ? 'Hide example values' : 'Show example values'}
-          >
-            {previewValues ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={toggleSyncScroll}
+              className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
+                syncScroll ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+              title={syncScroll ? 'Disable scroll sync' : 'Enable scroll sync'}
+            >
+              {syncScroll ? <Link className="w-4 h-4" /> : <Unlink className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={togglePreviewValues}
+              className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
+                previewValues ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+              title={previewValues ? 'Hide example values' : 'Show example values'}
+            >
+              {previewValues ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
         <div className="flex-1 flex items-center justify-center">
           <span className="text-zinc-500 text-sm">Start typing to see preview...</span>
@@ -200,17 +223,28 @@ export function Preview({ content }: PreviewProps) {
     <div className="h-full flex flex-col bg-zinc-900">
       <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
         <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Preview</span>
-        <button
-          onClick={togglePreviewValues}
-          className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
-            previewValues ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-          title={previewValues ? 'Hide example values' : 'Show example values'}
-        >
-          {previewValues ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleSyncScroll}
+            className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
+              syncScroll ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+            title={syncScroll ? 'Disable scroll sync' : 'Enable scroll sync'}
+          >
+            {syncScroll ? <Link className="w-4 h-4" /> : <Unlink className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={togglePreviewValues}
+            className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
+              previewValues ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+            title={previewValues ? 'Hide example values' : 'Show example values'}
+          >
+            {previewValues ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
-      <div className="flex-1 overflow-auto p-4">
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto p-4">
         <div className="prose prose-invert max-w-none">
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}

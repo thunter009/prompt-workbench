@@ -42,10 +42,12 @@ export default function HomePage() {
   const [mounted, setMounted] = useState(false)
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const [pendingExport, setPendingExport] = useState<Snippet[] | null>(null)
+  const [scrollProgress, setScrollProgress] = useState(0)
 
   const previewVisible = useSnippetStore((s) => s.previewVisible)
   const togglePreview = useSnippetStore((s) => s.togglePreview)
   const setPreviewVisible = useSnippetStore((s) => s.setPreviewVisible)
+  const syncScroll = useSnippetStore((s) => s.syncScroll)
   const exportSettings = useSnippetStore((s) => s.exportSettings)
   const setExportSettings = useSnippetStore((s) => s.setExportSettings)
   const markExported = useSnippetStore((s) => s.markExported)
@@ -194,6 +196,12 @@ export default function HomePage() {
   const handleResize = useCallback((percent: number) => {
     setLeftPercent(percent)
   }, [])
+
+  const handleEditorScroll = useCallback((progress: number) => {
+    if (syncScroll) {
+      setScrollProgress(progress)
+    }
+  }, [syncScroll])
 
   const doExport = useCallback(async (toExport: Snippet[], quick = false) => {
     try {
@@ -393,7 +401,7 @@ export default function HomePage() {
             style={{ width: previewVisible ? `${leftPercent}%` : '100%' }}
             className="flex-1 overflow-auto transition-[width] duration-200 ease-out"
           >
-            <Editor initialValue={content} onChange={setContent} />
+            <Editor initialValue={content} onChange={setContent} onScrollProgress={handleEditorScroll} />
           </div>
           {previewVisible && (
             <>
@@ -402,7 +410,7 @@ export default function HomePage() {
                 style={{ width: `${100 - leftPercent}%` }}
                 className="overflow-auto transition-[width] duration-200 ease-out"
               >
-                <Preview content={content} />
+                <Preview content={content} scrollProgress={syncScroll ? scrollProgress : undefined} />
               </div>
             </>
           )}
