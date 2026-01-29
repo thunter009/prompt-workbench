@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
+import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
 import { Editor } from '@/components/editor/Editor'
 import { Preview } from '@/components/preview/Preview'
 import { ResizableDivider } from '@/components/ResizableDivider'
@@ -40,6 +41,23 @@ export default function HomePage() {
   const markExported = useSnippetStore((s) => s.markExported)
 
   const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // File watcher for Raycast sync
+  const handleFileChanges = useCallback((events: FileChangeEvent[]) => {
+    toast(`${events.length} file${events.length > 1 ? 's' : ''} changed`, {
+      description: 'Raycast snippets updated',
+      duration: 5000,
+      action: {
+        label: 'View Changes',
+        onClick: () => {
+          // TODO: Show changes panel
+          console.log('View changes:', events)
+        },
+      },
+    })
+  }, [])
+
+  useFileWatcher({ onChanges: handleFileChanges })
 
   // Load from localStorage on mount
   useEffect(() => {

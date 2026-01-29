@@ -15,7 +15,13 @@ export interface EditorProps {
 export function Editor({ initialValue = '', onChange }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
+  const onChangeRef = useRef(onChange)
+  const initialValueRef = useRef(initialValue)
   const [mounted, setMounted] = useState(false)
+
+  // Keep refs in sync
+  onChangeRef.current = onChange
+  initialValueRef.current = initialValue
 
   useEffect(() => {
     setMounted(true)
@@ -25,8 +31,8 @@ export function Editor({ initialValue = '', onChange }: EditorProps) {
     if (!mounted || !containerRef.current) return
 
     const updateListener = EditorView.updateListener.of((update) => {
-      if (update.docChanged && onChange) {
-        onChange(update.state.doc.toString())
+      if (update.docChanged && onChangeRef.current) {
+        onChangeRef.current(update.state.doc.toString())
       }
     })
 
@@ -67,7 +73,7 @@ export function Editor({ initialValue = '', onChange }: EditorProps) {
     })
 
     const state = EditorState.create({
-      doc: initialValue,
+      doc: initialValueRef.current,
       extensions: [
         lineNumbers(),
         highlightActiveLine(),
@@ -94,7 +100,7 @@ export function Editor({ initialValue = '', onChange }: EditorProps) {
       view.destroy()
       viewRef.current = null
     }
-  }, [mounted, initialValue, onChange])
+  }, [mounted])
 
   if (!mounted) {
     return (
