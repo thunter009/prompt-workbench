@@ -8,5 +8,15 @@ export {
   type FileChangeCallback,
 } from './file-watcher'
 
+export {
+  IntervalSyncScheduler,
+  getIntervalScheduler,
+  resetIntervalScheduler,
+  SYNC_INTERVALS,
+  DEFAULT_INTERVAL,
+  type SyncInterval,
+  type SyncCallback,
+} from './interval-sync'
+
 // Note: For client-side, import conflict-detection directly:
 // import { detectConflicts } from '@/lib/sync/conflict-detection'

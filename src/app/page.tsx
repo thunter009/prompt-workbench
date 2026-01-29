@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
+import { useIntervalSync } from '@/hooks/useIntervalSync'
 import { Editor } from '@/components/editor/Editor'
 import { Preview } from '@/components/preview/Preview'
 import { ResizableDivider } from '@/components/ResizableDivider'
@@ -11,6 +12,7 @@ import { ValidationDialog } from '@/components/ValidationDialog'
 import { ConflictPanel } from '@/components/ConflictPanel'
 import { useSnippetStore } from '@/lib/store'
 import { useConflictStore } from '@/lib/conflict-store'
+import { useSyncSettingsStore, SYNC_INTERVALS, type SyncInterval } from '@/lib/sync-settings-store'
 import { detectConflicts } from '@/lib/sync/conflict-detection'
 import {
   exportSnippets,
@@ -21,7 +23,7 @@ import {
   clearDefaultExportPath
 } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
-import { PanelRight, PanelRightClose, Download, Settings, Zap, AlertTriangle } from 'lucide-react'
+import { PanelRight, PanelRightClose, Download, Settings, Zap, AlertTriangle, RefreshCw } from 'lucide-react'
 import type { Snippet } from '@/types'
 
 const STORAGE_KEY = 'prompt-workbench-content'
@@ -51,6 +53,18 @@ export default function HomePage() {
 
   const snippets = useSnippetStore((s) => s.snippets)
   const selectSnippet = useSnippetStore((s) => s.selectSnippet)
+
+  // Sync settings
+  const fileWatcherEnabled = useSyncSettingsStore((s) => s.fileWatcherEnabled)
+  const setFileWatcherEnabled = useSyncSettingsStore((s) => s.setFileWatcherEnabled)
+  const {
+    enabled: intervalEnabled,
+    interval: syncInterval,
+    lastSyncTime,
+    setEnabled: setIntervalEnabled,
+    setInterval: setSyncInterval,
+    triggerSync,
+  } = useIntervalSync()
 
   // File watcher for Raycast sync
   const handleFileChanges = useCallback(async (events: FileChangeEvent[]) => {
@@ -95,7 +109,7 @@ export default function HomePage() {
     }
   }, [snippets, addConflicts, openConflictPanel])
 
-  useFileWatcher({ onChanges: handleFileChanges })
+  useFileWatcher({ onChanges: handleFileChanges, enabled: fileWatcherEnabled })
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -358,9 +372,10 @@ export default function HomePage() {
 
       {settingsOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSettingsOpen(false)}>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 w-96 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 w-[420px] shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-medium mb-4">Settings</h2>
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Export settings */}
               <div>
                 <label className="block text-sm text-zinc-400 mb-2">Default Export Path</label>
                 <div className="flex items-center gap-2">
@@ -385,6 +400,85 @@ export default function HomePage() {
                 <p className="text-xs text-zinc-500 mt-2">
                   Quick export (⌘⇧E) saves directly to this folder
                 </p>
+              </div>
+
+              {/* Sync settings */}
+              <div className="border-t border-zinc-800 pt-4">
+                <h3 className="text-sm font-medium mb-3">Raycast Sync</h3>
+
+                {/* File watcher toggle */}
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <label className="text-sm text-zinc-300">File Watcher</label>
+                    <p className="text-xs text-zinc-500">Real-time sync on file changes</p>
+                  </div>
+                  <button
+                    onClick={() => setFileWatcherEnabled(!fileWatcherEnabled)}
+                    className={`w-10 h-6 rounded-full transition-colors ${
+                      fileWatcherEnabled ? 'bg-blue-600' : 'bg-zinc-700'
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 bg-white rounded-full transition-transform mx-1 ${
+                        fileWatcherEnabled ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Interval sync toggle + dropdown */}
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <label className="text-sm text-zinc-300">Interval Sync</label>
+                    <p className="text-xs text-zinc-500">Scheduled backup sync</p>
+                  </div>
+                  <button
+                    onClick={() => setIntervalEnabled(!intervalEnabled)}
+                    className={`w-10 h-6 rounded-full transition-colors ${
+                      intervalEnabled ? 'bg-blue-600' : 'bg-zinc-700'
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 bg-white rounded-full transition-transform mx-1 ${
+                        intervalEnabled ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Interval frequency */}
+                {intervalEnabled && (
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-sm text-zinc-400">Frequency</label>
+                    <select
+                      value={syncInterval}
+                      onChange={(e) => setSyncInterval(e.target.value as SyncInterval)}
+                      className="bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm text-zinc-300"
+                    >
+                      {SYNC_INTERVALS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Last sync + manual sync */}
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-800 mt-3">
+                  <div className="text-xs text-zinc-500">
+                    {lastSyncTime
+                      ? `Last sync: ${new Date(lastSyncTime).toLocaleTimeString()}`
+                      : 'Not synced yet'}
+                  </div>
+                  <button
+                    onClick={triggerSync}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 rounded text-sm font-medium transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Sync Now
+                  </button>
+                </div>
               </div>
             </div>
             <div className="mt-6 flex justify-end">
