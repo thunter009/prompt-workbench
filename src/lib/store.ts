@@ -24,6 +24,7 @@ interface SnippetStore {
   previewVisible: boolean
   exportFilter: ExportFilter
   exportSettings: ExportSettings
+  recentSnippetIds: string[]
 
   // Snippet actions
   selectSnippet: (id: string | null) => void
@@ -61,6 +62,9 @@ interface SnippetStore {
   isDescendantOf: (folderId: string, potentialAncestorId: string) => boolean
   reorderFolderSiblings: (folderId: string, targetIndex: number) => { folderId: string; previousOrderIndex: number }[]
 
+  // Recent snippets
+  getRecentSnippets: (limit?: number) => Snippet[]
+
   // Computed
   getSelectedSnippet: () => Snippet | undefined
   getFilteredSnippets: () => Snippet[]
@@ -78,9 +82,15 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   previewVisible: true,
   exportFilter: 'all' as ExportFilter,
   exportSettings: { defaultPath: null, hasDirectoryHandle: false },
+  recentSnippetIds: [],
 
   // Snippet actions
-  selectSnippet: (id) => set({ selectedId: id, selectedIds: id ? new Set([id]) : new Set() }),
+  selectSnippet: (id) => set((state) => {
+    if (!id) return { selectedId: null, selectedIds: new Set() }
+    // Track recent: add to front, dedupe, limit to 10
+    const recent = [id, ...state.recentSnippetIds.filter((rid) => rid !== id)].slice(0, 10)
+    return { selectedId: id, selectedIds: new Set([id]), recentSnippetIds: recent }
+  }),
 
   toggleSelectSnippet: (id, shiftKey = false) => {
     const { selectedIds, snippets, selectedId } = get()
@@ -344,6 +354,15 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     }))
 
     return previousOrders
+  },
+
+  // Recent snippets
+  getRecentSnippets: (limit = 5) => {
+    const { snippets, recentSnippetIds } = get()
+    return recentSnippetIds
+      .slice(0, limit)
+      .map((id) => snippets.find((s) => s.id === id))
+      .filter((s): s is Snippet => !!s)
   },
 
   // Computed

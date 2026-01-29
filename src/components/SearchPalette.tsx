@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Command } from 'cmdk'
-import { Search, FileText, Tag, Hash } from 'lucide-react'
+import { Search, FileText, Tag, Hash, Clock } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
 import { useFuzzySearch, highlightMatches, type SearchResult } from '@/hooks/useFuzzySearch'
+import type { Snippet } from '@/types'
 
 interface SearchPaletteProps {
   open: boolean
@@ -54,9 +55,15 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
   const [selectedIndex, setSelectedIndex] = useState(0)
   const snippets = useSnippetStore((s) => s.snippets)
   const selectSnippet = useSnippetStore((s) => s.selectSnippet)
+  const getRecentSnippets = useSnippetStore((s) => s.getRecentSnippets)
   const listRef = useRef<HTMLDivElement>(null)
 
   const results = useFuzzySearch(snippets, search)
+  const recentSnippets = getRecentSnippets(5)
+
+  // Determine which items to navigate: search results or recent snippets
+  const isShowingRecent = search.trim() === '' && recentSnippets.length > 0
+  const activeItemCount = isShowingRecent ? recentSnippets.length : results.length
 
   // Reset search and selection on close
   useEffect(() => {
@@ -66,19 +73,19 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
     }
   }, [open])
 
-  // Reset selection to first when results change
+  // Reset selection to first when results or recent change
   useEffect(() => {
     setSelectedIndex(0)
-  }, [results])
+  }, [results, isShowingRecent])
 
   // Scroll selected item into view
   useEffect(() => {
     const list = listRef.current
-    if (!list || results.length === 0) return
+    if (!list || activeItemCount === 0) return
     const items = list.querySelectorAll('[data-search-item]')
     const selectedItem = items[selectedIndex] as HTMLElement | undefined
     selectedItem?.scrollIntoView({ block: 'nearest' })
-  }, [selectedIndex, results.length])
+  }, [selectedIndex, activeItemCount])
 
   const handleSelect = useCallback(
     (snippetId: string) => {
@@ -97,34 +104,37 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
         return
       }
 
-      if (results.length === 0) return
+      if (activeItemCount === 0) return
 
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault()
-          setSelectedIndex((i) => (i + 1) % results.length)
+          setSelectedIndex((i) => (i + 1) % activeItemCount)
           break
         case 'ArrowUp':
           e.preventDefault()
-          setSelectedIndex((i) => (i - 1 + results.length) % results.length)
+          setSelectedIndex((i) => (i - 1 + activeItemCount) % activeItemCount)
           break
         case 'Tab':
           e.preventDefault()
           if (e.shiftKey) {
-            setSelectedIndex((i) => (i - 1 + results.length) % results.length)
+            setSelectedIndex((i) => (i - 1 + activeItemCount) % activeItemCount)
           } else {
-            setSelectedIndex((i) => (i + 1) % results.length)
+            setSelectedIndex((i) => (i + 1) % activeItemCount)
           }
           break
         case 'Enter':
           e.preventDefault()
-          if (results[selectedIndex]) {
+          if (isShowingRecent) {
+            const snippet = recentSnippets[selectedIndex]
+            if (snippet) handleSelect(snippet.id)
+          } else if (results[selectedIndex]) {
             handleSelect(results[selectedIndex].snippet.id)
           }
           break
       }
     },
-    [results, selectedIndex, onOpenChange, handleSelect]
+    [activeItemCount, isShowingRecent, recentSnippets, results, selectedIndex, onOpenChange, handleSelect]
   )
 
   if (!open) return null
@@ -164,9 +174,23 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
         {/* Results */}
         <Command.List ref={listRef} className="max-h-80 overflow-y-auto p-2">
           {search.trim() === '' ? (
-            <div className="py-8 text-center text-sm text-zinc-500">
-              Type to search snippets by name, content, keyword, or tags
-            </div>
+            recentSnippets.length > 0 ? (
+              <Command.Group heading="Recent" className="text-xs font-medium text-zinc-500 px-2 py-1.5">
+                {recentSnippets.map((snippet, index) => (
+                  <RecentSnippetItem
+                    key={snippet.id}
+                    snippet={snippet}
+                    selected={index === selectedIndex}
+                    onSelect={() => handleSelect(snippet.id)}
+                    onMouseEnter={() => setSelectedIndex(index)}
+                  />
+                ))}
+              </Command.Group>
+            ) : (
+              <div className="py-8 text-center text-sm text-zinc-500">
+                Type to search snippets by name, content, keyword, or tags
+              </div>
+            )
           ) : results.length === 0 ? (
             <Command.Empty className="py-8 text-center text-sm text-zinc-500">
               No snippets found for &quot;{search}&quot;
@@ -291,6 +315,41 @@ function SearchResultItem({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// Recent snippet item (simpler than search result - no highlights)
+function RecentSnippetItem({
+  snippet,
+  selected,
+  onSelect,
+  onMouseEnter,
+}: {
+  snippet: Snippet
+  selected: boolean
+  onSelect: () => void
+  onMouseEnter: () => void
+}) {
+  return (
+    <div
+      data-search-item
+      onClick={onSelect}
+      onMouseEnter={onMouseEnter}
+      className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-zinc-300 ${
+        selected ? 'bg-zinc-800 text-zinc-100' : ''
+      }`}
+    >
+      <div className="flex items-center gap-2.5">
+        <Clock className="w-4 h-4 text-zinc-500 shrink-0" />
+        <span className="flex-1 text-sm font-medium truncate">{snippet.name}</span>
+        {snippet.keyword && (
+          <span className="flex items-center gap-1 text-xs text-zinc-500">
+            <Hash className="w-3 h-3" />
+            {snippet.keyword}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
