@@ -13,6 +13,8 @@ import { ConflictPanel } from '@/components/ConflictPanel'
 import { useSnippetStore } from '@/lib/store'
 import { useConflictStore } from '@/lib/conflict-store'
 import { useSyncSettingsStore, SYNC_INTERVALS, type SyncInterval } from '@/lib/sync-settings-store'
+import { useSyncHistoryStore } from '@/lib/sync-history-store'
+import { SyncHistory } from '@/components/SyncHistory'
 import { detectConflicts } from '@/lib/sync/conflict-detection'
 import {
   exportSnippets,
@@ -54,6 +56,10 @@ export default function HomePage() {
   const snippets = useSnippetStore((s) => s.snippets)
   const selectSnippet = useSnippetStore((s) => s.selectSnippet)
 
+  // Sync history
+  const addSyncEvent = useSyncHistoryStore((s) => s.addEvent)
+  const loadSyncHistory = useSyncHistoryStore((s) => s.load)
+
   // Sync settings
   const fileWatcherEnabled = useSyncSettingsStore((s) => s.fileWatcherEnabled)
   const setFileWatcherEnabled = useSyncSettingsStore((s) => s.setFileWatcherEnabled)
@@ -89,8 +95,20 @@ export default function HomePage() {
       // Detect conflicts with current local snippets
       const conflicts = detectConflicts(events, fileContents, snippets)
 
+      // Log file change event
+      addSyncEvent('pull', 'file_change', events.length, {
+        filePath: events[0]?.path,
+      })
+
       if (conflicts.length > 0) {
         addConflicts(conflicts)
+
+        // Log conflict detection
+        addSyncEvent('conflict', 'conflict_detected', conflicts.length, {
+          conflictCount: conflicts.length,
+          snippetNames: conflicts.map((c) => c.remoteSnippet?.name || c.localSnippet?.name || 'Unknown').filter(Boolean),
+        })
+
         toast.warning(`${conflicts.length} conflict${conflicts.length > 1 ? 's' : ''} detected`, {
           description: 'Raycast snippets differ from local',
           action: {
@@ -107,7 +125,7 @@ export default function HomePage() {
     } catch {
       toast.error('Failed to check for conflicts')
     }
-  }, [snippets, addConflicts, openConflictPanel])
+  }, [snippets, addConflicts, openConflictPanel, addSyncEvent])
 
   useFileWatcher({ onChanges: handleFileChanges, enabled: fileWatcherEnabled })
 
@@ -135,8 +153,11 @@ export default function HomePage() {
       })
     }
 
+    // Load sync history
+    loadSyncHistory()
+
     setMounted(true)
-  }, [setPreviewVisible, setExportSettings])
+  }, [setPreviewVisible, setExportSettings, loadSyncHistory])
 
   // Persist content to localStorage
   useEffect(() => {
@@ -169,6 +190,13 @@ export default function HomePage() {
         ? await quickExportSnippets(toExport)
         : await exportSnippets(toExport)
       markExported(toExport.map((s) => s.id))
+
+      // Log export to history
+      addSyncEvent('push', 'export', toExport.length, {
+        snippetNames: toExport.map((s) => s.name),
+        filePath: filename,
+      })
+
       toast.success(`Exported ${toExport.length} snippet${toExport.length > 1 ? 's' : ''} to ${filename}`)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
@@ -178,7 +206,7 @@ export default function HomePage() {
       }
       toast.error('Export failed')
     }
-  }, [markExported])
+  }, [markExported, addSyncEvent])
 
   const handleExport = useCallback(() => {
     // Use store snippets if available, otherwise create one from current editor content
@@ -478,6 +506,11 @@ export default function HomePage() {
                     <RefreshCw className="w-3.5 h-3.5" />
                     Sync Now
                   </button>
+                </div>
+
+                {/* Sync History */}
+                <div className="pt-4 border-t border-zinc-800 mt-4">
+                  <SyncHistory />
                 </div>
               </div>
             </div>

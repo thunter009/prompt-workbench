@@ -60,3 +60,30 @@ export interface MergeData {
   text: string
   keyword?: string
 }
+
+// Sync history types
+export type SyncDirection = 'push' | 'pull' | 'conflict'
+
+export type SyncEventType =
+  | 'export'           // push to Raycast
+  | 'import'           // pull from Raycast
+  | 'conflict_detected'
+  | 'conflict_resolved'
+  | 'file_change'      // Raycast file changed
+  | 'interval_sync'    // scheduled sync ran
+
+export interface SyncEvent {
+  id: string
+  timestamp: number
+  direction: SyncDirection
+  type: SyncEventType
+  count: number                    // number of snippets affected
+  details?: SyncEventDetails
+}
+
+export interface SyncEventDetails {
+  snippetNames?: string[]          // names of affected snippets
+  filePath?: string                // for file changes
+  resolution?: ConflictResolution  // for conflict_resolved
+  conflictCount?: number           // for conflict_detected
+}

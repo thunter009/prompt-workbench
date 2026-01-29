@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react'
 import { X, AlertTriangle, Check, RefreshCw, Copy, GitMerge } from 'lucide-react'
 import { useConflictStore } from '@/lib/conflict-store'
 import { useSnippetStore } from '@/lib/store'
+import { useSyncHistoryStore } from '@/lib/sync-history-store'
 import { getConflictLabel } from '@/lib/sync/conflict-detection'
 import type { SnippetConflict, ConflictResolution, MergeData } from '@/types'
 
@@ -217,6 +218,7 @@ export function ConflictPanel() {
 
   const updateSnippet = useSnippetStore((s) => s.updateSnippet)
   const createSnippet = useSnippetStore((s) => s.createSnippet)
+  const addSyncEvent = useSyncHistoryStore((s) => s.addEvent)
 
   // Count applicable conflicts for each resolution type
   const conflictsWithLocal = conflicts.filter((c) => c.localSnippet)
@@ -286,9 +288,16 @@ export function ConflictPanel() {
           break
       }
 
+      // Log conflict resolution to history
+      const snippetName = localSnippet?.name || remoteSnippet?.name || 'Unknown'
+      addSyncEvent('conflict', 'conflict_resolved', 1, {
+        snippetNames: [snippetName],
+        resolution,
+      })
+
       removeConflict(conflictId)
     },
-    [conflicts, updateSnippet, createSnippet, removeConflict]
+    [conflicts, updateSnippet, createSnippet, removeConflict, addSyncEvent]
   )
 
   const handleResolveAll = useCallback(
