@@ -4,8 +4,10 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
+import { Eye, EyeOff } from 'lucide-react'
 import { remarkRaycastPlaceholders } from '@/lib/remark-raycast-placeholders'
 import { PlaceholderPill } from './PlaceholderPill'
+import { useSnippetStore } from '@/lib/store'
 import type { ParsedPlaceholder } from '@/lib/raycast/placeholder-parser'
 
 export interface PreviewProps {
@@ -17,6 +19,8 @@ const DEBOUNCE_MS = 100
 export function Preview({ content }: PreviewProps) {
   const [debouncedContent, setDebouncedContent] = useState(content)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const previewValues = useSnippetStore((s) => s.previewValues)
+  const togglePreviewValues = useSnippetStore((s) => s.togglePreviewValues)
 
   // Debounce content updates
   useEffect(() => {
@@ -172,22 +176,50 @@ export function Preview({ content }: PreviewProps) {
 
   if (!debouncedContent) {
     return (
-      <div className="h-full overflow-auto bg-zinc-900 p-4 flex items-center justify-center">
-        <span className="text-zinc-500 text-sm">Start typing to see preview...</span>
+      <div className="h-full flex flex-col bg-zinc-900">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
+          <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Preview</span>
+          <button
+            onClick={togglePreviewValues}
+            className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
+              previewValues ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+            title={previewValues ? 'Hide example values' : 'Show example values'}
+          >
+            {previewValues ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <span className="text-zinc-500 text-sm">Start typing to see preview...</span>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="h-full overflow-auto bg-zinc-900 p-4">
-      <div className="prose prose-invert max-w-none">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
-          rehypePlugins={[rehypeRaw]}
-          components={components}
+    <div className="h-full flex flex-col bg-zinc-900">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
+        <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Preview</span>
+        <button
+          onClick={togglePreviewValues}
+          className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
+            previewValues ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+          title={previewValues ? 'Hide example values' : 'Show example values'}
         >
-          {debouncedContent}
-        </ReactMarkdown>
+          {previewValues ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+        </button>
+      </div>
+      <div className="flex-1 overflow-auto p-4">
+        <div className="prose prose-invert max-w-none">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
+            rehypePlugins={[rehypeRaw]}
+            components={components}
+          >
+            {debouncedContent}
+          </ReactMarkdown>
+        </div>
       </div>
     </div>
   )

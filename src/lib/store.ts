@@ -47,6 +47,7 @@ interface SnippetStore {
   searchQuery: string
   editorDirty: boolean
   previewVisible: boolean
+  previewValues: boolean
   exportFilter: ExportFilter
   exportSettings: ExportSettings
   recentSnippetIds: string[]
@@ -69,6 +70,8 @@ interface SnippetStore {
   // UI actions
   togglePreview: () => void
   setPreviewVisible: (visible: boolean) => void
+  togglePreviewValues: () => void
+  setPreviewValues: (enabled: boolean) => void
 
   // Export settings actions
   setExportSettings: (settings: Partial<ExportSettings>) => void
@@ -110,6 +113,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   searchQuery: '',
   editorDirty: false,
   previewVisible: true,
+  previewValues: false,
   exportFilter: 'all' as ExportFilter,
   exportSettings: { defaultPath: null, hasDirectoryHandle: false },
   recentSnippetIds: [],
@@ -233,6 +237,8 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   // UI actions
   togglePreview: () => set((state) => ({ previewVisible: !state.previewVisible })),
   setPreviewVisible: (visible) => set({ previewVisible: visible }),
+  togglePreviewValues: () => set((state) => ({ previewValues: !state.previewValues })),
+  setPreviewValues: (enabled) => set({ previewValues: enabled }),
 
   // Export settings actions
   setExportSettings: (settings) => set((state) => ({

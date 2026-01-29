@@ -6,7 +6,9 @@ import {
   PlaceholderType,
   getPlaceholderLabel,
   getPlaceholderDescription,
+  getPlaceholderPreviewValue,
 } from '@/lib/raycast/placeholder-parser'
+import { useSnippetStore } from '@/lib/store'
 
 export interface PlaceholderPillProps {
   placeholder: ParsedPlaceholder
@@ -43,8 +45,25 @@ const TYPE_ICONS: Record<PlaceholderType, string> = {
 
 export function PlaceholderPill({ placeholder, className }: PlaceholderPillProps) {
   const { type, snippetRef, argumentName, modifiers } = placeholder
+  const previewValues = useSnippetStore((s) => s.previewValues)
   const colors = TYPE_COLORS[type]
   const icon = TYPE_ICONS[type]
+
+  // If preview values mode is on, show the example value inline
+  if (previewValues) {
+    const previewValue = getPlaceholderPreviewValue(placeholder)
+    return (
+      <span
+        className={cn(
+          'inline px-0.5 rounded text-zinc-200 bg-zinc-800/50',
+          className
+        )}
+        title={`${placeholder.raw} → ${previewValue}`}
+      >
+        {previewValue}
+      </span>
+    )
+  }
 
   // Display label: type name, or specific name for snippets/arguments
   let displayLabel = getPlaceholderLabel(type)
