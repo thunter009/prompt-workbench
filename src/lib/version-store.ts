@@ -15,6 +15,7 @@ interface VersionStore {
   load: () => void
   saveVersion: (snippetId: string, text: string) => SnippetVersion | null
   getVersionsForSnippet: (snippetId: string) => SnippetVersion[]
+  getVersion: (id: string) => SnippetVersion | undefined
   deleteVersion: (id: string) => void
   pruneVersions: (snippetId: string) => void
   clearVersionsForSnippet: (snippetId: string) => void
@@ -74,6 +75,10 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
     return get()
       .versions.filter((v) => v.snippetId === snippetId)
       .sort((a, b) => b.createdAt - a.createdAt)
+  },
+
+  getVersion: (id) => {
+    return get().versions.find((v) => v.id === id)
   },
 
   deleteVersion: (id) => {

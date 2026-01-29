@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { History, X, Clock, GitCompare, Eye } from 'lucide-react'
+import { History, X, Clock, GitCompare, Eye, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useVersionStore } from '@/lib/version-store'
 import { useSnippetStore } from '@/lib/store'
@@ -81,11 +82,13 @@ interface VersionHistorySidebarProps {
 export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySidebarProps) {
   const selectedId = useSnippetStore((s) => s.selectedId)
   const selectedSnippet = useSnippetStore((s) => s.getSelectedSnippet())
+  const updateSnippet = useSnippetStore((s) => s.updateSnippet)
   const getVersionsForSnippet = useVersionStore((s) => s.getVersionsForSnippet)
 
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
   const [compareVersionId, setCompareVersionId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('preview')
+  const [restoreConfirmVersion, setRestoreConfirmVersion] = useState<SnippetVersion | null>(null)
 
   const versions = useMemo(
     () => (selectedId ? getVersionsForSnippet(selectedId) : []),
@@ -133,10 +136,28 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
     setViewMode('preview')
   }, [])
 
+  const handleRestoreClick = useCallback((version: SnippetVersion, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setRestoreConfirmVersion(version)
+  }, [])
+
+  const handleRestoreConfirm = useCallback(() => {
+    if (!restoreConfirmVersion || !selectedId) return
+    // Update snippet text - this will auto-save a new version via the debounced save
+    updateSnippet(selectedId, { text: restoreConfirmVersion.text })
+    toast.success('Version restored')
+    setRestoreConfirmVersion(null)
+    setSelectedVersionId(null)
+  }, [restoreConfirmVersion, selectedId, updateSnippet])
+
+  const handleRestoreCancel = useCallback(() => {
+    setRestoreConfirmVersion(null)
+  }, [])
+
   if (!open) return null
 
   return (
-    <div className="w-80 border-l border-zinc-800 flex flex-col bg-zinc-900/50 h-full">
+    <div className="w-80 border-l border-zinc-800 flex flex-col bg-zinc-900/50 h-full relative">
       {/* Header */}
       <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -205,6 +226,13 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                         {isCompare && <span className="text-[10px] text-purple-400">(comparing)</span>}
                       </span>
                       <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => handleRestoreClick(version, e)}
+                          className="p-0.5 rounded transition-colors text-zinc-500 hover:text-green-400 opacity-0 group-hover:opacity-100"
+                          title="Restore this version"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                        </button>
                         {selectedVersionId && !isSelected && (
                           <button
                             onClick={(e) => handleCompareClick(version, e)}
@@ -277,6 +305,13 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                     </button>
                   )}
                   <button
+                    onClick={(e) => handleRestoreClick(selectedVersion, e)}
+                    className="flex items-center gap-1 text-xs text-green-400 hover:text-green-300"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Restore
+                  </button>
+                  <button
                     onClick={() => {
                       setSelectedVersionId(null)
                       setCompareVersionId(null)
@@ -318,6 +353,38 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Restore confirmation dialog */}
+      {restoreConfirmVersion && (
+        <div className="absolute inset-0 bg-zinc-900/95 flex flex-col z-10">
+          <div className="p-3 border-b border-zinc-800">
+            <h3 className="text-sm font-medium text-zinc-200">Restore version?</h3>
+            <p className="text-xs text-zinc-500 mt-1">
+              From {formatRelativeTime(restoreConfirmVersion.createdAt)}
+            </p>
+          </div>
+          <div className="flex-1 overflow-auto p-3">
+            <pre className="text-xs text-zinc-400 whitespace-pre-wrap font-mono leading-relaxed">
+              {restoreConfirmVersion.text}
+            </pre>
+          </div>
+          <div className="p-3 border-t border-zinc-800 flex gap-2 justify-end">
+            <button
+              onClick={handleRestoreCancel}
+              className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 rounded hover:bg-zinc-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleRestoreConfirm}
+              className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-500 text-white rounded transition-colors flex items-center gap-1"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Restore
+            </button>
+          </div>
         </div>
       )}
     </div>
