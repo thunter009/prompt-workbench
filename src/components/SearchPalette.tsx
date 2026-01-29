@@ -2,15 +2,59 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Command } from 'cmdk'
-import { Search, FileText } from 'lucide-react'
+import { Search, FileText, Tag, Hash } from 'lucide-react'
+import { useSnippetStore } from '@/lib/store'
+import { useFuzzySearch, highlightMatches, type SearchResult } from '@/hooks/useFuzzySearch'
 
 interface SearchPaletteProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSelect?: (snippetId: string) => void
 }
 
-export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
+// Render text with highlighted matches
+function HighlightedText({ text, indices }: { text: string; indices: [number, number][] }) {
+  const parts = highlightMatches(text, indices)
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.highlighted ? (
+          <mark key={i} className="bg-yellow-500/30 text-yellow-200 rounded-sm px-0.5">
+            {part.text}
+          </mark>
+        ) : (
+          <span key={i}>{part.text}</span>
+        )
+      )}
+    </>
+  )
+}
+
+// Truncate content match to show context around the match
+function truncateContentMatch(text: string, indices: [number, number][]): { text: string; indices: [number, number][] } {
+  if (!indices.length || text.length < 100) return { text, indices }
+
+  const firstMatch = indices[0]
+  const start = Math.max(0, firstMatch[0] - 30)
+  const end = Math.min(text.length, firstMatch[1] + 70)
+
+  const truncated = (start > 0 ? '...' : '') + text.slice(start, end) + (end < text.length ? '...' : '')
+  const offset = start > 0 ? start - 3 : 0
+
+  // Adjust indices for the truncation
+  const adjustedIndices = indices
+    .filter(([s, e]) => s >= start && e <= end)
+    .map(([s, e]): [number, number] => [s - offset, e - offset])
+
+  return { text: truncated, indices: adjustedIndices }
+}
+
+export function SearchPalette({ open, onOpenChange, onSelect }: SearchPaletteProps) {
   const [search, setSearch] = useState('')
+  const snippets = useSnippetStore((s) => s.snippets)
+  const selectSnippet = useSnippetStore((s) => s.selectSnippet)
+
+  const results = useFuzzySearch(snippets, search)
 
   // Reset search on close
   useEffect(() => {
@@ -27,6 +71,15 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
       }
     },
     [onOpenChange]
+  )
+
+  const handleSelect = useCallback(
+    (snippetId: string) => {
+      selectSnippet(snippetId)
+      onSelect?.(snippetId)
+      onOpenChange(false)
+    },
+    [selectSnippet, onSelect, onOpenChange]
   )
 
   if (!open) return null
@@ -56,24 +109,34 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
             autoFocus
             className="flex-1 h-12 bg-transparent text-zinc-100 placeholder:text-zinc-500 outline-none text-base"
           />
+          {search && (
+            <span className="text-xs text-zinc-500">
+              {results.length} result{results.length !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
 
         {/* Results */}
         <Command.List className="max-h-80 overflow-y-auto p-2">
-          <Command.Empty className="py-8 text-center text-sm text-zinc-500">
-            No snippets found
-          </Command.Empty>
-
-          {/* Placeholder for future US-2/US-4 - actual results will be added later */}
-          <Command.Group heading="Snippets" className="text-xs font-medium text-zinc-500 px-2 py-1.5">
-            <Command.Item
-              value="placeholder"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-zinc-300 data-[selected=true]:bg-zinc-800 data-[selected=true]:text-zinc-100"
-            >
-              <FileText className="w-4 h-4 text-zinc-500" />
-              <span className="text-sm">Type to search...</span>
-            </Command.Item>
-          </Command.Group>
+          {search.trim() === '' ? (
+            <div className="py-8 text-center text-sm text-zinc-500">
+              Type to search snippets by name, content, keyword, or tags
+            </div>
+          ) : results.length === 0 ? (
+            <Command.Empty className="py-8 text-center text-sm text-zinc-500">
+              No snippets found for &quot;{search}&quot;
+            </Command.Empty>
+          ) : (
+            <Command.Group heading="Snippets" className="text-xs font-medium text-zinc-500 px-2 py-1.5">
+              {results.map((result) => (
+                <SearchResultItem
+                  key={result.snippet.id}
+                  result={result}
+                  onSelect={() => handleSelect(result.snippet.id)}
+                />
+              ))}
+            </Command.Group>
+          )}
         </Command.List>
 
         {/* Footer hint */}
@@ -92,5 +155,82 @@ export function SearchPalette({ open, onOpenChange }: SearchPaletteProps) {
         </div>
       </Command>
     </div>
+  )
+}
+
+// Individual search result item
+function SearchResultItem({ result, onSelect }: { result: SearchResult; onSelect: () => void }) {
+  const { snippet, matches } = result
+
+  // Find name match for highlighting
+  const nameMatch = matches.find((m) => m.key === 'name')
+  const keywordMatch = matches.find((m) => m.key === 'keyword')
+  const tagsMatch = matches.find((m) => m.key?.startsWith('tags'))
+  const contentMatch = matches.find((m) => m.key === 'text')
+
+  return (
+    <Command.Item
+      value={snippet.id}
+      onSelect={onSelect}
+      className="flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-zinc-300 data-[selected=true]:bg-zinc-800 data-[selected=true]:text-zinc-100 group"
+    >
+      {/* Top row: icon + name + keyword */}
+      <div className="flex items-center gap-2.5">
+        <FileText className="w-4 h-4 text-zinc-500 shrink-0" />
+        <span className="flex-1 text-sm font-medium truncate">
+          {nameMatch ? (
+            <HighlightedText text={snippet.name} indices={nameMatch.indices} />
+          ) : (
+            snippet.name
+          )}
+        </span>
+        {snippet.keyword && (
+          <span className="flex items-center gap-1 text-xs text-zinc-500">
+            <Hash className="w-3 h-3" />
+            {keywordMatch ? (
+              <HighlightedText text={snippet.keyword} indices={keywordMatch.indices} />
+            ) : (
+              snippet.keyword
+            )}
+          </span>
+        )}
+      </div>
+
+      {/* Content preview if matched */}
+      {contentMatch && (
+        <div className="ml-6.5 text-xs text-zinc-500 truncate">
+          {(() => {
+            const { text, indices } = truncateContentMatch(contentMatch.value, contentMatch.indices)
+            return <HighlightedText text={text} indices={indices} />
+          })()}
+        </div>
+      )}
+
+      {/* Tags row if matched or present */}
+      {(tagsMatch || snippet.tags.length > 0) && (
+        <div className="ml-6.5 flex items-center gap-1.5 flex-wrap">
+          <Tag className="w-3 h-3 text-zinc-600" />
+          {snippet.tags.slice(0, 4).map((tag, i) => {
+            // Check if this specific tag was matched
+            const tagMatch = matches.find((m) => m.key === `tags.${i}`)
+            return (
+              <span
+                key={i}
+                className="text-xs px-1.5 py-0.5 bg-zinc-800 rounded text-zinc-400"
+              >
+                {tagMatch ? (
+                  <HighlightedText text={tag} indices={tagMatch.indices} />
+                ) : (
+                  tag
+                )}
+              </span>
+            )
+          })}
+          {snippet.tags.length > 4 && (
+            <span className="text-xs text-zinc-600">+{snippet.tags.length - 4}</span>
+          )}
+        </div>
+      )}
+    </Command.Item>
   )
 }
