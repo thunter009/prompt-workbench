@@ -3,6 +3,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
+import { remarkRaycastPlaceholders } from '@/lib/remark-raycast-placeholders'
+import { PlaceholderPill } from './PlaceholderPill'
+import type { ParsedPlaceholder } from '@/lib/raycast/placeholder-parser'
 
 export interface PreviewProps {
   content: string
@@ -154,6 +158,16 @@ export function Preview({ content }: PreviewProps) {
         className="max-w-full h-auto rounded my-2"
       />
     ),
+    // Raycast placeholder pills
+    'raycast-placeholder': ({ raw, parsed }: { raw?: string; parsed?: string }) => {
+      if (!parsed) return <span>{raw}</span>
+      try {
+        const placeholderData = JSON.parse(parsed) as ParsedPlaceholder
+        return <PlaceholderPill placeholder={placeholderData} />
+      } catch {
+        return <span>{raw}</span>
+      }
+    },
   }), [])
 
   if (!debouncedContent) {
@@ -167,7 +181,11 @@ export function Preview({ content }: PreviewProps) {
   return (
     <div className="h-full overflow-auto bg-zinc-900 p-4">
       <div className="prose prose-invert max-w-none">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
+          rehypePlugins={[rehypeRaw]}
+          components={components}
+        >
           {debouncedContent}
         </ReactMarkdown>
       </div>
