@@ -39,3 +39,17 @@ export interface RaycastSnippet {
   text: string
   keyword?: string
 }
+
+// Conflict detection types
+export type ConflictType = 'modified' | 'deleted_local' | 'deleted_remote' | 'new_remote'
+
+export interface SnippetConflict {
+  id: string
+  type: ConflictType
+  localSnippet?: Snippet      // undefined if deleted locally or new remote
+  remoteSnippet?: RaycastSnippet  // undefined if deleted remotely
+  filePath: string
+  detectedAt: number
+}
+
+export type ConflictResolution = 'keep_local' | 'keep_remote' | 'keep_both'

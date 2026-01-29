@@ -8,7 +8,10 @@ import { Preview } from '@/components/preview/Preview'
 import { ResizableDivider } from '@/components/ResizableDivider'
 import { Sidebar } from '@/components/Sidebar'
 import { ValidationDialog } from '@/components/ValidationDialog'
+import { ConflictPanel } from '@/components/ConflictPanel'
 import { useSnippetStore } from '@/lib/store'
+import { useConflictStore } from '@/lib/conflict-store'
+import { detectConflicts } from '@/lib/sync/conflict-detection'
 import {
   exportSnippets,
   quickExportSnippets,
@@ -18,7 +21,7 @@ import {
   clearDefaultExportPath
 } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
-import { PanelRight, PanelRightClose, Download, Settings, Zap } from 'lucide-react'
+import { PanelRight, PanelRightClose, Download, Settings, Zap, AlertTriangle } from 'lucide-react'
 import type { Snippet } from '@/types'
 
 const STORAGE_KEY = 'prompt-workbench-content'
@@ -42,20 +45,55 @@ export default function HomePage() {
 
   const [settingsOpen, setSettingsOpen] = useState(false)
 
+  const addConflicts = useConflictStore((s) => s.addConflicts)
+  const conflictCount = useConflictStore((s) => s.conflicts.length)
+  const openConflictPanel = useConflictStore((s) => s.openPanel)
+
+  const snippets = useSnippetStore((s) => s.snippets)
+  const selectSnippet = useSnippetStore((s) => s.selectSnippet)
+
   // File watcher for Raycast sync
-  const handleFileChanges = useCallback((events: FileChangeEvent[]) => {
-    toast(`${events.length} file${events.length > 1 ? 's' : ''} changed`, {
-      description: 'Raycast snippets updated',
-      duration: 5000,
-      action: {
-        label: 'View Changes',
-        onClick: () => {
-          // TODO: Show changes panel
-          console.log('View changes:', events)
-        },
-      },
-    })
-  }, [])
+  const handleFileChanges = useCallback(async (events: FileChangeEvent[]) => {
+    // Fetch file contents from server
+    const paths = events.filter((e) => e.type !== 'unlink').map((e) => e.path)
+    if (paths.length === 0) return
+
+    try {
+      const res = await fetch('/api/read-files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths }),
+      })
+      if (!res.ok) return
+
+      const { files } = await res.json()
+      const fileContents = new Map<string, string>()
+      for (const [path, content] of Object.entries(files)) {
+        if (content) fileContents.set(path, content as string)
+      }
+
+      // Detect conflicts with current local snippets
+      const conflicts = detectConflicts(events, fileContents, snippets)
+
+      if (conflicts.length > 0) {
+        addConflicts(conflicts)
+        toast.warning(`${conflicts.length} conflict${conflicts.length > 1 ? 's' : ''} detected`, {
+          description: 'Raycast snippets differ from local',
+          action: {
+            label: 'Review',
+            onClick: openConflictPanel,
+          },
+        })
+      } else {
+        toast(`${events.length} file${events.length > 1 ? 's' : ''} changed`, {
+          description: 'No conflicts with local snippets',
+          duration: 3000,
+        })
+      }
+    } catch {
+      toast.error('Failed to check for conflicts')
+    }
+  }, [snippets, addConflicts, openConflictPanel])
 
   useFileWatcher({ onChanges: handleFileChanges })
 
@@ -110,9 +148,6 @@ export default function HomePage() {
   const handleResize = useCallback((percent: number) => {
     setLeftPercent(percent)
   }, [])
-
-  const snippets = useSnippetStore((s) => s.snippets)
-  const selectSnippet = useSnippetStore((s) => s.selectSnippet)
 
   const doExport = useCallback(async (toExport: Snippet[], quick = false) => {
     try {
@@ -239,6 +274,18 @@ export default function HomePage() {
         <header className="border-b border-zinc-800 px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-medium">Prompt Workbench</h1>
           <div className="flex items-center gap-1">
+            {conflictCount > 0 && (
+              <button
+                onClick={openConflictPanel}
+                className="p-2 rounded hover:bg-zinc-800 transition-colors text-amber-400 hover:text-amber-300 relative"
+                title={`${conflictCount} conflict${conflictCount > 1 ? 's' : ''} - click to review`}
+              >
+                <AlertTriangle className="w-5 h-5" />
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 text-[10px] font-medium bg-amber-500 text-black rounded-full flex items-center justify-center">
+                  {conflictCount}
+                </span>
+              </button>
+            )}
             {exportSettings.hasDirectoryHandle && (
               <button
                 onClick={handleQuickExport}
@@ -296,6 +343,8 @@ export default function HomePage() {
           )}
         </div>
       </div>
+
+      <ConflictPanel />
 
       {validationResult && (
         <ValidationDialog
