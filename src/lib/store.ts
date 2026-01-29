@@ -1,8 +1,29 @@
 import { create } from 'zustand'
 import type { Snippet, Folder } from '@/types'
+import { useVersionStore } from './version-store'
 
 function generateId(): string {
   return crypto.randomUUID()
+}
+
+// Debounced version saving per snippet
+const DEBOUNCE_MS = 2000
+const versionSaveTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function scheduleVersionSave(snippetId: string, text: string) {
+  // Clear existing timer for this snippet
+  const existingTimer = versionSaveTimers.get(snippetId)
+  if (existingTimer) {
+    clearTimeout(existingTimer)
+  }
+
+  // Schedule new save
+  const timer = setTimeout(() => {
+    useVersionStore.getState().saveVersion(snippetId, text)
+    versionSaveTimers.delete(snippetId)
+  }, DEBOUNCE_MS)
+
+  versionSaveTimers.set(snippetId, timer)
 }
 
 type ExportFilter = 'all' | 'unexported' | 'modified'
@@ -165,6 +186,14 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   },
 
   updateSnippet: (id, data) => {
+    // Schedule version save if text is changing
+    if (data.text !== undefined) {
+      const currentSnippet = get().snippets.find((s) => s.id === id)
+      if (currentSnippet && currentSnippet.text !== data.text) {
+        scheduleVersionSave(id, data.text)
+      }
+    }
+
     set((state) => ({
       snippets: state.snippets.map((s) =>
         s.id === id

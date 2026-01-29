@@ -15,6 +15,7 @@ import { useSnippetStore } from '@/lib/store'
 import { useConflictStore } from '@/lib/conflict-store'
 import { useSyncSettingsStore, SYNC_INTERVALS, type SyncInterval } from '@/lib/sync-settings-store'
 import { useSyncHistoryStore } from '@/lib/sync-history-store'
+import { useVersionStore } from '@/lib/version-store'
 import { SyncHistory } from '@/components/SyncHistory'
 import { detectConflicts } from '@/lib/sync/conflict-detection'
 import {
@@ -61,6 +62,9 @@ export default function HomePage() {
   // Sync history
   const addSyncEvent = useSyncHistoryStore((s) => s.addEvent)
   const loadSyncHistory = useSyncHistoryStore((s) => s.load)
+
+  // Version history
+  const loadVersionHistory = useVersionStore((s) => s.load)
 
   // Sync settings
   const fileWatcherEnabled = useSyncSettingsStore((s) => s.fileWatcherEnabled)
@@ -158,8 +162,11 @@ export default function HomePage() {
     // Load sync history
     loadSyncHistory()
 
+    // Load version history
+    loadVersionHistory()
+
     setMounted(true)
-  }, [setPreviewVisible, setExportSettings, loadSyncHistory])
+  }, [setPreviewVisible, setExportSettings, loadSyncHistory, loadVersionHistory])
 
   // Persist content to localStorage
   useEffect(() => {
