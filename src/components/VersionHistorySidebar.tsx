@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { History, X, Clock } from 'lucide-react'
+import { useState, useCallback, useMemo } from 'react'
+import { History, X, Clock, GitCompare, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useVersionStore } from '@/lib/version-store'
 import { useSnippetStore } from '@/lib/store'
+import { computeLineDiff, type DiffChange } from '@/lib/diff'
 import type { SnippetVersion } from '@/types'
 
 function formatRelativeTime(timestamp: number): string {
@@ -31,6 +32,47 @@ function truncatePreview(text: string, maxLength: number = 80): string {
   return text.slice(0, maxLength).trim() + '...'
 }
 
+// Inline diff view component
+function InlineDiff({ changes }: { changes: DiffChange[] }) {
+  return (
+    <pre className="text-xs font-mono leading-relaxed whitespace-pre-wrap">
+      {changes.map((change, i) => {
+        if (change.added) {
+          return (
+            <span key={i} className="bg-green-900/50 text-green-300">
+              {change.value}
+            </span>
+          )
+        }
+        if (change.removed) {
+          return (
+            <span key={i} className="bg-red-900/50 text-red-300 line-through">
+              {change.value}
+            </span>
+          )
+        }
+        return (
+          <span key={i} className="text-zinc-400">
+            {change.value}
+          </span>
+        )
+      })}
+    </pre>
+  )
+}
+
+// Diff stats badge
+function DiffStats({ added, removed }: { added: number; removed: number }) {
+  return (
+    <span className="flex items-center gap-1 text-[10px]">
+      {added > 0 && <span className="text-green-400">+{added}</span>}
+      {removed > 0 && <span className="text-red-400">-{removed}</span>}
+    </span>
+  )
+}
+
+type ViewMode = 'preview' | 'diff'
+
 interface VersionHistorySidebarProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -42,20 +84,54 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
   const getVersionsForSnippet = useVersionStore((s) => s.getVersionsForSnippet)
 
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
-  const [previewVersion, setPreviewVersion] = useState<SnippetVersion | null>(null)
+  const [compareVersionId, setCompareVersionId] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('preview')
 
-  const versions = selectedId ? getVersionsForSnippet(selectedId) : []
+  const versions = useMemo(
+    () => (selectedId ? getVersionsForSnippet(selectedId) : []),
+    [selectedId, getVersionsForSnippet]
+  )
+
+  const selectedVersion = useMemo(
+    () => versions.find((v) => v.id === selectedVersionId) ?? null,
+    [versions, selectedVersionId]
+  )
+
+  const compareVersion = useMemo(
+    () => versions.find((v) => v.id === compareVersionId) ?? null,
+    [versions, compareVersionId]
+  )
+
+  // Compute diff when in diff mode
+  const diffResult = useMemo(() => {
+    if (viewMode !== 'diff' || !selectedVersion) return null
+
+    // Compare selected version vs compare version (or current content)
+    return computeLineDiff(selectedVersion.text, compareVersion?.text ?? selectedSnippet?.text ?? '')
+  }, [viewMode, selectedVersion, compareVersion, selectedSnippet])
 
   const handleVersionClick = useCallback((version: SnippetVersion) => {
     setSelectedVersionId(version.id)
-    setPreviewVersion(version)
+    setCompareVersionId(null)
+  }, [])
+
+  const handleCompareClick = useCallback((version: SnippetVersion, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setCompareVersionId(version.id)
+    setViewMode('diff')
   }, [])
 
   const handleClose = useCallback(() => {
     onOpenChange(false)
     setSelectedVersionId(null)
-    setPreviewVersion(null)
+    setCompareVersionId(null)
+    setViewMode('preview')
   }, [onOpenChange])
+
+  const clearComparison = useCallback(() => {
+    setCompareVersionId(null)
+    setViewMode('preview')
+  }, [])
 
   if (!open) return null
 
@@ -93,60 +169,152 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
           {/* Version list */}
           <div className={cn(
             'overflow-y-auto',
-            previewVersion ? 'h-1/2 border-b border-zinc-800' : 'flex-1'
+            selectedVersion ? 'h-1/2 border-b border-zinc-800' : 'flex-1'
           )}>
             <div className="p-2 space-y-1">
-              <p className="text-xs text-zinc-500 px-2 py-1">
-                {versions.length} version{versions.length !== 1 ? 's' : ''} for &quot;{selectedSnippet?.name}&quot;
-              </p>
-              {versions.map((version) => (
-                <button
-                  key={version.id}
-                  onClick={() => handleVersionClick(version)}
-                  className={cn(
-                    'w-full text-left p-2 rounded transition-colors',
-                    selectedVersionId === version.id
-                      ? 'bg-blue-600/30 text-blue-200'
-                      : 'hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-300'
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium">
-                      {formatRelativeTime(version.createdAt)}
-                    </span>
-                    <span className="text-[10px] text-zinc-500">
-                      {version.text.length} chars
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-500 line-clamp-2">
-                    {truncatePreview(version.text)}
+              <div className="flex items-center justify-between px-2 py-1">
+                <p className="text-xs text-zinc-500">
+                  {versions.length} version{versions.length !== 1 ? 's' : ''}
+                </p>
+                {selectedVersionId && (
+                  <p className="text-xs text-zinc-500">
+                    Click <GitCompare className="w-3 h-3 inline" /> to compare
                   </p>
-                </button>
-              ))}
+                )}
+              </div>
+              {versions.map((version) => {
+                const isSelected = selectedVersionId === version.id
+                const isCompare = compareVersionId === version.id
+
+                return (
+                  <button
+                    key={version.id}
+                    onClick={() => handleVersionClick(version)}
+                    className={cn(
+                      'w-full text-left p-2 rounded transition-colors group',
+                      isSelected
+                        ? 'bg-blue-600/30 text-blue-200'
+                        : isCompare
+                        ? 'bg-purple-600/30 text-purple-200'
+                        : 'hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-300'
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium flex items-center gap-1">
+                        {formatRelativeTime(version.createdAt)}
+                        {isCompare && <span className="text-[10px] text-purple-400">(comparing)</span>}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {selectedVersionId && !isSelected && (
+                          <button
+                            onClick={(e) => handleCompareClick(version, e)}
+                            className={cn(
+                              'p-0.5 rounded transition-colors',
+                              isCompare
+                                ? 'text-purple-400'
+                                : 'text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100'
+                            )}
+                            title="Compare with selected"
+                          >
+                            <GitCompare className="w-3 h-3" />
+                          </button>
+                        )}
+                        <span className="text-[10px] text-zinc-500">
+                          {version.text.length} chars
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-zinc-500 line-clamp-2">
+                      {truncatePreview(version.text)}
+                    </p>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
-          {/* Preview panel */}
-          {previewVersion && (
+          {/* Preview/Diff panel */}
+          {selectedVersion && (
             <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Panel header with view mode toggle */}
               <div className="px-3 py-2 border-b border-zinc-800 flex items-center justify-between">
-                <span className="text-xs text-zinc-400">
-                  {formatRelativeTime(previewVersion.createdAt)}
-                </span>
-                <button
-                  onClick={() => {
-                    setPreviewVersion(null)
-                    setSelectedVersionId(null)
-                  }}
-                  className="text-xs text-zinc-500 hover:text-zinc-300"
-                >
-                  Close preview
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setViewMode('preview')}
+                    className={cn(
+                      'p-1 rounded transition-colors',
+                      viewMode === 'preview'
+                        ? 'bg-zinc-700 text-zinc-200'
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    )}
+                    title="Preview"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('diff')}
+                    className={cn(
+                      'p-1 rounded transition-colors',
+                      viewMode === 'diff'
+                        ? 'bg-zinc-700 text-zinc-200'
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    )}
+                    title="Diff view"
+                  >
+                    <GitCompare className="w-3.5 h-3.5" />
+                  </button>
+                  {viewMode === 'diff' && diffResult && (
+                    <DiffStats added={diffResult.addedLines} removed={diffResult.removedLines} />
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {compareVersionId && (
+                    <button
+                      onClick={clearComparison}
+                      className="text-[10px] text-purple-400 hover:text-purple-300"
+                    >
+                      Clear compare
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setSelectedVersionId(null)
+                      setCompareVersionId(null)
+                      setViewMode('preview')
+                    }}
+                    className="text-xs text-zinc-500 hover:text-zinc-300"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
+
+              {/* Comparison info */}
+              {viewMode === 'diff' && (
+                <div className="px-3 py-1.5 bg-zinc-800/50 text-[10px] text-zinc-500 flex items-center justify-between">
+                  <span>
+                    {formatRelativeTime(selectedVersion.createdAt)}
+                  </span>
+                  <span className="text-zinc-600">→</span>
+                  <span>
+                    {compareVersion
+                      ? formatRelativeTime(compareVersion.createdAt)
+                      : 'Current'}
+                  </span>
+                </div>
+              )}
+
+              {/* Content */}
               <div className="flex-1 overflow-auto p-3">
-                <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono leading-relaxed">
-                  {previewVersion.text}
-                </pre>
+                {viewMode === 'preview' ? (
+                  <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono leading-relaxed">
+                    {selectedVersion.text}
+                  </pre>
+                ) : diffResult ? (
+                  <InlineDiff changes={diffResult.changes} />
+                ) : (
+                  <p className="text-xs text-zinc-500">No changes</p>
+                )}
               </div>
             </div>
           )}
