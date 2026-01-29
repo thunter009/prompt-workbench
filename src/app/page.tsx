@@ -11,6 +11,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ConflictPanel } from '@/components/ConflictPanel'
 import { SearchPalette } from '@/components/SearchPalette'
+import { VersionHistorySidebar } from '@/components/VersionHistorySidebar'
 import { useSnippetStore } from '@/lib/store'
 import { useConflictStore } from '@/lib/conflict-store'
 import { useSyncSettingsStore, SYNC_INTERVALS, type SyncInterval } from '@/lib/sync-settings-store'
@@ -27,7 +28,7 @@ import {
   clearDefaultExportPath
 } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
-import { PanelRight, PanelRightClose, Download, Settings, Zap, AlertTriangle, RefreshCw } from 'lucide-react'
+import { PanelRight, PanelRightClose, Download, Settings, Zap, AlertTriangle, RefreshCw, History } from 'lucide-react'
 import type { Snippet } from '@/types'
 
 const STORAGE_KEY = 'prompt-workbench-content'
@@ -51,6 +52,7 @@ export default function HomePage() {
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const addConflicts = useConflictStore((s) => s.addConflicts)
   const conflictCount = useConflictStore((s) => s.conflicts.length)
@@ -359,6 +361,13 @@ export default function HomePage() {
               <Download className="w-5 h-5" />
             </button>
             <button
+              onClick={() => setHistoryOpen((v) => !v)}
+              className={`p-2 rounded hover:bg-zinc-800 transition-colors ${historyOpen ? 'text-blue-400' : 'text-zinc-400 hover:text-zinc-200'}`}
+              title="Version history"
+            >
+              <History className="w-5 h-5" />
+            </button>
+            <button
               onClick={() => setSettingsOpen((v) => !v)}
               className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
               title="Settings (⌘,)"
@@ -397,6 +406,7 @@ export default function HomePage() {
               </div>
             </>
           )}
+          <VersionHistorySidebar open={historyOpen} onOpenChange={setHistoryOpen} />
         </div>
       </div>
 
