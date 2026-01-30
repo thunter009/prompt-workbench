@@ -57,18 +57,15 @@ export function Editor({ value = '', onChange, onScrollProgress }: EditorProps) 
       }
     })
 
-    // Scroll listener extension
-    const scrollListener = EditorView.domEventHandlers({
-      scroll: (event, view) => {
-        if (onScrollProgressRef.current) {
-          const scroller = view.scrollDOM
-          const maxScroll = scroller.scrollHeight - scroller.clientHeight
-          const progress = maxScroll > 0 ? scroller.scrollTop / maxScroll : 0
-          onScrollProgressRef.current(progress)
-        }
-        return false
-      },
-    })
+    // Scroll listener - registered manually with passive: true for better performance
+    const handleScroll = () => {
+      if (onScrollProgressRef.current && viewRef.current) {
+        const scroller = viewRef.current.scrollDOM
+        const maxScroll = scroller.scrollHeight - scroller.clientHeight
+        const progress = maxScroll > 0 ? scroller.scrollTop / maxScroll : 0
+        onScrollProgressRef.current(progress)
+      }
+    }
 
     const theme = EditorView.theme({
       '&': {
@@ -118,7 +115,6 @@ export function Editor({ value = '', onChange, onScrollProgress }: EditorProps) 
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         updateListener,
-        scrollListener,
         theme,
         EditorView.lineWrapping,
       ],
@@ -131,7 +127,11 @@ export function Editor({ value = '', onChange, onScrollProgress }: EditorProps) 
 
     viewRef.current = view
 
+    // Add passive scroll listener for smoother scrolling
+    view.scrollDOM.addEventListener('scroll', handleScroll, { passive: true })
+
     return () => {
+      view.scrollDOM.removeEventListener('scroll', handleScroll)
       view.destroy()
       viewRef.current = null
     }
