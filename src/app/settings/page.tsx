@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { ArrowLeft, RefreshCw } from 'lucide-react'
+import { ArrowLeft, RefreshCw, Loader2, CheckCircle, XCircle } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
 import { useSyncSettingsStore, SYNC_INTERVALS, type SyncInterval } from '@/lib/sync-settings-store'
+import { useAISettingsStore, DEFAULT_OLLAMA_URL } from '@/lib/ai-settings-store'
 import { useIntervalSync } from '@/hooks/useIntervalSync'
 import { SyncHistory } from '@/components/SyncHistory'
 import {
@@ -17,9 +18,18 @@ import {
 
 export default function SettingsPage() {
   const [mounted, setMounted] = useState(false)
+  const [ollamaModels, setOllamaModels] = useState<string[]>([])
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle')
 
   const exportSettings = useSnippetStore((s) => s.exportSettings)
   const setExportSettings = useSnippetStore((s) => s.setExportSettings)
+
+  const ollamaUrl = useAISettingsStore((s) => s.ollamaUrl)
+  const ollamaModel = useAISettingsStore((s) => s.ollamaModel)
+  const setOllamaUrl = useAISettingsStore((s) => s.setOllamaUrl)
+  const setOllamaModel = useAISettingsStore((s) => s.setOllamaModel)
+  const loadAISettings = useAISettingsStore((s) => s.load)
 
   const fileWatcherEnabled = useSyncSettingsStore((s) => s.fileWatcherEnabled)
   const setFileWatcherEnabled = useSyncSettingsStore((s) => s.setFileWatcherEnabled)
@@ -33,6 +43,42 @@ export default function SettingsPage() {
     triggerSync,
   } = useIntervalSync()
 
+  const fetchOllamaModels = useCallback(async (url: string) => {
+    setModelsLoading(true)
+    try {
+      const res = await fetch(`/api/ollama/models?url=${encodeURIComponent(url)}`)
+      const data = await res.json()
+      if (data.models) {
+        setOllamaModels(data.models)
+      } else {
+        setOllamaModels([])
+      }
+    } catch {
+      setOllamaModels([])
+    } finally {
+      setModelsLoading(false)
+    }
+  }, [])
+
+  const testOllamaConnection = useCallback(async () => {
+    setConnectionStatus('testing')
+    try {
+      const res = await fetch(`/api/ollama/test?url=${encodeURIComponent(ollamaUrl)}`)
+      const data = await res.json()
+      if (data.connected) {
+        setConnectionStatus('connected')
+        toast.success('Connected to Ollama')
+        fetchOllamaModels(ollamaUrl)
+      } else {
+        setConnectionStatus('failed')
+        toast.error(data.error || 'Connection failed')
+      }
+    } catch {
+      setConnectionStatus('failed')
+      toast.error('Connection failed')
+    }
+  }, [ollamaUrl, fetchOllamaModels])
+
   useEffect(() => {
     const storedPath = getStoredExportPath()
     if (storedPath) {
@@ -40,8 +86,15 @@ export default function SettingsPage() {
         setExportSettings({ defaultPath: storedPath, hasDirectoryHandle: valid })
       })
     }
+    loadAISettings()
     setMounted(true)
-  }, [setExportSettings])
+  }, [setExportSettings, loadAISettings])
+
+  useEffect(() => {
+    if (mounted && ollamaUrl) {
+      fetchOllamaModels(ollamaUrl)
+    }
+  }, [mounted, ollamaUrl, fetchOllamaModels])
 
   const handlePickExportDir = async () => {
     const name = await pickDefaultExportDirectory()
@@ -178,6 +231,65 @@ export default function SettingsPage() {
                   <RefreshCw className="w-3.5 h-3.5" />
                   Sync Now
                 </button>
+              </div>
+            </section>
+
+            {/* AI Settings */}
+            <section className="border-t border-zinc-800 pt-6">
+              <h2 className="text-sm font-medium text-zinc-300 mb-4">AI Settings</h2>
+
+              {/* Ollama URL */}
+              <div className="mb-4">
+                <label className="text-sm text-zinc-400 block mb-1.5">Ollama URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={ollamaUrl}
+                    onChange={(e) => setOllamaUrl(e.target.value)}
+                    placeholder={DEFAULT_OLLAMA_URL}
+                    className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-300 placeholder:text-zinc-500"
+                  />
+                  <button
+                    onClick={testOllamaConnection}
+                    disabled={connectionStatus === 'testing'}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 rounded text-sm font-medium transition-colors"
+                  >
+                    {connectionStatus === 'testing' ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : connectionStatus === 'connected' ? (
+                      <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                    ) : connectionStatus === 'failed' ? (
+                      <XCircle className="w-3.5 h-3.5 text-red-500" />
+                    ) : null}
+                    Test
+                  </button>
+                </div>
+                <p className="text-xs text-zinc-500 mt-1.5">
+                  Used for auto-generating snippet titles
+                </p>
+              </div>
+
+              {/* Model selection */}
+              <div>
+                <label className="text-sm text-zinc-400 block mb-1.5">Model</label>
+                <select
+                  value={ollamaModel}
+                  onChange={(e) => setOllamaModel(e.target.value)}
+                  disabled={modelsLoading || ollamaModels.length === 0}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-300 disabled:opacity-50"
+                >
+                  {modelsLoading ? (
+                    <option>Loading models...</option>
+                  ) : ollamaModels.length === 0 ? (
+                    <option>No models available</option>
+                  ) : (
+                    ollamaModels.map((model) => (
+                      <option key={model} value={model}>
+                        {model}
+                      </option>
+                    ))
+                  )}
+                </select>
               </div>
             </section>
 
