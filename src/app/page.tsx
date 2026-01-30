@@ -7,7 +7,7 @@ import { useTitleInference } from '@/hooks/useTitleInference'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
 import { EditorDynamic } from '@/components/editor/EditorDynamic'
 import { EditorPanelHeader } from '@/components/editor/EditorPanel'
-import { Preview } from '@/components/preview/Preview'
+import { PreviewDynamic } from '@/components/preview/PreviewDynamic'
 import { ResizableDivider } from '@/components/ResizableDivider'
 import { Sidebar } from '@/components/Sidebar'
 import { ValidationDialog } from '@/components/ValidationDialog'
@@ -484,7 +484,7 @@ export default function HomePage() {
                 style={{ width: `${100 - leftPercent}%` }}
                 className="overflow-auto transition-[width] duration-200 ease-out"
               >
-                <Preview content={content} scrollProgress={syncScroll ? scrollProgress : undefined} />
+                <PreviewDynamic content={content} scrollProgress={syncScroll ? scrollProgress : undefined} />
               </div>
             </>
           )}
