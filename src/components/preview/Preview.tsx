@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -9,6 +9,142 @@ import { remarkRaycastPlaceholders } from '@/lib/remark-raycast-placeholders'
 import { PlaceholderPill } from './PlaceholderPill'
 import { useSnippetStore } from '@/lib/store'
 import type { ParsedPlaceholder } from '@/lib/raycast/placeholder-parser'
+import type { Components } from 'react-markdown'
+
+// Extended components type to include custom raycast-placeholder element
+type ExtendedComponents = Components & {
+  'raycast-placeholder': (props: { raw?: string; parsed?: string }) => React.ReactNode
+}
+
+// Static markdown components hoisted to module level to avoid recreation on each render
+const markdownComponents: ExtendedComponents = {
+  // Headings
+  h1: ({ children }) => (
+    <h1 className="text-2xl font-bold mt-6 mb-4 text-zinc-100 border-b border-zinc-700 pb-2">{children}</h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="text-xl font-semibold mt-5 mb-3 text-zinc-100 border-b border-zinc-800 pb-1">{children}</h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="text-lg font-semibold mt-4 mb-2 text-zinc-100">{children}</h3>
+  ),
+  h4: ({ children }) => (
+    <h4 className="text-base font-semibold mt-3 mb-2 text-zinc-200">{children}</h4>
+  ),
+  h5: ({ children }) => (
+    <h5 className="text-sm font-semibold mt-3 mb-1 text-zinc-200">{children}</h5>
+  ),
+  h6: ({ children }) => (
+    <h6 className="text-sm font-medium mt-2 mb-1 text-zinc-300">{children}</h6>
+  ),
+  // Paragraphs
+  p: ({ children }) => (
+    <p className="my-2 text-zinc-300 leading-relaxed">{children}</p>
+  ),
+  // Lists
+  ul: ({ children }) => (
+    <ul className="my-2 ml-4 list-disc list-outside text-zinc-300 space-y-1">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="my-2 ml-4 list-decimal list-outside text-zinc-300 space-y-1">{children}</ol>
+  ),
+  li: ({ children }) => (
+    <li className="text-zinc-300">{children}</li>
+  ),
+  // Code
+  code: ({ className, children }) => {
+    const isBlock = className?.includes('language-')
+    if (isBlock) {
+      return (
+        <code className="block bg-zinc-950 text-zinc-300 rounded p-3 my-2 overflow-x-auto text-sm font-mono">
+          {children}
+        </code>
+      )
+    }
+    return (
+      <code className="bg-zinc-800 text-violet-400 px-1.5 py-0.5 rounded text-sm font-mono">
+        {children}
+      </code>
+    )
+  },
+  pre: ({ children }) => (
+    <pre className="bg-zinc-950 rounded-lg my-3 overflow-hidden">{children}</pre>
+  ),
+  // Links
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {children}
+    </a>
+  ),
+  // Blockquotes
+  blockquote: ({ children }) => (
+    <blockquote className="border-l-4 border-zinc-600 pl-4 my-3 text-zinc-400 italic">
+      {children}
+    </blockquote>
+  ),
+  // Horizontal rules
+  hr: () => <hr className="my-6 border-zinc-700" />,
+  // Tables (GFM)
+  table: ({ children }) => (
+    <div className="my-4 overflow-x-auto">
+      <table className="min-w-full border border-zinc-700 rounded">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => (
+    <thead className="bg-zinc-800">{children}</thead>
+  ),
+  tbody: ({ children }) => (
+    <tbody className="divide-y divide-zinc-700">{children}</tbody>
+  ),
+  tr: ({ children }) => (
+    <tr className="divide-x divide-zinc-700">{children}</tr>
+  ),
+  th: ({ children }) => (
+    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">{children}</th>
+  ),
+  td: ({ children }) => (
+    <td className="px-3 py-2 text-sm text-zinc-300">{children}</td>
+  ),
+  // Strikethrough (GFM)
+  del: ({ children }) => (
+    <del className="text-zinc-500 line-through">{children}</del>
+  ),
+  // Strong/emphasis
+  strong: ({ children }) => (
+    <strong className="font-semibold text-zinc-100">{children}</strong>
+  ),
+  em: ({ children }) => (
+    <em className="italic text-zinc-300">{children}</em>
+  ),
+  // Task lists (GFM)
+  input: ({ checked, disabled }) => (
+    <input
+      type="checkbox"
+      checked={checked}
+      disabled={disabled}
+      className="mr-2 accent-blue-500"
+      readOnly
+    />
+  ),
+  // Images - using img instead of Next Image since markdown content is arbitrary
+  // eslint-disable-next-line @next/next/no-img-element
+  img: (props) => <img {...props} alt={props.alt || ''} className="max-w-full h-auto rounded my-2" />,
+  // Raycast placeholder pills
+  'raycast-placeholder': ({ raw, parsed }: { raw?: string; parsed?: string }) => {
+    if (!parsed) return <span>{raw}</span>
+    try {
+      const placeholderData = JSON.parse(parsed) as ParsedPlaceholder
+      return <PlaceholderPill placeholder={placeholderData} />
+    } catch {
+      return <span>{raw}</span>
+    }
+  },
+}
 
 export interface PreviewProps {
   content: string
@@ -49,142 +185,6 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
     const maxScroll = container.scrollHeight - container.clientHeight
     container.scrollTop = scrollProgress * maxScroll
   }, [scrollProgress])
-
-  // Memoize markdown components to avoid re-creating on every render
-  const components = useMemo(() => ({
-    // Headings
-    h1: ({ children }: { children?: React.ReactNode }) => (
-      <h1 className="text-2xl font-bold mt-6 mb-4 text-zinc-100 border-b border-zinc-700 pb-2">{children}</h1>
-    ),
-    h2: ({ children }: { children?: React.ReactNode }) => (
-      <h2 className="text-xl font-semibold mt-5 mb-3 text-zinc-100 border-b border-zinc-800 pb-1">{children}</h2>
-    ),
-    h3: ({ children }: { children?: React.ReactNode }) => (
-      <h3 className="text-lg font-semibold mt-4 mb-2 text-zinc-100">{children}</h3>
-    ),
-    h4: ({ children }: { children?: React.ReactNode }) => (
-      <h4 className="text-base font-semibold mt-3 mb-2 text-zinc-200">{children}</h4>
-    ),
-    h5: ({ children }: { children?: React.ReactNode }) => (
-      <h5 className="text-sm font-semibold mt-3 mb-1 text-zinc-200">{children}</h5>
-    ),
-    h6: ({ children }: { children?: React.ReactNode }) => (
-      <h6 className="text-sm font-medium mt-2 mb-1 text-zinc-300">{children}</h6>
-    ),
-    // Paragraphs
-    p: ({ children }: { children?: React.ReactNode }) => (
-      <p className="my-2 text-zinc-300 leading-relaxed">{children}</p>
-    ),
-    // Lists
-    ul: ({ children }: { children?: React.ReactNode }) => (
-      <ul className="my-2 ml-4 list-disc list-outside text-zinc-300 space-y-1">{children}</ul>
-    ),
-    ol: ({ children }: { children?: React.ReactNode }) => (
-      <ol className="my-2 ml-4 list-decimal list-outside text-zinc-300 space-y-1">{children}</ol>
-    ),
-    li: ({ children }: { children?: React.ReactNode }) => (
-      <li className="text-zinc-300">{children}</li>
-    ),
-    // Code
-    code: ({ className, children }: { className?: string; children?: React.ReactNode }) => {
-      const isBlock = className?.includes('language-')
-      if (isBlock) {
-        return (
-          <code className="block bg-zinc-950 text-zinc-300 rounded p-3 my-2 overflow-x-auto text-sm font-mono">
-            {children}
-          </code>
-        )
-      }
-      return (
-        <code className="bg-zinc-800 text-violet-400 px-1.5 py-0.5 rounded text-sm font-mono">
-          {children}
-        </code>
-      )
-    },
-    pre: ({ children }: { children?: React.ReactNode }) => (
-      <pre className="bg-zinc-950 rounded-lg my-3 overflow-hidden">{children}</pre>
-    ),
-    // Links
-    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
-      <a
-        href={href}
-        className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {children}
-      </a>
-    ),
-    // Blockquotes
-    blockquote: ({ children }: { children?: React.ReactNode }) => (
-      <blockquote className="border-l-4 border-zinc-600 pl-4 my-3 text-zinc-400 italic">
-        {children}
-      </blockquote>
-    ),
-    // Horizontal rules
-    hr: () => <hr className="my-6 border-zinc-700" />,
-    // Tables (GFM)
-    table: ({ children }: { children?: React.ReactNode }) => (
-      <div className="my-4 overflow-x-auto">
-        <table className="min-w-full border border-zinc-700 rounded">{children}</table>
-      </div>
-    ),
-    thead: ({ children }: { children?: React.ReactNode }) => (
-      <thead className="bg-zinc-800">{children}</thead>
-    ),
-    tbody: ({ children }: { children?: React.ReactNode }) => (
-      <tbody className="divide-y divide-zinc-700">{children}</tbody>
-    ),
-    tr: ({ children }: { children?: React.ReactNode }) => (
-      <tr className="divide-x divide-zinc-700">{children}</tr>
-    ),
-    th: ({ children }: { children?: React.ReactNode }) => (
-      <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">{children}</th>
-    ),
-    td: ({ children }: { children?: React.ReactNode }) => (
-      <td className="px-3 py-2 text-sm text-zinc-300">{children}</td>
-    ),
-    // Strikethrough (GFM)
-    del: ({ children }: { children?: React.ReactNode }) => (
-      <del className="text-zinc-500 line-through">{children}</del>
-    ),
-    // Strong/emphasis
-    strong: ({ children }: { children?: React.ReactNode }) => (
-      <strong className="font-semibold text-zinc-100">{children}</strong>
-    ),
-    em: ({ children }: { children?: React.ReactNode }) => (
-      <em className="italic text-zinc-300">{children}</em>
-    ),
-    // Task lists (GFM)
-    input: ({ checked, disabled }: { checked?: boolean; disabled?: boolean }) => (
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        className="mr-2 accent-blue-500"
-        readOnly
-      />
-    ),
-    // Images - using img instead of Next Image since markdown content is arbitrary
-    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-    img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
-      <img
-        {...props}
-        alt={props.alt || ''}
-        className="max-w-full h-auto rounded my-2"
-      />
-    ),
-    // Raycast placeholder pills
-    'raycast-placeholder': ({ raw, parsed }: { raw?: string; parsed?: string }) => {
-      if (!parsed) return <span>{raw}</span>
-      try {
-        const placeholderData = JSON.parse(parsed) as ParsedPlaceholder
-        return <PlaceholderPill placeholder={placeholderData} />
-      } catch {
-        return <span>{raw}</span>
-      }
-    },
-  }), [])
 
   if (!debouncedContent) {
     return (
@@ -249,7 +249,7 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
             rehypePlugins={[rehypeRaw]}
-            components={components}
+            components={markdownComponents}
           >
             {debouncedContent}
           </ReactMarkdown>
