@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
 import { useTitleInference } from '@/hooks/useTitleInference'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
-import { Editor } from '@/components/editor/Editor'
+import { EditorDynamic } from '@/components/editor/EditorDynamic'
 import { EditorPanelHeader } from '@/components/editor/EditorPanel'
 import { Preview } from '@/components/preview/Preview'
 import { ResizableDivider } from '@/components/ResizableDivider'
@@ -474,7 +474,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="flex-1 overflow-auto">
-              <Editor value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} />
+              <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} />
             </div>
           </div>
           {previewVisible && (
