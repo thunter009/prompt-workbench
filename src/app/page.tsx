@@ -14,6 +14,7 @@ import { ValidationDialog } from '@/components/ValidationDialog'
 import { ConflictPanel } from '@/components/ConflictPanel'
 import { SearchPalette } from '@/components/SearchPalette'
 import { VersionHistorySidebar } from '@/components/VersionHistorySidebar'
+import { loadPersistedState, updatePersistedField } from '@/lib/persistence'
 import { useSnippetStore } from '@/lib/store'
 import { useConflictStore } from '@/lib/conflict-store'
 import { useSyncSettingsStore } from '@/lib/sync-settings-store'
@@ -31,9 +32,6 @@ import Link from 'next/link'
 import { PanelRight, PanelRightClose, Download, Settings, Zap, AlertTriangle, History, Check, Loader2 } from 'lucide-react'
 import type { Snippet } from '@/types'
 
-const STORAGE_KEY = 'prompt-workbench-content'
-const DIVIDER_KEY = 'prompt-workbench-divider'
-const PREVIEW_VISIBLE_KEY = 'prompt-workbench-preview-visible'
 const DEFAULT_LEFT_PERCENT = 60
 const AUTOSAVE_DEBOUNCE_MS = 500
 
@@ -154,21 +152,12 @@ export default function HomePage() {
 
   useFileWatcher({ onChanges: handleFileChanges, enabled: fileWatcherEnabled })
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount - single consolidated read
   useEffect(() => {
-    const savedContent = localStorage.getItem(STORAGE_KEY)
-    if (savedContent) setContent(savedContent)
-
-    const savedDivider = localStorage.getItem(DIVIDER_KEY)
-    if (savedDivider) {
-      const parsed = parseFloat(savedDivider)
-      if (!isNaN(parsed)) setLeftPercent(parsed)
-    }
-
-    const savedPreviewVisible = localStorage.getItem(PREVIEW_VISIBLE_KEY)
-    if (savedPreviewVisible !== null) {
-      setPreviewVisible(savedPreviewVisible === 'true')
-    }
+    const state = loadPersistedState()
+    setContent(state.content)
+    setLeftPercent(state.dividerPercent)
+    setPreviewVisible(state.previewVisible)
 
     // Load export settings
     const storedPath = getStoredExportPath()
@@ -190,25 +179,17 @@ export default function HomePage() {
     setMounted(true)
   }, [setPreviewVisible, setExportSettings, loadSyncHistory, loadVersionHistory, loadAISettings])
 
-  // Persist content to localStorage
+  // Persist state to localStorage
   useEffect(() => {
-    if (mounted) {
-      localStorage.setItem(STORAGE_KEY, content)
-    }
+    if (mounted) updatePersistedField('content', content)
   }, [content, mounted])
 
-  // Persist divider position to localStorage
   useEffect(() => {
-    if (mounted) {
-      localStorage.setItem(DIVIDER_KEY, String(leftPercent))
-    }
+    if (mounted) updatePersistedField('dividerPercent', leftPercent)
   }, [leftPercent, mounted])
 
-  // Persist preview visibility to localStorage
   useEffect(() => {
-    if (mounted) {
-      localStorage.setItem(PREVIEW_VISIBLE_KEY, String(previewVisible))
-    }
+    if (mounted) updatePersistedField('previewVisible', previewVisible)
   }, [previewVisible, mounted])
 
   // Sync editor content with selected snippet
