@@ -5,9 +5,9 @@ import { toast } from 'sonner'
 import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
 import { useTitleInference } from '@/hooks/useTitleInference'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
-import { EditorDynamic } from '@/components/editor/EditorDynamic'
+import { EditorDynamic, preloadEditor } from '@/components/editor/EditorDynamic'
 import { EditorPanelHeader } from '@/components/editor/EditorPanel'
-import { PreviewDynamic } from '@/components/preview/PreviewDynamic'
+import { PreviewDynamic, preloadPreview } from '@/components/preview/PreviewDynamic'
 import { ResizableDivider } from '@/components/ResizableDivider'
 import { Sidebar } from '@/components/Sidebar'
 import { ValidationDialog } from '@/components/ValidationDialog'
@@ -439,6 +439,7 @@ export default function HomePage() {
             </Link>
             <button
               onClick={togglePreview}
+              onMouseEnter={previewVisible ? preloadEditor : preloadPreview}
               className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
               title={previewVisible ? 'Hide preview (⌘\\)' : 'Show preview (⌘\\)'}
             >
