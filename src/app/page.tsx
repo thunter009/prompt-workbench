@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useTransition } from 'react'
 import { toast } from 'sonner'
 import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
 import { useTitleInference } from '@/hooks/useTitleInference'
@@ -48,6 +48,7 @@ export default function HomePage() {
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [, startTransition] = useTransition()
 
   const previewVisible = useSnippetStore((s) => s.previewVisible)
   const togglePreview = useSnippetStore((s) => s.togglePreview)
@@ -213,7 +214,9 @@ export default function HomePage() {
 
   const handleEditorScroll = useCallback((progress: number) => {
     if (syncScroll) {
-      setScrollProgress(progress)
+      startTransition(() => {
+        setScrollProgress(progress)
+      })
     }
   }, [syncScroll])
 
