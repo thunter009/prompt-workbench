@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useTransition } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { toast } from 'sonner'
 import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
 import { useTitleInference } from '@/hooks/useTitleInference'
@@ -50,31 +51,53 @@ export default function HomePage() {
   const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [, startTransition] = useTransition()
 
-  const previewVisible = useSnippetStore((s) => s.previewVisible)
-  const togglePreview = useSnippetStore((s) => s.togglePreview)
-  const setPreviewVisible = useSnippetStore((s) => s.setPreviewVisible)
-  const syncScroll = useSnippetStore((s) => s.syncScroll)
-  const exportSettings = useSnippetStore((s) => s.exportSettings)
-  const setExportSettings = useSnippetStore((s) => s.setExportSettings)
-  const markExported = useSnippetStore((s) => s.markExported)
+  // UI state - grouped to reduce re-renders
+  const { previewVisible, togglePreview, setPreviewVisible, syncScroll } = useSnippetStore(
+    useShallow((s) => ({
+      previewVisible: s.previewVisible,
+      togglePreview: s.togglePreview,
+      setPreviewVisible: s.setPreviewVisible,
+      syncScroll: s.syncScroll,
+    }))
+  )
+
+  // Export state
+  const { exportSettings, setExportSettings, markExported } = useSnippetStore(
+    useShallow((s) => ({
+      exportSettings: s.exportSettings,
+      setExportSettings: s.setExportSettings,
+      markExported: s.markExported,
+    }))
+  )
+
+  // Snippet CRUD
+  const { snippets, selectedId, getSelectedSnippet, createSnippet, updateSnippet, selectSnippet } = useSnippetStore(
+    useShallow((s) => ({
+      snippets: s.snippets,
+      selectedId: s.selectedId,
+      getSelectedSnippet: s.getSelectedSnippet,
+      createSnippet: s.createSnippet,
+      updateSnippet: s.updateSnippet,
+      selectSnippet: s.selectSnippet,
+    }))
+  )
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
 
-  const addConflicts = useConflictStore((s) => s.addConflicts)
-  const conflictCount = useConflictStore((s) => s.conflicts.length)
-  const openConflictPanel = useConflictStore((s) => s.openPanel)
-
-  const snippets = useSnippetStore((s) => s.snippets)
-  const selectedId = useSnippetStore((s) => s.selectedId)
-  const getSelectedSnippet = useSnippetStore((s) => s.getSelectedSnippet)
-  const createSnippet = useSnippetStore((s) => s.createSnippet)
-  const updateSnippet = useSnippetStore((s) => s.updateSnippet)
-  const selectSnippet = useSnippetStore((s) => s.selectSnippet)
+  // Conflict state
+  const { addConflicts, conflictCount, openConflictPanel } = useConflictStore(
+    useShallow((s) => ({
+      addConflicts: s.addConflicts,
+      conflictCount: s.conflicts.length,
+      openConflictPanel: s.openPanel,
+    }))
+  )
 
   // Sync history
-  const addSyncEvent = useSyncHistoryStore((s) => s.addEvent)
-  const loadSyncHistory = useSyncHistoryStore((s) => s.load)
+  const { addSyncEvent, loadSyncHistory } = useSyncHistoryStore(
+    useShallow((s) => ({ addSyncEvent: s.addEvent, loadSyncHistory: s.load }))
+  )
 
   // Version history
   const loadVersionHistory = useVersionStore((s) => s.load)
