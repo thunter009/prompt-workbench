@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
-import { useIntervalSync } from '@/hooks/useIntervalSync'
 import { Editor } from '@/components/editor/Editor'
 import { EditorPanelHeader } from '@/components/editor/EditorPanel'
 import { Preview } from '@/components/preview/Preview'
@@ -15,21 +14,19 @@ import { SearchPalette } from '@/components/SearchPalette'
 import { VersionHistorySidebar } from '@/components/VersionHistorySidebar'
 import { useSnippetStore } from '@/lib/store'
 import { useConflictStore } from '@/lib/conflict-store'
-import { useSyncSettingsStore, SYNC_INTERVALS, type SyncInterval } from '@/lib/sync-settings-store'
+import { useSyncSettingsStore } from '@/lib/sync-settings-store'
 import { useSyncHistoryStore } from '@/lib/sync-history-store'
 import { useVersionStore } from '@/lib/version-store'
-import { SyncHistory } from '@/components/SyncHistory'
 import { detectConflicts } from '@/lib/sync/conflict-detection'
 import {
   exportSnippets,
   quickExportSnippets,
   hasValidExportHandle,
   getStoredExportPath,
-  pickDefaultExportDirectory,
-  clearDefaultExportPath
 } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
-import { PanelRight, PanelRightClose, Download, Settings, Zap, AlertTriangle, RefreshCw, History } from 'lucide-react'
+import Link from 'next/link'
+import { PanelRight, PanelRightClose, Download, Settings, Zap, AlertTriangle, History } from 'lucide-react'
 import type { Snippet } from '@/types'
 
 const STORAGE_KEY = 'prompt-workbench-content'
@@ -53,7 +50,6 @@ export default function HomePage() {
   const setExportSettings = useSnippetStore((s) => s.setExportSettings)
   const markExported = useSnippetStore((s) => s.markExported)
 
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
 
@@ -73,15 +69,6 @@ export default function HomePage() {
 
   // Sync settings
   const fileWatcherEnabled = useSyncSettingsStore((s) => s.fileWatcherEnabled)
-  const setFileWatcherEnabled = useSyncSettingsStore((s) => s.setFileWatcherEnabled)
-  const {
-    enabled: intervalEnabled,
-    interval: syncInterval,
-    lastSyncTime,
-    setEnabled: setIntervalEnabled,
-    setInterval: setSyncInterval,
-    triggerSync,
-  } = useIntervalSync()
 
   // File watcher for Raycast sync
   const handleFileChanges = useCallback(async (events: FileChangeEvent[]) => {
@@ -293,20 +280,6 @@ export default function HomePage() {
     selectSnippet(snippetId)
   }, [selectSnippet])
 
-  const handlePickExportDir = useCallback(async () => {
-    const name = await pickDefaultExportDirectory()
-    if (name) {
-      setExportSettings({ defaultPath: name, hasDirectoryHandle: true })
-      toast.success(`Default export path set to ${name}`)
-    }
-  }, [setExportSettings])
-
-  const handleClearExportDir = useCallback(async () => {
-    await clearDefaultExportPath()
-    setExportSettings({ defaultPath: null, hasDirectoryHandle: false })
-    toast.success('Default export path cleared')
-  }, [setExportSettings])
-
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -325,10 +298,10 @@ export default function HomePage() {
         e.preventDefault()
         handleQuickExport()
       }
-      // Cmd+, for settings
+      // Cmd+, for settings - navigate to settings page
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
         e.preventDefault()
-        setSettingsOpen((v) => !v)
+        window.location.href = '/settings'
       }
     }
     document.addEventListener('keydown', handleKeyDown)
@@ -376,13 +349,13 @@ export default function HomePage() {
             >
               <History className="w-5 h-5" />
             </button>
-            <button
-              onClick={() => setSettingsOpen((v) => !v)}
+            <Link
+              href="/settings"
               className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
               title="Settings (⌘,)"
             >
               <Settings className="w-5 h-5" />
-            </button>
+            </Link>
             <button
               onClick={togglePreview}
               className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
@@ -434,134 +407,6 @@ export default function HomePage() {
           onProceed={handleValidationProceed}
           onNavigateToSnippet={handleNavigateToSnippet}
         />
-      )}
-
-      {settingsOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSettingsOpen(false)}>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 w-[420px] shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-medium mb-4">Settings</h2>
-            <div className="space-y-6">
-              {/* Export settings */}
-              <div>
-                <label className="block text-sm text-zinc-400 mb-2">Default Export Path</label>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 px-3 py-2 bg-zinc-800 rounded text-sm text-zinc-300 truncate">
-                    {exportSettings.defaultPath || 'Not set'}
-                  </div>
-                  <button
-                    onClick={handlePickExportDir}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition-colors"
-                  >
-                    Choose
-                  </button>
-                  {exportSettings.defaultPath && (
-                    <button
-                      onClick={handleClearExportDir}
-                      className="px-3 py-2 bg-zinc-700 hover:bg-zinc-600 rounded text-sm font-medium transition-colors"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-                <p className="text-xs text-zinc-500 mt-2">
-                  Quick export (⌘⇧E) saves directly to this folder
-                </p>
-              </div>
-
-              {/* Sync settings */}
-              <div className="border-t border-zinc-800 pt-4">
-                <h3 className="text-sm font-medium mb-3">Raycast Sync</h3>
-
-                {/* File watcher toggle */}
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <label className="text-sm text-zinc-300">File Watcher</label>
-                    <p className="text-xs text-zinc-500">Real-time sync on file changes</p>
-                  </div>
-                  <button
-                    onClick={() => setFileWatcherEnabled(!fileWatcherEnabled)}
-                    className={`w-10 h-6 rounded-full transition-colors ${
-                      fileWatcherEnabled ? 'bg-blue-600' : 'bg-zinc-700'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 bg-white rounded-full transition-transform mx-1 ${
-                        fileWatcherEnabled ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Interval sync toggle + dropdown */}
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <label className="text-sm text-zinc-300">Interval Sync</label>
-                    <p className="text-xs text-zinc-500">Scheduled backup sync</p>
-                  </div>
-                  <button
-                    onClick={() => setIntervalEnabled(!intervalEnabled)}
-                    className={`w-10 h-6 rounded-full transition-colors ${
-                      intervalEnabled ? 'bg-blue-600' : 'bg-zinc-700'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 bg-white rounded-full transition-transform mx-1 ${
-                        intervalEnabled ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Interval frequency */}
-                {intervalEnabled && (
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="text-sm text-zinc-400">Frequency</label>
-                    <select
-                      value={syncInterval}
-                      onChange={(e) => setSyncInterval(e.target.value as SyncInterval)}
-                      className="bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm text-zinc-300"
-                    >
-                      {SYNC_INTERVALS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Last sync + manual sync */}
-                <div className="flex items-center justify-between pt-2 border-t border-zinc-800 mt-3">
-                  <div className="text-xs text-zinc-500">
-                    {lastSyncTime
-                      ? `Last sync: ${new Date(lastSyncTime).toLocaleTimeString()}`
-                      : 'Not synced yet'}
-                  </div>
-                  <button
-                    onClick={triggerSync}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 rounded text-sm font-medium transition-colors"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Sync Now
-                  </button>
-                </div>
-
-                {/* Sync History */}
-                <div className="pt-4 border-t border-zinc-800 mt-4">
-                  <SyncHistory />
-                </div>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setSettingsOpen(false)}
-                className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded text-sm font-medium transition-colors"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </main>
   )
