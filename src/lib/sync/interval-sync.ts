@@ -62,6 +62,9 @@ export class IntervalSyncScheduler {
   triggerNow(): void {
     if (this.callback) {
       this.executeSync()
+    } else {
+      // Update timestamp even without callback so "Sync Now" always works
+      this.lastSyncTime = Date.now()
     }
   }
 

@@ -15,6 +15,9 @@ import { ValidationDialog } from '@/components/ValidationDialog'
 import { ConflictPanel } from '@/components/ConflictPanel'
 import { SearchPalette } from '@/components/SearchPalette'
 import { VersionHistorySidebar } from '@/components/VersionHistorySidebar'
+import { SettingsModal } from '@/components/SettingsModal'
+import { ImportModal } from '@/components/ImportModal'
+import { HotkeyCheatsheet } from '@/components/HotkeyCheatsheet'
 import { loadPersistedState, updatePersistedField } from '@/lib/persistence'
 import { useSnippetStore } from '@/lib/store'
 import { useConflictStore } from '@/lib/conflict-store'
@@ -27,10 +30,11 @@ import {
   quickExportSnippets,
   hasValidExportHandle,
   getStoredExportPath,
+  supportsFileSystemAccess,
+  getDefaultExportPath,
 } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
-import Link from 'next/link'
-import { PanelRight, PanelRightClose, Download, Settings, Zap, AlertTriangle, History, Check, Loader2 } from 'lucide-react'
+import { PanelRight, PanelRightClose, Download, Upload, Settings, Zap, AlertTriangle, History, Check, Loader2, RefreshCw, HelpCircle } from 'lucide-react'
 import type { Snippet } from '@/types'
 
 const DEFAULT_LEFT_PERCENT = 60
@@ -85,6 +89,9 @@ export default function HomePage() {
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [hotkeySheetOpen, setHotkeySheetOpen] = useState(false)
 
   // Conflict state
   const { addConflicts, conflictCount, openConflictPanel } = useConflictStore(
@@ -190,6 +197,9 @@ export default function HomePage() {
       hasValidExportHandle().then((valid) => {
         setExportSettings({ defaultPath: storedPath, hasDirectoryHandle: valid })
       })
+    } else if (!supportsFileSystemAccess()) {
+      // For Firefox/Safari, use default server-side path
+      setExportSettings({ defaultPath: getDefaultExportPath(), hasDirectoryHandle: true })
     }
 
     // Load sync history
@@ -280,20 +290,34 @@ export default function HomePage() {
     }, AUTOSAVE_DEBOUNCE_MS)
   }, [selectedId, updateSnippet, createSnippet, getSelectedSnippet, scheduleInference])
 
-  const doExport = useCallback(async (toExport: Snippet[], quick = false) => {
+  const doExport = useCallback(async (toExport: Snippet[], quick = false, autoImportToRaycast = false) => {
     try {
-      const filename = quick
-        ? await quickExportSnippets(toExport)
-        : await exportSnippets(toExport)
+      let path: string
+      let autoImportTriggered = false
+
+      if (quick) {
+        const result = await quickExportSnippets(toExport, { autoImportToRaycast })
+        path = result.path
+        autoImportTriggered = result.autoImportTriggered ?? false
+      } else {
+        path = await exportSnippets(toExport)
+      }
+
       markExported(toExport.map((s) => s.id))
 
       // Log export to history
       addSyncEvent('push', 'export', toExport.length, {
         snippetNames: toExport.map((s) => s.name),
-        filePath: filename,
+        filePath: path,
       })
 
-      toast.success(`Exported ${toExport.length} snippet${toExport.length > 1 ? 's' : ''} to ${filename}`)
+      if (autoImportTriggered) {
+        toast.success(`Exported & importing to Raycast`, {
+          description: `${toExport.length} snippet${toExport.length > 1 ? 's' : ''} → ${path}`,
+        })
+      } else {
+        toast.success(`Exported ${toExport.length} snippet${toExport.length > 1 ? 's' : ''} to ${path}`)
+      }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       if (err instanceof Error && err.message === 'No default export path set') {
@@ -327,12 +351,7 @@ export default function HomePage() {
     doExport(toExport)
   }, [snippets, content, doExport])
 
-  const handleQuickExport = useCallback(() => {
-    if (!exportSettings.hasDirectoryHandle) {
-      toast.error('Set a default export path first (⌘,)')
-      return
-    }
-
+  const handleQuickExport = useCallback((autoImportToRaycast = false) => {
     const toExport = snippets.length > 0
       ? snippets
       : [{ id: '1', name: 'Untitled', text: content, tags: [], createdAt: Date.now(), updatedAt: Date.now(), version: 1 }]
@@ -349,8 +368,13 @@ export default function HomePage() {
       return
     }
 
-    doExport(toExport, true)
-  }, [snippets, content, exportSettings.hasDirectoryHandle, doExport])
+    doExport(toExport, true, autoImportToRaycast)
+  }, [snippets, content, doExport])
+
+  // Export and auto-import to Raycast
+  const handleSyncToRaycast = useCallback(() => {
+    handleQuickExport(true)
+  }, [handleQuickExport])
 
   const handleValidationClose = useCallback(() => {
     setValidationResult(null)
@@ -384,12 +408,22 @@ export default function HomePage() {
     // Cmd+Shift+E for quick export
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
       e.preventDefault()
-      handleQuickExport()
+      handleQuickExport(false)
     }
-    // Cmd+, for settings - navigate to settings page
+    // Cmd+Shift+S for sync to Raycast (export + auto-import)
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 's') {
+      e.preventDefault()
+      handleSyncToRaycast()
+    }
+    // Cmd+, for settings modal
     if ((e.metaKey || e.ctrlKey) && e.key === ',') {
       e.preventDefault()
-      window.location.href = '/settings'
+      setSettingsOpen(true)
+    }
+    // Cmd+? or Cmd+/ for hotkey cheatsheet
+    if ((e.metaKey || e.ctrlKey) && (e.key === '?' || e.key === '/')) {
+      e.preventDefault()
+      setHotkeySheetOpen(true)
     }
   }
 
@@ -418,19 +452,31 @@ export default function HomePage() {
                 </span>
               </button>
             )}
-            {exportSettings.hasDirectoryHandle && (
-              <button
-                onClick={handleQuickExport}
-                className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
-                title={`Quick export to ${exportSettings.defaultPath} (⌘⇧E)`}
-              >
-                <Zap className="w-5 h-5" />
-              </button>
-            )}
+            <button
+              onClick={handleSyncToRaycast}
+              className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+              title="Sync to Raycast - export & auto-import (⌘⇧S)"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => handleQuickExport(false)}
+              className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+              title={`Quick export to ${exportSettings.defaultPath || '~/.prompt-workbench'} (⌘⇧E)`}
+            >
+              <Zap className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setImportOpen(true)}
+              className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+              title="Import from Raycast"
+            >
+              <Upload className="w-5 h-5" />
+            </button>
             <button
               onClick={handleExport}
               className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
-              title="Export to Raycast"
+              title="Export to file picker"
             >
               <Download className="w-5 h-5" />
             </button>
@@ -441,13 +487,20 @@ export default function HomePage() {
             >
               <History className="w-5 h-5" />
             </button>
-            <Link
-              href="/settings"
+            <button
+              onClick={() => setSettingsOpen(true)}
               className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
               title="Settings (⌘,)"
             >
               <Settings className="w-5 h-5" />
-            </Link>
+            </button>
+            <button
+              onClick={() => setHotkeySheetOpen(true)}
+              className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+              title="Keyboard shortcuts (⌘?)"
+            >
+              <HelpCircle className="w-5 h-5" />
+            </button>
             <button
               onClick={togglePreview}
               onMouseEnter={previewVisible ? preloadEditor : preloadPreview}
@@ -517,6 +570,10 @@ export default function HomePage() {
           onNavigateToSnippet={handleNavigateToSnippet}
         />
       )}
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ImportModal open={importOpen} onClose={() => setImportOpen(false)} />
+      <HotkeyCheatsheet open={hotkeySheetOpen} onClose={() => setHotkeySheetOpen(false)} />
     </main>
   )
 }

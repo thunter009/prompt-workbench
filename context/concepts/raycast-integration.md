@@ -43,23 +43,32 @@ Raycast expects JSON array:
 
 ## Two-Way Sync
 
+### Default Path
+All sync uses `~/.prompt-workbench/raycast-snippets.json` as the default location.
+
 ### Export (App → Raycast)
-1. Query all snippets from Supabase
-2. Map to Raycast JSON format
-3. Write to `raycast-export/snippets.json`
-4. User imports via Raycast "Import Snippets" command
-5. Mark snippets as synced with timestamp
+1. Click Export or Quick Export (⌘⇧E)
+2. Saves to `~/.prompt-workbench/raycast-snippets.json`
+3. AppleScript auto-opens Raycast import dialog
+4. AppleScript navigates to file and triggers import
+5. Requires macOS Accessibility permissions for full automation
+
+**Browser support:**
+- Chromium: File System Access API for custom paths
+- Firefox/Safari: Server-side export to default path
 
 ### Import (Raycast → App)
-1. User exports Raycast settings (Settings > Export)
-2. Decrypt .rayconfig:
-   ```bash
-   openssl enc -d -aes-256-cbc -nosalt \
-     -in file.rayconfig -k PASSWORD | tail -c +17
-   ```
-3. Parse JSON, extract snippets
-4. Diff against local DB
-5. Show conflicts, user chooses resolution
+1. Click Import button (↑) in header
+2. Click "Open Raycast Export" - triggers deeplink `raycast://extensions/raycast/snippets/export-snippets`
+3. AppleScript auto-saves to `~/.prompt-workbench/`
+4. App polls for file, auto-detects when ready
+5. Select snippets → Import
+
+**Deeplinks used:**
+- Export: `raycast://extensions/raycast/snippets/export-snippets`
+- Import: `raycast://extensions/raycast/snippets/import-snippets`
+
+**Note:** Raycast stores snippets in encrypted SQLite - can't read directly.
 
 ## Sync Scheduling
 

@@ -11,6 +11,7 @@ Instructions for AI coding assistants.
 - Uses pnpm (not npm)
 - Local Supabase (Docker) for persistence
 - Two-way sync with Raycast snippets (file watcher + interval)
+- **Ollama for all AI features** (title inference, etc.) - no cloud AI APIs
 
 ## Critical Rules
 

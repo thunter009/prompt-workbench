@@ -37,7 +37,18 @@ declare global {
 
 const EXPORT_DIR_KEY = 'prompt-workbench-export-dir'
 const EXPORT_PATH_KEY = 'prompt-workbench-export-path'
+const DEFAULT_EXPORT_PATH = '~/.prompt-workbench'
 let cachedDirectoryHandle: FileSystemDirectoryHandle | null = null
+
+// Check if browser supports File System Access API
+export function supportsFileSystemAccess(): boolean {
+  return typeof window !== 'undefined' && !!window.showDirectoryPicker
+}
+
+// Get the default export path (shown when no custom path set)
+export function getDefaultExportPath(): string {
+  return DEFAULT_EXPORT_PATH
+}
 
 // Store directory handle in IndexedDB for persistence
 async function storeDirectoryHandle(handle: FileSystemDirectoryHandle): Promise<void> {
@@ -154,7 +165,7 @@ export async function exportSnippets(snippets: Snippet[]): Promise<string> {
   const blob = new Blob([json], { type: 'application/json' })
   const defaultFilename = 'raycast-snippets.json'
 
-  // Try File System Access API (modern browsers)
+  // Try File System Access API (Chromium browsers)
   if (window.showSaveFilePicker) {
     try {
       const handle = await window.showSaveFilePicker({
@@ -175,11 +186,26 @@ export async function exportSnippets(snippets: Snippet[]): Promise<string> {
       if (err instanceof Error && err.name === 'AbortError') {
         throw err
       }
-      // Fall through to download fallback for other errors
+      // Fall through to server fallback for other errors
     }
   }
 
-  // Fallback: trigger download to Downloads folder
+  // Fallback for Firefox/Safari: use server-side export to ~/.prompt-workbench
+  try {
+    const res = await fetch('/api/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snippets: raycastSnippets }),
+    })
+    if (res.ok) {
+      const { path } = await res.json()
+      return path
+    }
+  } catch {
+    // Fall through to download fallback
+  }
+
+  // Final fallback: trigger download to Downloads folder
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -191,31 +217,55 @@ export async function exportSnippets(snippets: Snippet[]): Promise<string> {
   return `~/Downloads/${defaultFilename}`
 }
 
+export interface QuickExportOptions {
+  autoImportToRaycast?: boolean
+}
+
 // Quick export to default directory (no file picker)
-export async function quickExportSnippets(snippets: Snippet[]): Promise<string> {
-  const handle = await getStoredDirectoryHandle()
-  if (!handle) {
-    throw new Error('No default export path set')
-  }
-
-  // Request permission if needed
-  let permission = await handle.queryPermission({ mode: 'readwrite' })
-  if (permission !== 'granted') {
-    permission = await handle.requestPermission({ mode: 'readwrite' })
-    if (permission !== 'granted') {
-      throw new Error('Permission denied')
-    }
-  }
-
+export async function quickExportSnippets(
+  snippets: Snippet[],
+  options: QuickExportOptions = {}
+): Promise<{ path: string; autoImportTriggered?: boolean }> {
   const raycastSnippets = snippetsToRaycastJson(snippets)
-  const json = JSON.stringify(raycastSnippets, null, 2)
-  const blob = new Blob([json], { type: 'application/json' })
   const filename = 'raycast-snippets.json'
+  const { autoImportToRaycast = false } = options
 
-  const fileHandle = await handle.getFileHandle(filename, { create: true })
-  const writable = await fileHandle.createWritable()
-  await writable.write(blob)
-  await writable.close()
+  // Try stored directory handle first (Chromium browsers) - but not if auto-import requested
+  // Auto-import needs server-side to trigger AppleScript
+  const handle = !autoImportToRaycast ? await getStoredDirectoryHandle() : null
+  if (handle) {
+    // Request permission if needed
+    let permission = await handle.queryPermission({ mode: 'readwrite' })
+    if (permission !== 'granted') {
+      permission = await handle.requestPermission({ mode: 'readwrite' })
+      if (permission !== 'granted') {
+        throw new Error('Permission denied')
+      }
+    }
 
-  return `${handle.name}/${filename}`
+    const json = JSON.stringify(raycastSnippets, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+
+    const fileHandle = await handle.getFileHandle(filename, { create: true })
+    const writable = await fileHandle.createWritable()
+    await writable.write(blob)
+    await writable.close()
+
+    return { path: `${handle.name}/${filename}` }
+  }
+
+  // Server-side export (Firefox/Safari, no custom path, or auto-import requested)
+  const res = await fetch('/api/export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ snippets: raycastSnippets, autoImportToRaycast }),
+  })
+
+  if (!res.ok) {
+    const { error } = await res.json()
+    throw new Error(error || 'Export failed')
+  }
+
+  const { path, autoImportTriggered } = await res.json()
+  return { path, autoImportTriggered }
 }

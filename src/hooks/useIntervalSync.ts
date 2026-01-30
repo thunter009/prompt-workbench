@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
+import { toast } from 'sonner'
 import { useSyncSettingsStore, type SyncInterval } from '@/lib/sync-settings-store'
 
 export function useIntervalSync() {
+  const [isSyncing, setIsSyncing] = useState(false)
   const {
     intervalSyncEnabled,
     syncInterval,
@@ -46,6 +48,7 @@ export function useIntervalSync() {
   }, [intervalSyncEnabled, syncInterval, setLastSyncTime])
 
   const triggerSync = useCallback(async () => {
+    setIsSyncing(true)
     try {
       const res = await fetch('/api/interval-sync', { method: 'POST' })
       if (res.ok) {
@@ -53,9 +56,14 @@ export function useIntervalSync() {
         if (data.lastSyncTime) {
           setLastSyncTime(data.lastSyncTime)
         }
+        toast.success('Sync triggered')
+      } else {
+        toast.error('Sync failed')
       }
     } catch {
-      // Ignore errors
+      toast.error('Sync failed')
+    } finally {
+      setIsSyncing(false)
     }
   }, [setLastSyncTime])
 
@@ -71,6 +79,7 @@ export function useIntervalSync() {
     enabled: intervalSyncEnabled,
     interval: syncInterval,
     lastSyncTime,
+    isSyncing,
     setEnabled: toggleEnabled,
     setInterval: updateInterval,
     triggerSync,
