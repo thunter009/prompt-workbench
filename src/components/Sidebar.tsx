@@ -9,7 +9,7 @@ import { exportSnippets } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ExportFolderDialog } from '@/components/ExportFolderDialog'
-import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
+import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown, Pencil } from 'lucide-react'
 import type { Snippet, Folder } from '@/types'
 
 type DragItemType = 'snippet' | 'folder'
@@ -721,7 +721,7 @@ export function Sidebar() {
         onContextMenu={(e) => handleSnippetContextMenu(e, snippet.id)}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         className={cn(
-          'flex items-center gap-2 pr-2 py-1.5 rounded cursor-pointer text-sm transition-colors',
+          'group flex items-center gap-2 pr-2 py-1.5 rounded cursor-pointer text-sm transition-colors',
           isBeingDragged && 'opacity-50',
           selectedIds.has(snippet.id)
             ? 'bg-blue-600/30 text-blue-200'
@@ -743,7 +743,20 @@ export function Sidebar() {
             className="flex-1 bg-zinc-700 border border-zinc-600 rounded px-1 py-0.5 text-sm text-zinc-200 focus:outline-none focus:border-blue-500"
           />
         ) : (
-          <span className="truncate flex-1">{snippet.name}</span>
+          <>
+            <span className="truncate flex-1">{snippet.name}</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setEditingSnippetId(snippet.id)
+                setEditingSnippetName(snippet.name)
+              }}
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300 transition-opacity"
+              title="Edit name"
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+          </>
         )}
         {!isEditing && showIndicator && (
           <span
