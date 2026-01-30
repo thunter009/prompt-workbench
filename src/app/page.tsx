@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
+import { useTitleInference } from '@/hooks/useTitleInference'
+import { useAISettingsStore } from '@/lib/ai-settings-store'
 import { Editor } from '@/components/editor/Editor'
 import { EditorPanelHeader } from '@/components/editor/EditorPanel'
 import { Preview } from '@/components/preview/Preview'
@@ -80,6 +82,20 @@ export default function HomePage() {
 
   // Sync settings
   const fileWatcherEnabled = useSyncSettingsStore((s) => s.fileWatcherEnabled)
+
+  // AI settings
+  const loadAISettings = useAISettingsStore((s) => s.load)
+
+  // Title inference handler
+  const handleTitleInferred = useCallback((title: string) => {
+    if (selectedId) {
+      updateSnippet(selectedId, { name: title })
+    }
+  }, [selectedId, updateSnippet])
+
+  const { scheduleInference, cancelInference } = useTitleInference({
+    onTitleInferred: handleTitleInferred,
+  })
 
   // File watcher for Raycast sync
   const handleFileChanges = useCallback(async (events: FileChangeEvent[]) => {
@@ -168,8 +184,11 @@ export default function HomePage() {
     // Load version history
     loadVersionHistory()
 
+    // Load AI settings
+    loadAISettings()
+
     setMounted(true)
-  }, [setPreviewVisible, setExportSettings, loadSyncHistory, loadVersionHistory])
+  }, [setPreviewVisible, setExportSettings, loadSyncHistory, loadVersionHistory, loadAISettings])
 
   // Persist content to localStorage
   useEffect(() => {
@@ -203,8 +222,9 @@ export default function HomePage() {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       if (savedIndicatorTimerRef.current) clearTimeout(savedIndicatorTimerRef.current)
+      cancelInference()
     }
-  }, [])
+  }, [cancelInference])
 
   const handleResize = useCallback((percent: number) => {
     setLeftPercent(percent)
@@ -232,9 +252,16 @@ export default function HomePage() {
       if (selectedId) {
         // Update existing snippet
         updateSnippet(selectedId, { text: value })
+
+        // Schedule title inference for untitled snippets
+        const snippet = getSelectedSnippet()
+        if (snippet?.name === 'Untitled') {
+          scheduleInference('Untitled', value)
+        }
       } else if (value.trim()) {
         // Create new snippet when typing in empty editor
         createSnippet({ name: 'Untitled', text: value })
+        // New snippet gets selected, will infer on next edit
       }
 
       // Show saved indicator briefly
@@ -243,7 +270,7 @@ export default function HomePage() {
         setSaveStatus('idle')
       }, 1500)
     }, AUTOSAVE_DEBOUNCE_MS)
-  }, [selectedId, updateSnippet, createSnippet])
+  }, [selectedId, updateSnippet, createSnippet, getSelectedSnippet, scheduleInference])
 
   const doExport = useCallback(async (toExport: Snippet[], quick = false) => {
     try {
