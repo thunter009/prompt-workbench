@@ -49,6 +49,7 @@ export default function HomePage() {
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const keyboardHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {})
   const [, startTransition] = useTransition()
 
   // UI state - grouped to reduce re-renders
@@ -368,33 +369,36 @@ export default function HomePage() {
     selectSnippet(snippetId)
   }, [selectSnippet])
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+P for search palette
-      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
-        e.preventDefault()
-        setSearchOpen(true)
-      }
-      // Cmd+\ to toggle preview
-      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
-        e.preventDefault()
-        togglePreview()
-      }
-      // Cmd+Shift+E for quick export
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
-        e.preventDefault()
-        handleQuickExport()
-      }
-      // Cmd+, for settings - navigate to settings page
-      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
-        e.preventDefault()
-        window.location.href = '/settings'
-      }
+  // Keep keyboard handler ref updated without rebinding listener
+  keyboardHandlerRef.current = (e: KeyboardEvent) => {
+    // Cmd+P for search palette
+    if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+      e.preventDefault()
+      setSearchOpen(true)
     }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [togglePreview, handleQuickExport])
+    // Cmd+\ to toggle preview
+    if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+      e.preventDefault()
+      togglePreview()
+    }
+    // Cmd+Shift+E for quick export
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
+      e.preventDefault()
+      handleQuickExport()
+    }
+    // Cmd+, for settings - navigate to settings page
+    if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+      e.preventDefault()
+      window.location.href = '/settings'
+    }
+  }
+
+  // Bind keyboard listener once on mount
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => keyboardHandlerRef.current(e)
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
