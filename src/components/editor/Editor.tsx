@@ -8,33 +8,51 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language'
 
 export interface EditorProps {
-  initialValue?: string
+  value?: string
   onChange?: (value: string) => void
   onScrollProgress?: (progress: number) => void
 }
 
-export function Editor({ initialValue = '', onChange, onScrollProgress }: EditorProps) {
+export function Editor({ value = '', onChange, onScrollProgress }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
   const onScrollProgressRef = useRef(onScrollProgress)
-  const initialValueRef = useRef(initialValue)
+  const valueRef = useRef(value)
+  const isExternalUpdateRef = useRef(false)
   const [mounted, setMounted] = useState(false)
 
   // Keep refs in sync
   onChangeRef.current = onChange
   onScrollProgressRef.current = onScrollProgress
-  initialValueRef.current = initialValue
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
+  // Sync external value changes to editor (for snippet selection)
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+
+    // Only update if the external value differs from current editor content
+    const currentContent = view.state.doc.toString()
+    if (value !== currentContent) {
+      // Mark as external update to prevent onChange firing
+      isExternalUpdateRef.current = true
+      valueRef.current = value
+      view.dispatch({
+        changes: { from: 0, to: currentContent.length, insert: value },
+      })
+      isExternalUpdateRef.current = false
+    }
+  }, [value])
+
   useEffect(() => {
     if (!mounted || !containerRef.current) return
 
     const updateListener = EditorView.updateListener.of((update) => {
-      if (update.docChanged && onChangeRef.current) {
+      if (update.docChanged && onChangeRef.current && !isExternalUpdateRef.current) {
         onChangeRef.current(update.state.doc.toString())
       }
     })
@@ -89,7 +107,7 @@ export function Editor({ initialValue = '', onChange, onScrollProgress }: Editor
     })
 
     const state = EditorState.create({
-      doc: initialValueRef.current,
+      doc: valueRef.current,
       extensions: [
         lineNumbers(),
         highlightActiveLine(),

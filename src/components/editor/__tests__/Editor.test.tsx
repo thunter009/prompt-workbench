@@ -28,9 +28,9 @@ describe('Editor', () => {
     expect(cmContent).toBeTruthy()
   })
 
-  it('initializes with provided initial value', async () => {
+  it('initializes with provided value', async () => {
     const initialText = '# Hello World'
-    root.render(<Editor initialValue={initialText} />)
+    root.render(<Editor value={initialText} />)
 
     // Wait for effects to run
     await new Promise((resolve) => setTimeout(resolve, 100))

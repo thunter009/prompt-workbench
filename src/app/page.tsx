@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
 import { Editor } from '@/components/editor/Editor'
@@ -26,13 +26,16 @@ import {
 } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
 import Link from 'next/link'
-import { PanelRight, PanelRightClose, Download, Settings, Zap, AlertTriangle, History } from 'lucide-react'
+import { PanelRight, PanelRightClose, Download, Settings, Zap, AlertTriangle, History, Check, Loader2 } from 'lucide-react'
 import type { Snippet } from '@/types'
 
 const STORAGE_KEY = 'prompt-workbench-content'
 const DIVIDER_KEY = 'prompt-workbench-divider'
 const PREVIEW_VISIBLE_KEY = 'prompt-workbench-preview-visible'
 const DEFAULT_LEFT_PERCENT = 60
+const AUTOSAVE_DEBOUNCE_MS = 500
+
+type SaveStatus = 'idle' | 'saving' | 'saved'
 
 export default function HomePage() {
   const [content, setContent] = useState('')
@@ -41,6 +44,10 @@ export default function HomePage() {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const [pendingExport, setPendingExport] = useState<Snippet[] | null>(null)
   const [scrollProgress, setScrollProgress] = useState(0)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const previewVisible = useSnippetStore((s) => s.previewVisible)
   const togglePreview = useSnippetStore((s) => s.togglePreview)
@@ -58,6 +65,10 @@ export default function HomePage() {
   const openConflictPanel = useConflictStore((s) => s.openPanel)
 
   const snippets = useSnippetStore((s) => s.snippets)
+  const selectedId = useSnippetStore((s) => s.selectedId)
+  const getSelectedSnippet = useSnippetStore((s) => s.getSelectedSnippet)
+  const createSnippet = useSnippetStore((s) => s.createSnippet)
+  const updateSnippet = useSnippetStore((s) => s.updateSnippet)
   const selectSnippet = useSnippetStore((s) => s.selectSnippet)
 
   // Sync history
@@ -181,6 +192,20 @@ export default function HomePage() {
     }
   }, [previewVisible, mounted])
 
+  // Sync editor content with selected snippet
+  useEffect(() => {
+    const snippet = getSelectedSnippet()
+    setContent(snippet?.text ?? '')
+  }, [selectedId, getSelectedSnippet])
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      if (savedIndicatorTimerRef.current) clearTimeout(savedIndicatorTimerRef.current)
+    }
+  }, [])
+
   const handleResize = useCallback((percent: number) => {
     setLeftPercent(percent)
   }, [])
@@ -190,6 +215,35 @@ export default function HomePage() {
       setScrollProgress(progress)
     }
   }, [syncScroll])
+
+  // Auto-save handler with debounce
+  const handleContentChange = useCallback((value: string) => {
+    setContent(value)
+
+    // Clear existing timers
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    if (savedIndicatorTimerRef.current) clearTimeout(savedIndicatorTimerRef.current)
+
+    // Show saving indicator
+    setSaveStatus('saving')
+
+    // Debounced save
+    saveTimerRef.current = setTimeout(() => {
+      if (selectedId) {
+        // Update existing snippet
+        updateSnippet(selectedId, { text: value })
+      } else if (value.trim()) {
+        // Create new snippet when typing in empty editor
+        createSnippet({ name: 'Untitled', text: value })
+      }
+
+      // Show saved indicator briefly
+      setSaveStatus('saved')
+      savedIndicatorTimerRef.current = setTimeout(() => {
+        setSaveStatus('idle')
+      }, 1500)
+    }, AUTOSAVE_DEBOUNCE_MS)
+  }, [selectedId, updateSnippet, createSnippet])
 
   const doExport = useCallback(async (toExport: Snippet[], quick = false) => {
     try {
@@ -375,9 +429,25 @@ export default function HomePage() {
             style={{ width: previewVisible ? `${leftPercent}%` : '100%' }}
             className="flex-1 flex flex-col overflow-hidden transition-[width] duration-200 ease-out"
           >
-            <EditorPanelHeader />
+            <div className="flex items-center border-b border-zinc-800">
+              <EditorPanelHeader />
+              <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-zinc-500">
+                {saveStatus === 'saving' && (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                )}
+                {saveStatus === 'saved' && (
+                  <>
+                    <Check className="w-3 h-3 text-green-500" />
+                    <span className="text-green-500">Saved</span>
+                  </>
+                )}
+              </div>
+            </div>
             <div className="flex-1 overflow-auto">
-              <Editor initialValue={content} onChange={setContent} onScrollProgress={handleEditorScroll} />
+              <Editor value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} />
             </div>
           </div>
           {previewVisible && (
