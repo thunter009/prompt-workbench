@@ -1,10 +1,7 @@
 import { create } from 'zustand'
 import type { Snippet, Folder } from '@/types'
 import { useVersionStore } from './version-store'
-
-function generateId(): string {
-  return crypto.randomUUID()
-}
+import { generateId } from './utils/id'
 
 // Debounced version saving per snippet
 const DEBOUNCE_MS = 2000

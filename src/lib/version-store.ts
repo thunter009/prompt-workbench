@@ -1,12 +1,9 @@
 import { create } from 'zustand'
 import type { SnippetVersion } from '@/types'
+import { generateId } from './utils/id'
 
 const STORAGE_KEY = 'prompt-workbench-versions'
 const MAX_VERSIONS_PER_SNIPPET = 100
-
-function generateId(): string {
-  return crypto.randomUUID()
-}
 
 interface VersionStore {
   versions: SnippetVersion[]

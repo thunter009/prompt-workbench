@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { SyncEvent, SyncDirection, SyncEventType, SyncEventDetails } from '@/types'
+import { generateId } from './utils/id'
 
 const STORAGE_KEY = 'prompt-workbench-sync-history'
 const MAX_EVENTS = 50
@@ -40,7 +41,7 @@ export const useSyncHistoryStore = create<SyncHistoryStore>((set, get) => ({
 
   addEvent: (direction, type, count, details) => {
     const newEvent: SyncEvent = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       timestamp: Date.now(),
       direction,
       type,

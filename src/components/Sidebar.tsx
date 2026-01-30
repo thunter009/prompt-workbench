@@ -50,6 +50,7 @@ export function Sidebar() {
   const createSnippet = useSnippetStore((s) => s.createSnippet)
   const getSelectedSnippets = useSnippetStore((s) => s.getSelectedSnippets)
   const getSnippetsInFolder = useSnippetStore((s) => s.getSnippetsInFolder)
+  const updateSnippet = useSnippetStore((s) => s.updateSnippet)
   const clearSelection = useSnippetStore((s) => s.clearSelection)
   const markExported = useSnippetStore((s) => s.markExported)
   const setExportFilter = useSnippetStore((s) => s.setExportFilter)
@@ -81,9 +82,12 @@ export function Sidebar() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null)
   const [editingFolderName, setEditingFolderName] = useState('')
+  const [editingSnippetId, setEditingSnippetId] = useState<string | null>(null)
+  const [editingSnippetName, setEditingSnippetName] = useState('')
   const [deleteFolderDialog, setDeleteFolderDialog] = useState<{ open: boolean; folderId: string | null; hasContents: boolean }>({ open: false, folderId: null, hasContents: false })
   const menuRef = useRef<HTMLDivElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
+  const snippetInputRef = useRef<HTMLInputElement>(null)
 
   const EXPANDED_FOLDERS_KEY = 'prompt-workbench-expanded-folders'
 
@@ -322,6 +326,15 @@ export function Sidebar() {
     e.stopPropagation()
     toggleFolder(folderId)
   }, [toggleFolder])
+
+  const handleSnippetDoubleClick = useCallback((e: React.MouseEvent, snippetId: string) => {
+    e.stopPropagation()
+    const snippet = snippets.find((s) => s.id === snippetId)
+    if (snippet) {
+      setEditingSnippetId(snippetId)
+      setEditingSnippetName(snippet.name)
+    }
+  }, [snippets])
 
   const handleFolderDoubleClick = useCallback((e: React.MouseEvent, folderId: string) => {
     e.stopPropagation()
@@ -656,6 +669,24 @@ export function Sidebar() {
     }
   }, [handleFolderNameSubmit])
 
+  const handleSnippetNameSubmit = useCallback(() => {
+    if (editingSnippetId && editingSnippetName.trim()) {
+      updateSnippet(editingSnippetId, { name: editingSnippetName.trim() })
+    }
+    setEditingSnippetId(null)
+    setEditingSnippetName('')
+  }, [editingSnippetId, editingSnippetName, updateSnippet])
+
+  const handleSnippetNameKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSnippetNameSubmit()
+    } else if (e.key === 'Escape') {
+      setEditingSnippetId(null)
+      setEditingSnippetName('')
+    }
+  }, [handleSnippetNameSubmit])
+
   // Focus folder input when editing starts
   useEffect(() => {
     if (editingFolderId && folderInputRef.current) {
@@ -664,19 +695,29 @@ export function Sidebar() {
     }
   }, [editingFolderId])
 
+  // Focus snippet input when editing starts
+  useEffect(() => {
+    if (editingSnippetId && snippetInputRef.current) {
+      snippetInputRef.current.focus()
+      snippetInputRef.current.select()
+    }
+  }, [editingSnippetId])
+
   const needsExport = (snippet: Snippet) =>
     !snippet.lastExportedAt || snippet.updatedAt > snippet.lastExportedAt
 
   const renderSnippet = (snippet: Snippet, depth: number = 0) => {
     const showIndicator = needsExport(snippet)
     const isBeingDragged = dragState.isDragging && dragState.dragType === 'snippet' && dragState.draggedIds.has(snippet.id)
+    const isEditing = editingSnippetId === snippet.id
     return (
       <li
         key={snippet.id}
-        draggable
+        draggable={!isEditing}
         onDragStart={(e) => handleSnippetDragStart(e, snippet.id)}
         onDragEnd={handleDragEnd}
         onClick={(e) => handleSnippetClick(e, snippet.id)}
+        onDoubleClick={(e) => handleSnippetDoubleClick(e, snippet.id)}
         onContextMenu={(e) => handleSnippetContextMenu(e, snippet.id)}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         className={cn(
@@ -690,8 +731,21 @@ export function Sidebar() {
         )}
       >
         <FileText className="w-4 h-4 shrink-0" />
-        <span className="truncate flex-1">{snippet.name}</span>
-        {showIndicator && (
+        {isEditing ? (
+          <input
+            ref={snippetInputRef}
+            type="text"
+            value={editingSnippetName}
+            onChange={(e) => setEditingSnippetName(e.target.value)}
+            onBlur={handleSnippetNameSubmit}
+            onKeyDown={handleSnippetNameKeyDown}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 bg-zinc-700 border border-zinc-600 rounded px-1 py-0.5 text-sm text-zinc-200 focus:outline-none focus:border-blue-500"
+          />
+        ) : (
+          <span className="truncate flex-1">{snippet.name}</span>
+        )}
+        {!isEditing && showIndicator && (
           <span
             className={cn(
               'w-2 h-2 rounded-full shrink-0',

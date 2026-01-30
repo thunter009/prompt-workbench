@@ -1,4 +1,5 @@
 import type { Snippet, RaycastSnippet, SnippetConflict, ConflictType } from '@/types'
+import { generateId } from '../utils/id'
 
 // Inline type to avoid importing from file-watcher (Node.js module)
 export interface FileChangeEvent {
@@ -87,7 +88,7 @@ export function detectConflicts(
         if (!localMatch) {
           // New snippet from Raycast that doesn't exist locally
           conflicts.push({
-            id: crypto.randomUUID(),
+            id: generateId(),
             type: 'new_remote',
             remoteSnippet,
             filePath: event.path,
@@ -101,7 +102,7 @@ export function detectConflicts(
           if (localModifiedAfterExport) {
             // Both modified - true conflict
             conflicts.push({
-              id: crypto.randomUUID(),
+              id: generateId(),
               type: 'modified',
               localSnippet: localMatch,
               remoteSnippet,
@@ -111,7 +112,7 @@ export function detectConflicts(
           } else {
             // Only remote modified - still show as conflict for user awareness
             conflicts.push({
-              id: crypto.randomUUID(),
+              id: generateId(),
               type: 'modified',
               localSnippet: localMatch,
               remoteSnippet,
