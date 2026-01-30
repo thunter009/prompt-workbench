@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
 import { useIntervalSync } from '@/hooks/useIntervalSync'
 import { Editor } from '@/components/editor/Editor'
+import { EditorPanelHeader } from '@/components/editor/EditorPanel'
 import { Preview } from '@/components/preview/Preview'
 import { ResizableDivider } from '@/components/ResizableDivider'
 import { Sidebar } from '@/components/Sidebar'
@@ -399,9 +400,12 @@ export default function HomePage() {
           <Sidebar />
           <div
             style={{ width: previewVisible ? `${leftPercent}%` : '100%' }}
-            className="flex-1 overflow-auto transition-[width] duration-200 ease-out"
+            className="flex-1 flex flex-col overflow-hidden transition-[width] duration-200 ease-out"
           >
-            <Editor initialValue={content} onChange={setContent} onScrollProgress={handleEditorScroll} />
+            <EditorPanelHeader />
+            <div className="flex-1 overflow-auto">
+              <Editor initialValue={content} onChange={setContent} onScrollProgress={handleEditorScroll} />
+            </div>
           </div>
           {previewVisible && (
             <>
