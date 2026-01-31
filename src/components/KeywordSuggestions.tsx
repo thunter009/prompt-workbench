@@ -5,6 +5,7 @@ import { X, Loader2, Sparkles, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSnippetStore } from '@/lib/store'
 import { checkKeywordConflicts, type KeywordConflict } from '@/lib/keyword-analysis'
+import { useKeywordStyleStore } from '@/lib/keyword-style-store'
 
 const DEBOUNCE_MS = 1500
 const MIN_TEXT_LENGTH = 10
@@ -24,13 +25,38 @@ interface StyleGuide {
   examples: Array<{ name: string; keyword: string }>
 }
 
-function deriveStyleGuide(snippets: Array<{ name: string; keyword?: string }>): StyleGuide {
+interface UserStylePrefs {
+  prefix: string
+  maxLength: number
+  casePreference: 'lowercase' | 'UPPERCASE' | 'camelCase'
+  hasUserPrefs: boolean
+}
+
+function deriveStyleGuide(
+  snippets: Array<{ name: string; keyword?: string }>,
+  userPrefs: UserStylePrefs
+): StyleGuide {
   const examples = snippets
     .filter((s) => s.keyword && s.keyword.trim())
     .map((s) => ({ name: s.name, keyword: s.keyword! }))
     .slice(0, 5)
 
-  // Analyze prefix pattern from existing keywords
+  // If user has saved preferences, use those
+  if (userPrefs.hasUserPrefs) {
+    const caseMap: Record<string, 'lower' | 'upper' | 'camel'> = {
+      lowercase: 'lower',
+      UPPERCASE: 'upper',
+      camelCase: 'camel',
+    }
+    return {
+      prefix: userPrefs.prefix || undefined,
+      maxLength: userPrefs.maxLength,
+      case: caseMap[userPrefs.casePreference],
+      examples,
+    }
+  }
+
+  // Otherwise infer from existing keywords
   let prefix: string | undefined
   const keywords = examples.map((e) => e.keyword)
   if (keywords.length > 0) {
@@ -48,7 +74,6 @@ function deriveStyleGuide(snippets: Array<{ name: string; keyword?: string }>): 
     const allUpper = keywords.every((k) => k === k.toUpperCase())
     if (allLower) caseType = 'lower'
     else if (allUpper) caseType = 'upper'
-    // camelCase detection harder, skip for now
   }
 
   return {
@@ -74,6 +99,12 @@ export function KeywordSuggestions({
   const lastRequestRef = useRef<string>('')
   const snippets = useSnippetStore((s) => s.snippets)
 
+  // User keyword style preferences
+  const keywordPrefix = useKeywordStyleStore((s) => s.prefix)
+  const keywordMaxLength = useKeywordStyleStore((s) => s.maxLength)
+  const keywordCase = useKeywordStyleStore((s) => s.casePreference)
+  const hasUserPrefs = useKeywordStyleStore((s) => s.hasUserPrefs)
+
   // Check conflicts for all current suggestions
   const conflicts = useMemo<Map<string, KeywordConflict>>(() => {
     if (suggestions.length === 0) return new Map()
@@ -96,7 +127,13 @@ export function KeywordSuggestions({
     setError(null)
 
     try {
-      const styleGuide = deriveStyleGuide(snippets)
+      const userPrefs: UserStylePrefs = {
+        prefix: keywordPrefix,
+        maxLength: keywordMaxLength,
+        casePreference: keywordCase,
+        hasUserPrefs: hasUserPrefs(),
+      }
+      const styleGuide = deriveStyleGuide(snippets, userPrefs)
       const res = await fetch('/api/suggest-keyword', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -119,7 +156,7 @@ export function KeywordSuggestions({
     } finally {
       setLoading(false)
     }
-  }, [snippetName, snippetText, currentKeyword, dismissed, snippets])
+  }, [snippetName, snippetText, currentKeyword, dismissed, snippets, keywordPrefix, keywordMaxLength, keywordCase, hasUserPrefs])
 
   // Debounced fetch when name/text changes
   useEffect(() => {

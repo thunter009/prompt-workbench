@@ -9,6 +9,11 @@ import { useAISettingsStore, DEFAULT_OLLAMA_URL } from '@/lib/ai-settings-store'
 import { useIntervalSync } from '@/hooks/useIntervalSync'
 import { SyncHistory } from '@/components/SyncHistory'
 import {
+  useKeywordStyleStore,
+  analyzeKeywordPatterns,
+  type CasePreference,
+} from '@/lib/keyword-style-store'
+import {
   pickDefaultExportDirectory,
   clearDefaultExportPath,
   getStoredExportPath,
@@ -22,10 +27,17 @@ interface SettingsModalProps {
   onClose: () => void
 }
 
+const CASE_OPTIONS: { value: CasePreference; label: string }[] = [
+  { value: 'lowercase', label: 'lowercase' },
+  { value: 'UPPERCASE', label: 'UPPERCASE' },
+  { value: 'camelCase', label: 'camelCase' },
+]
+
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [ollamaModels, setOllamaModels] = useState<string[]>([])
   const [modelsLoading, setModelsLoading] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle')
+  const [inferring, setInferring] = useState(false)
 
   const exportSettings = useSnippetStore((s) => s.exportSettings)
   const setExportSettings = useSnippetStore((s) => s.setExportSettings)
@@ -35,6 +47,16 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const setOllamaUrl = useAISettingsStore((s) => s.setOllamaUrl)
   const setOllamaModel = useAISettingsStore((s) => s.setOllamaModel)
   const loadAISettings = useAISettingsStore((s) => s.load)
+
+  const keywordPrefix = useKeywordStyleStore((s) => s.prefix)
+  const keywordMaxLength = useKeywordStyleStore((s) => s.maxLength)
+  const keywordCase = useKeywordStyleStore((s) => s.casePreference)
+  const setKeywordPrefix = useKeywordStyleStore((s) => s.setPrefix)
+  const setKeywordMaxLength = useKeywordStyleStore((s) => s.setMaxLength)
+  const setKeywordCase = useKeywordStyleStore((s) => s.setCasePreference)
+  const setKeywordAll = useKeywordStyleStore((s) => s.setAll)
+  const loadKeywordPrefs = useKeywordStyleStore((s) => s.load)
+  const snippets = useSnippetStore((s) => s.snippets)
 
   const fileWatcherEnabled = useSyncSettingsStore((s) => s.fileWatcherEnabled)
   const setFileWatcherEnabled = useSyncSettingsStore((s) => s.setFileWatcherEnabled)
@@ -97,8 +119,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         setExportSettings({ defaultPath: getDefaultExportPath(), hasDirectoryHandle: true })
       }
       loadAISettings()
+      loadKeywordPrefs()
     }
-  }, [open, setExportSettings, loadAISettings])
+  }, [open, setExportSettings, loadAISettings, loadKeywordPrefs])
 
   useEffect(() => {
     if (open && ollamaUrl) {
@@ -141,6 +164,19 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       setExportSettings({ defaultPath: null, hasDirectoryHandle: false })
     }
     toast.success('Export path reset to default')
+  }
+
+  const handleInferKeywordStyle = () => {
+    setInferring(true)
+    try {
+      const inferred = analyzeKeywordPatterns(snippets)
+      setKeywordAll(inferred)
+      toast.success('Keyword style inferred from existing snippets')
+    } catch {
+      toast.error('Could not infer keyword style')
+    } finally {
+      setInferring(false)
+    }
   }
 
   if (!open) return null
@@ -340,6 +376,73 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                     </option>
                   ))
                 )}
+              </select>
+            </div>
+          </section>
+
+          {/* Keyword Style Preferences */}
+          <section className="border-t border-zinc-800 pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-zinc-300">Keyword Style</h3>
+              <button
+                onClick={handleInferKeywordStyle}
+                disabled={inferring || snippets.length === 0}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 rounded text-xs font-medium transition-colors"
+              >
+                {inferring ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3 h-3" />
+                )}
+                Infer from existing
+              </button>
+            </div>
+
+            {/* Prefix */}
+            <div className="mb-4">
+              <label className="text-sm text-zinc-400 block mb-1.5">Prefix</label>
+              <input
+                type="text"
+                value={keywordPrefix}
+                onChange={(e) => setKeywordPrefix(e.target.value)}
+                placeholder="!, @, //, or leave empty"
+                maxLength={3}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-300 placeholder:text-zinc-500"
+              />
+              <p className="text-xs text-zinc-500 mt-1">
+                Character(s) that start all keywords
+              </p>
+            </div>
+
+            {/* Max Length */}
+            <div className="mb-4">
+              <label className="text-sm text-zinc-400 block mb-1.5">Max Length</label>
+              <input
+                type="number"
+                value={keywordMaxLength}
+                onChange={(e) => setKeywordMaxLength(parseInt(e.target.value) || 6)}
+                min={2}
+                max={12}
+                className="w-24 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-300"
+              />
+              <p className="text-xs text-zinc-500 mt-1">
+                Max keyword length (2-12 chars)
+              </p>
+            </div>
+
+            {/* Case Preference */}
+            <div>
+              <label className="text-sm text-zinc-400 block mb-1.5">Case Style</label>
+              <select
+                value={keywordCase}
+                onChange={(e) => setKeywordCase(e.target.value as CasePreference)}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-300"
+              >
+                {CASE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
           </section>
