@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
-import { X, RefreshCw, Loader2, CheckCircle, XCircle } from 'lucide-react'
+import { X, RefreshCw, Loader2, CheckCircle, XCircle, Search } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
 import { useSyncSettingsStore, SYNC_INTERVALS, type SyncInterval } from '@/lib/sync-settings-store'
 import { useAISettingsStore, DEFAULT_OLLAMA_URL } from '@/lib/ai-settings-store'
 import { useIntervalSync } from '@/hooks/useIntervalSync'
 import { SyncHistory } from '@/components/SyncHistory'
+import { KeywordAuditModal } from '@/components/KeywordAuditModal'
 import {
   useKeywordStyleStore,
   analyzeKeywordPatterns,
@@ -38,6 +39,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [modelsLoading, setModelsLoading] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle')
   const [inferring, setInferring] = useState(false)
+  const [auditModalOpen, setAuditModalOpen] = useState(false)
 
   const exportSettings = useSnippetStore((s) => s.exportSettings)
   const setExportSettings = useSnippetStore((s) => s.setExportSettings)
@@ -431,7 +433,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             </div>
 
             {/* Case Preference */}
-            <div>
+            <div className="mb-4">
               <label className="text-sm text-zinc-400 block mb-1.5">Case Style</label>
               <select
                 value={keywordCase}
@@ -445,6 +447,21 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                 ))}
               </select>
             </div>
+
+            {/* Audit Keywords */}
+            <div className="pt-3 border-t border-zinc-800">
+              <button
+                onClick={() => setAuditModalOpen(true)}
+                disabled={snippets.length === 0}
+                className="flex items-center gap-2 px-3 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 rounded text-sm font-medium transition-colors w-full justify-center"
+              >
+                <Search className="w-4 h-4" />
+                Audit Keywords
+              </button>
+              <p className="text-xs text-zinc-500 mt-2 text-center">
+                Find missing or inconsistent keywords
+              </p>
+            </div>
           </section>
 
           {/* Sync History */}
@@ -453,6 +470,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           </section>
         </div>
       </div>
+
+      {/* Keyword Audit Modal */}
+      <KeywordAuditModal open={auditModalOpen} onClose={() => setAuditModalOpen(false)} />
     </div>
   )
 }
