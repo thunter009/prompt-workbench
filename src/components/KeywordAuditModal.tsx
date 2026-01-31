@@ -1,13 +1,29 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { X, Loader2, Sparkles, Check, AlertTriangle, CheckCircle } from 'lucide-react'
+import { X, Loader2, Sparkles, Check, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useSnippetStore } from '@/lib/store'
 import { useKeywordStyleStore, type CasePreference } from '@/lib/keyword-style-store'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
 import type { Snippet } from '@/types'
+
+const EXCEPTIONS_KEY = 'prompt-workbench-keyword-exceptions'
+
+function loadExceptions(): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const data = localStorage.getItem(EXCEPTIONS_KEY)
+    return data ? new Set(JSON.parse(data)) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function saveExceptions(exceptions: Set<string>) {
+  localStorage.setItem(EXCEPTIONS_KEY, JSON.stringify([...exceptions]))
+}
 
 interface KeywordAuditModalProps {
   open: boolean
@@ -90,6 +106,8 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
   const [auditResults, setAuditResults] = useState<AuditResult[]>([])
   const [scanning, setScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 })
+  const [exceptions, setExceptions] = useState<Set<string>>(() => loadExceptions())
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
   // Load stores on open
   useEffect(() => {
@@ -116,6 +134,16 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
         }
       }
 
+      // Check if this snippet is in the exceptions list
+      if (exceptions.has(s.id)) {
+        return {
+          snippetId: s.id,
+          snippetName: s.name,
+          currentKeyword: s.keyword,
+          status: 'ok' as AuditStatus,
+        }
+      }
+
       const styleCheck = checkKeywordStyle(s.keyword, prefs)
       if (!styleCheck.consistent) {
         return {
@@ -136,7 +164,7 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
     })
 
     setAuditResults(results)
-  }, [open, snippets, keywordPrefix, keywordMaxLength, keywordCase])
+  }, [open, snippets, keywordPrefix, keywordMaxLength, keywordCase, exceptions])
 
   // Group results
   const groupedResults = useMemo(() => {
@@ -251,10 +279,10 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
     toast.success(`Updated keyword to "${keyword}"`)
   }
 
-  // Apply all top suggestions
+  // Apply all top suggestions (for missing keywords)
   const handleApplyAll = () => {
     const toApply = auditResults.filter(
-      (r) => r.status !== 'ok' && r.suggestions && r.suggestions.length > 0
+      (r) => r.status === 'missing' && r.suggestions && r.suggestions.length > 0
     )
 
     if (toApply.length === 0) {
@@ -269,7 +297,7 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
     // Update local state
     setAuditResults((prev) =>
       prev.map((r) => {
-        if (r.status !== 'ok' && r.suggestions && r.suggestions.length > 0) {
+        if (r.status === 'missing' && r.suggestions && r.suggestions.length > 0) {
           return {
             ...r,
             currentKeyword: r.suggestions[0],
@@ -285,6 +313,67 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
     toast.success(`Applied ${toApply.length} suggestions`)
   }
 
+  // Mark as exception (Keep)
+  const handleKeep = (snippetId: string) => {
+    const newExceptions = new Set(exceptions)
+    newExceptions.add(snippetId)
+    setExceptions(newExceptions)
+    saveExceptions(newExceptions)
+
+    // Update local state to move to OK
+    setAuditResults((prev) =>
+      prev.map((r) =>
+        r.snippetId === snippetId
+          ? { ...r, status: 'ok' as AuditStatus, statusReason: undefined, suggestions: undefined }
+          : r
+      )
+    )
+
+    toast.success('Keyword marked as OK')
+  }
+
+  // Get items ready for standardization
+  const standardizeItems = useMemo(() => {
+    return auditResults.filter(
+      (r) => r.status === 'inconsistent' && r.suggestions && r.suggestions.length > 0
+    )
+  }, [auditResults])
+
+  // Standardize all inconsistent keywords
+  const handleStandardizeAll = () => {
+    if (standardizeItems.length === 0) {
+      toast.info('No inconsistent keywords with suggestions')
+      return
+    }
+    setShowConfirmDialog(true)
+  }
+
+  const confirmStandardizeAll = () => {
+    for (const result of standardizeItems) {
+      updateSnippet(result.snippetId, { keyword: result.suggestions![0] })
+    }
+
+    // Update local state
+    setAuditResults((prev) =>
+      prev.map((r) => {
+        const item = standardizeItems.find((s) => s.snippetId === r.snippetId)
+        if (item) {
+          return {
+            ...r,
+            currentKeyword: item.suggestions![0],
+            status: 'ok' as AuditStatus,
+            suggestions: undefined,
+            statusReason: undefined,
+          }
+        }
+        return r
+      })
+    )
+
+    setShowConfirmDialog(false)
+    toast.success(`Standardized ${standardizeItems.length} keywords`)
+  }
+
   // Close on escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -296,8 +385,8 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
 
   if (!open) return null
 
-  const applySuggestionsCount = auditResults.filter(
-    (r) => r.status !== 'ok' && r.suggestions && r.suggestions.length > 0
+  const missingWithSuggestions = auditResults.filter(
+    (r) => r.status === 'missing' && r.suggestions && r.suggestions.length > 0
   ).length
 
   return (
@@ -338,14 +427,25 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
             Scan & Suggest
           </button>
 
-          {applySuggestionsCount > 0 && (
+          {missingWithSuggestions > 0 && (
             <button
               onClick={handleApplyAll}
               disabled={scanning}
               className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded text-sm font-medium transition-colors"
             >
               <Check className="w-4 h-4" />
-              Apply All ({applySuggestionsCount})
+              Apply All ({missingWithSuggestions})
+            </button>
+          )}
+
+          {standardizeItems.length > 0 && (
+            <button
+              onClick={handleStandardizeAll}
+              disabled={scanning}
+              className="flex items-center gap-2 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 rounded text-sm font-medium transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Standardize All ({standardizeItems.length})
             </button>
           )}
 
@@ -398,6 +498,8 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
                     key={result.snippetId}
                     result={result}
                     onApply={handleApplySuggestion}
+                    onKeep={handleKeep}
+                    showReplaceActions
                   />
                 ))}
               </div>
@@ -428,6 +530,49 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
             <div className="text-center text-zinc-500 py-8">No snippets to audit</div>
           )}
         </div>
+
+        {/* Standardize All Confirmation Dialog */}
+        {showConfirmDialog && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
+            <div className="bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl max-w-md w-full mx-4 p-5">
+              <h3 className="text-lg font-medium mb-3">Replace {standardizeItems.length} keywords?</h3>
+              <p className="text-sm text-zinc-400 mb-4">
+                This will standardize inconsistent keywords to match your style preferences.
+              </p>
+
+              {/* Preview */}
+              <div className="max-h-48 overflow-auto mb-4 space-y-1.5">
+                {standardizeItems.map((item) => (
+                  <div key={item.snippetId} className="flex items-center gap-2 text-xs">
+                    <span className="truncate flex-1 text-zinc-300">{item.snippetName}</span>
+                    <code className="bg-zinc-700 px-1.5 py-0.5 rounded text-zinc-400 line-through">
+                      {item.currentKeyword}
+                    </code>
+                    <span className="text-zinc-500">→</span>
+                    <code className="bg-green-900/50 px-1.5 py-0.5 rounded text-green-300">
+                      {item.suggestions![0]}
+                    </code>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowConfirmDialog(false)}
+                  className="px-3 py-1.5 rounded text-sm bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmStandardizeAll}
+                  className="px-3 py-1.5 rounded text-sm bg-orange-600 hover:bg-orange-700 transition-colors font-medium"
+                >
+                  Replace All
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -436,10 +581,14 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
 interface AuditRowProps {
   result: AuditResult
   onApply: (snippetId: string, keyword: string) => void
+  onKeep?: (snippetId: string) => void
   collapsed?: boolean
+  showReplaceActions?: boolean
 }
 
-function AuditRow({ result, onApply, collapsed = false }: AuditRowProps) {
+function AuditRow({ result, onApply, onKeep, collapsed = false, showReplaceActions = false }: AuditRowProps) {
+  const topSuggestion = result.suggestions?.[0]
+
   return (
     <div
       className={cn(
@@ -466,11 +615,54 @@ function AuditRow({ result, onApply, collapsed = false }: AuditRowProps) {
         )}
       </div>
 
+      {/* Arrow and suggested replacement for inconsistent */}
+      {showReplaceActions && topSuggestion && (
+        <>
+          <span className="text-zinc-500 text-xs">→</span>
+          <code className="text-xs bg-green-900/50 px-1.5 py-0.5 rounded text-green-300">
+            {topSuggestion}
+          </code>
+        </>
+      )}
+
       {/* Status badge */}
       <StatusBadge status={result.status} />
 
-      {/* Suggestions */}
-      {result.suggestions && result.suggestions.length > 0 && (
+      {/* Replace/Keep actions for inconsistent */}
+      {showReplaceActions && topSuggestion && (
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => onApply(result.snippetId, topSuggestion)}
+            className="px-2 py-0.5 rounded text-xs bg-green-700/50 hover:bg-green-600/60 text-green-200 transition-colors"
+            title="Replace with suggestion"
+          >
+            Replace
+          </button>
+          {onKeep && (
+            <button
+              onClick={() => onKeep(result.snippetId)}
+              className="px-2 py-0.5 rounded text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition-colors"
+              title="Keep current keyword (mark as OK)"
+            >
+              Keep
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Keep button for inconsistent without suggestions */}
+      {showReplaceActions && !topSuggestion && onKeep && (
+        <button
+          onClick={() => onKeep(result.snippetId)}
+          className="px-2 py-0.5 rounded text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition-colors"
+          title="Keep current keyword (mark as OK)"
+        >
+          Keep
+        </button>
+      )}
+
+      {/* Suggestion pills for missing (non-inconsistent) */}
+      {!showReplaceActions && result.suggestions && result.suggestions.length > 0 && (
         <div className="flex items-center gap-1.5">
           {result.suggestions.slice(0, 3).map((suggestion, idx) => (
             <button
