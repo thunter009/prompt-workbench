@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, Sparkles, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Loader2, Sparkles, X, AlertTriangle } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
 import { KeywordSuggestions } from '@/components/KeywordSuggestions'
 import { cn } from '@/lib/utils'
+import { checkKeywordConflict, checkKeywordConflicts, type KeywordConflict } from '@/lib/keyword-analysis'
 
 const DEBOUNCE_MS = 500
 const MIN_TEXT_LENGTH = 10
@@ -63,6 +64,18 @@ export function EditorPanelHeader() {
   const popoverRef = useRef<HTMLDivElement>(null)
 
   const snippet = getSelectedSnippet()
+
+  // Check conflict for current keyword input
+  const keywordConflict = useMemo<KeywordConflict>(() => {
+    if (!keywordValue?.trim()) return { conflict: false }
+    return checkKeywordConflict(keywordValue, selectedId ?? undefined)
+  }, [keywordValue, selectedId])
+
+  // Check conflicts for popover suggestions
+  const suggestionConflicts = useMemo<Map<string, KeywordConflict>>(() => {
+    if (suggestions.length === 0) return new Map()
+    return checkKeywordConflicts(suggestions, selectedId ?? undefined)
+  }, [suggestions, selectedId])
 
   // Sync keyword from store when selection changes
   useEffect(() => {
@@ -195,13 +208,33 @@ export function EditorPanelHeader() {
     <div className="px-4 py-2 flex flex-col gap-2">
       <div className="flex items-center gap-3">
         <label className="text-sm text-zinc-500 shrink-0">Keyword</label>
-        <input
-          type="text"
-          value={keywordValue}
-          onChange={handleKeywordChange}
-          placeholder="!keyword"
-          className="flex-1 max-w-xs bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500"
-        />
+        <div className="relative flex-1 max-w-xs">
+          <input
+            type="text"
+            value={keywordValue}
+            onChange={handleKeywordChange}
+            placeholder="!keyword"
+            className={cn(
+              'w-full bg-zinc-800 border rounded px-2 py-1 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none',
+              keywordConflict.conflict
+                ? 'border-amber-600 focus:border-amber-500'
+                : 'border-zinc-700 focus:border-blue-500'
+            )}
+          />
+          {keywordConflict.conflict && (
+            <div
+              className="absolute right-2 top-1/2 -translate-y-1/2"
+              title={`Already used by: ${keywordConflict.existingSnippet?.name}`}
+            >
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+            </div>
+          )}
+        </div>
+        {keywordConflict.conflict && (
+          <span className="text-xs text-amber-500 whitespace-nowrap">
+            Used by: {keywordConflict.existingSnippet?.name}
+          </span>
+        )}
         <div className="relative">
           <button
             ref={buttonRef}
@@ -252,19 +285,32 @@ export function EditorPanelHeader() {
 
                 {!loading && suggestions.length > 0 && (
                   <div className="flex flex-col gap-1">
-                    {suggestions.map((kw) => (
-                      <button
-                        key={kw}
-                        onClick={() => handleSuggestionSelect(kw)}
-                        className={cn(
-                          'w-full text-left px-2 py-1.5 rounded text-sm',
-                          'bg-zinc-700/50 hover:bg-zinc-600 text-zinc-200',
-                          'transition-colors cursor-pointer'
-                        )}
-                      >
-                        {kw}
-                      </button>
-                    ))}
+                    {suggestions.map((kw) => {
+                      const conflict = suggestionConflicts.get(kw)
+                      return (
+                        <button
+                          key={kw}
+                          onClick={() => handleSuggestionSelect(kw)}
+                          className={cn(
+                            'w-full text-left px-2 py-1.5 rounded text-sm flex items-center justify-between',
+                            conflict?.conflict
+                              ? 'bg-amber-900/30 hover:bg-amber-800/40 text-amber-200'
+                              : 'bg-zinc-700/50 hover:bg-zinc-600 text-zinc-200',
+                            'transition-colors cursor-pointer'
+                          )}
+                          title={
+                            conflict?.conflict
+                              ? `Already used by: ${conflict.existingSnippet?.name}`
+                              : undefined
+                          }
+                        >
+                          <span>{kw}</span>
+                          {conflict?.conflict && (
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                          )}
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -273,6 +319,7 @@ export function EditorPanelHeader() {
         </div>
       </div>
       <KeywordSuggestions
+        snippetId={selectedId}
         snippetName={snippet.name}
         snippetText={snippet.text}
         currentKeyword={keywordValue}

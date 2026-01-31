@@ -1,14 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { X, Loader2, Sparkles } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { X, Loader2, Sparkles, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSnippetStore } from '@/lib/store'
+import { checkKeywordConflicts, type KeywordConflict } from '@/lib/keyword-analysis'
 
 const DEBOUNCE_MS = 1500
 const MIN_TEXT_LENGTH = 10
 
 interface KeywordSuggestionsProps {
+  snippetId?: string
   snippetName: string
   snippetText: string
   currentKeyword: string
@@ -58,6 +60,7 @@ function deriveStyleGuide(snippets: Array<{ name: string; keyword?: string }>): 
 }
 
 export function KeywordSuggestions({
+  snippetId,
   snippetName,
   snippetText,
   currentKeyword,
@@ -70,6 +73,12 @@ export function KeywordSuggestions({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastRequestRef = useRef<string>('')
   const snippets = useSnippetStore((s) => s.snippets)
+
+  // Check conflicts for all current suggestions
+  const conflicts = useMemo<Map<string, KeywordConflict>>(() => {
+    if (suggestions.length === 0) return new Map()
+    return checkKeywordConflicts(suggestions, snippetId)
+  }, [suggestions, snippetId])
 
   const fetchSuggestions = useCallback(async () => {
     // Don't fetch if keyword already set, text too short, or dismissed
@@ -174,19 +183,32 @@ export function KeywordSuggestions({
       {suggestions.length > 0 && (
         <>
           <Sparkles className="h-3 w-3 text-zinc-500" />
-          {suggestions.map((kw) => (
-            <button
-              key={kw}
-              onClick={() => handleSelect(kw)}
-              className={cn(
-                'px-2 py-0.5 rounded-full text-xs',
-                'bg-zinc-700 hover:bg-zinc-600 text-zinc-200',
-                'transition-colors cursor-pointer'
-              )}
-            >
-              {kw}
-            </button>
-          ))}
+          {suggestions.map((kw) => {
+            const conflict = conflicts.get(kw)
+            return (
+              <button
+                key={kw}
+                onClick={() => handleSelect(kw)}
+                className={cn(
+                  'px-2 py-0.5 rounded-full text-xs inline-flex items-center gap-1',
+                  conflict?.conflict
+                    ? 'bg-amber-900/50 hover:bg-amber-800/60 text-amber-200 border border-amber-700/50'
+                    : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200',
+                  'transition-colors cursor-pointer'
+                )}
+                title={
+                  conflict?.conflict
+                    ? `Already used by: ${conflict.existingSnippet?.name}`
+                    : undefined
+                }
+              >
+                {conflict?.conflict && (
+                  <AlertTriangle className="h-2.5 w-2.5 text-amber-400" />
+                )}
+                {kw}
+              </button>
+            )
+          })}
           <button
             onClick={handleDismiss}
             className="p-0.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300 transition-colors"
