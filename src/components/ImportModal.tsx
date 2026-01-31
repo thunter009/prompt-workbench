@@ -42,6 +42,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
     if (open) {
       checkForExistingExport()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   const checkForExistingExport = useCallback(async () => {
@@ -278,7 +279,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
               <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                 <h3 className="text-sm font-medium text-blue-400 mb-2">Quick Import</h3>
                 <p className="text-xs text-blue-300/70 mb-3">
-                  Click below to open Raycast's export dialog automatically
+                  Click below to open Raycast&apos;s export dialog automatically
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -313,9 +314,9 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                 <h3 className="text-sm font-medium text-zinc-200 mb-2">Or export manually:</h3>
                 <ol className="text-sm text-zinc-400 space-y-1 list-decimal list-inside">
                   <li>Open Raycast (⌘ Space)</li>
-                  <li>Search for "Export Snippets"</li>
+                  <li>Search for &quot;Export Snippets&quot;</li>
                   <li>Save to <code className="px-1 bg-zinc-700 rounded">~/.prompt-workbench</code></li>
-                  <li>Drop it below or click "Check Again"</li>
+                  <li>Drop it below or click &quot;Check Again&quot;</li>
                 </ol>
               </div>
 

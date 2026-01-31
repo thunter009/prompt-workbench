@@ -1,10 +1,47 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Loader2, Sparkles, X } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
 import { KeywordSuggestions } from '@/components/KeywordSuggestions'
+import { cn } from '@/lib/utils'
 
 const DEBOUNCE_MS = 500
+const MIN_TEXT_LENGTH = 10
+
+interface StyleGuide {
+  prefix?: string
+  maxLength?: number
+  case?: 'lower' | 'upper' | 'camel'
+  examples: Array<{ name: string; keyword: string }>
+}
+
+function deriveStyleGuide(snippets: Array<{ name: string; keyword?: string }>): StyleGuide {
+  const examples = snippets
+    .filter((s) => s.keyword && s.keyword.trim())
+    .map((s) => ({ name: s.name, keyword: s.keyword! }))
+    .slice(0, 5)
+
+  let prefix: string | undefined
+  const keywords = examples.map((e) => e.keyword)
+  if (keywords.length > 0) {
+    const firstChars = keywords.map((k) => k[0])
+    const allSamePrefix = firstChars.every((c) => c === firstChars[0] && /[!@#]/.test(c))
+    if (allSamePrefix) {
+      prefix = firstChars[0]
+    }
+  }
+
+  let caseType: 'lower' | 'upper' | 'camel' | undefined
+  if (keywords.length > 0) {
+    const allLower = keywords.every((k) => k === k.toLowerCase())
+    const allUpper = keywords.every((k) => k === k.toUpperCase())
+    if (allLower) caseType = 'lower'
+    else if (allUpper) caseType = 'upper'
+  }
+
+  return { prefix, case: caseType, maxLength: 15, examples }
+}
 
 export interface EditorPanelHeaderProps {
   onScrollProgress?: (progress: number) => void
@@ -14,9 +51,16 @@ export function EditorPanelHeader() {
   const selectedId = useSnippetStore((s) => s.selectedId)
   const getSelectedSnippet = useSnippetStore((s) => s.getSelectedSnippet)
   const updateSnippet = useSnippetStore((s) => s.updateSnippet)
+  const snippets = useSnippetStore((s) => s.snippets)
 
   const [keywordValue, setKeywordValue] = useState('')
+  const [popoverOpen, setPopoverOpen] = useState(false)
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
 
   const snippet = getSelectedSnippet()
 
@@ -29,7 +73,6 @@ export function EditorPanelHeader() {
     const value = e.target.value
     setKeywordValue(value)
 
-    // Debounce save to store
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
     }
@@ -45,7 +88,95 @@ export function EditorPanelHeader() {
     if (selectedId) {
       updateSnippet(selectedId, { keyword })
     }
+    setPopoverOpen(false)
+    setSuggestions([])
   }, [selectedId, updateSnippet])
+
+  // Fetch suggestions on-demand
+  const fetchSuggestions = useCallback(async () => {
+    if (!snippet) return
+    if (snippet.text.length < MIN_TEXT_LENGTH) {
+      setError('Snippet text too short')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    setPopoverOpen(true)
+
+    try {
+      const styleGuide = deriveStyleGuide(snippets)
+      const res = await fetch('/api/suggest-keyword', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: snippet.name,
+          text: snippet.text,
+          styleGuide,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.suggestions?.length > 0) {
+        setSuggestions(data.suggestions)
+      } else {
+        setSuggestions([])
+        setError('No suggestions available')
+      }
+    } catch {
+      setError('Could not fetch suggestions')
+      setSuggestions([])
+    } finally {
+      setLoading(false)
+    }
+  }, [snippet, snippets])
+
+  // ⌘K keyboard shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        // Don't trigger if in an input/textarea other than keyword input
+        const target = e.target as HTMLElement
+        if (target.tagName === 'TEXTAREA') return
+        if (target.tagName === 'INPUT' && target.getAttribute('placeholder') !== '!keyword') return
+
+        e.preventDefault()
+        if (selectedId && snippet) {
+          fetchSuggestions()
+        }
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [selectedId, snippet, fetchSuggestions])
+
+  // Close popover on click outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        popoverOpen &&
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target as Node)
+      ) {
+        setPopoverOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [popoverOpen])
+
+  // Close popover on escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && popoverOpen) {
+        setPopoverOpen(false)
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [popoverOpen])
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -71,6 +202,75 @@ export function EditorPanelHeader() {
           placeholder="!keyword"
           className="flex-1 max-w-xs bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500"
         />
+        <div className="relative">
+          <button
+            ref={buttonRef}
+            onClick={fetchSuggestions}
+            disabled={loading}
+            title="Suggest keyword (⌘K)"
+            className={cn(
+              'p-1.5 rounded transition-colors',
+              loading
+                ? 'bg-zinc-700 text-zinc-400'
+                : 'hover:bg-zinc-700 text-zinc-400 hover:text-amber-400'
+            )}
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4" />
+            )}
+          </button>
+
+          {/* Popover */}
+          {popoverOpen && (
+            <div
+              ref={popoverRef}
+              className="absolute top-full right-0 mt-1 z-50 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl min-w-[200px] max-w-[280px]"
+            >
+              <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-700">
+                <span className="text-xs text-zinc-400 font-medium">Keyword Suggestions</span>
+                <button
+                  onClick={() => setPopoverOpen(false)}
+                  className="p-0.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="p-2">
+                {loading && (
+                  <div className="flex items-center gap-2 py-2 px-1 text-xs text-zinc-500">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Generating suggestions...</span>
+                  </div>
+                )}
+
+                {error && !loading && (
+                  <p className="py-2 px-1 text-xs text-amber-500">{error}</p>
+                )}
+
+                {!loading && suggestions.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    {suggestions.map((kw) => (
+                      <button
+                        key={kw}
+                        onClick={() => handleSuggestionSelect(kw)}
+                        className={cn(
+                          'w-full text-left px-2 py-1.5 rounded text-sm',
+                          'bg-zinc-700/50 hover:bg-zinc-600 text-zinc-200',
+                          'transition-colors cursor-pointer'
+                        )}
+                      >
+                        {kw}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
       <KeywordSuggestions
         snippetName={snippet.name}

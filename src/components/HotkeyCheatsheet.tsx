@@ -16,6 +16,7 @@ const HOTKEYS = [
   ]},
   { section: 'Editor', keys: [
     { key: '⌘ \\', description: 'Toggle preview panel' },
+    { key: '⌘ K', description: 'Suggest keyword' },
   ]},
   { section: 'Sync', keys: [
     { key: '⌘ ⇧ S', description: 'Sync to Raycast (export + auto-import)' },

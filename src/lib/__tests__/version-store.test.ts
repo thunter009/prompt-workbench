@@ -25,7 +25,7 @@ describe('version-store', () => {
 
   describe('saveVersion', () => {
     it('saves a new version', () => {
-      const { saveVersion, versions } = useVersionStore.getState()
+      const { saveVersion } = useVersionStore.getState()
 
       const version = saveVersion('snippet-1', 'Hello world')
 
