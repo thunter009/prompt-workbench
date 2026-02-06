@@ -11,10 +11,10 @@ tasks:
   tool: beads
   storage: .beads/
   commands:
-    list: bd ready
-    show: bd show <id>
-    start: bd update <id> --status in_progress
-    close: bd close <id>
+    list: br ready
+    show: br show <id>
+    start: br update <id> --status in_progress
+    close: br close <id>
 
 commands:
   dev: pnpm dev

@@ -11,7 +11,7 @@ Single source of truth for AI coding agents and human developers.
 | **Raycast integration** | [concepts/raycast-integration.md](concepts/raycast-integration.md) |
 | **Data models** | [concepts/data-models.md](concepts/data-models.md) |
 | **Code conventions** | [guidelines/code-style.md](guidelines/code-style.md) |
-| **Current tasks** | `bd ready` (beads CLI) |
+| **Current tasks** | `br ready` (beads_rust CLI) |
 | **AI instructions** | [AGENTS.md](AGENTS.md) |
 
 ## Directory Structure

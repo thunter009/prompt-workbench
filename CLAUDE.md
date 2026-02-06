@@ -11,13 +11,15 @@ Instructions for Claude Code on Prompt Workbench.
 
 **Task workflow:** User specifies task. Read task file, execute it, update status.
 
-## Task Management (Beads)
+## Task Management (beads_rust)
+
+**Note:** `br` never executes git commands. After `br sync --flush-only`, manually run `git add .beads/ && git commit`.
 
 ```bash
-bd ready                              # View available work
-bd show <id>                          # View issue details
-bd update <id> --status in_progress   # Start work
-bd close <id>                         # Complete work
+br ready                              # View available work
+br show <id>                          # View issue details
+br update <id> --status in_progress   # Start work
+br close <id>                         # Complete work
 ```
 
 ## Quick Reference
