@@ -2,7 +2,7 @@
 
 **Epic ID:** prompt-workbench-0s6
 **Priority:** P1
-**Status:** Draft
+**Status:** 🟡 Mostly Complete (US-2, US-3, US-5 remaining)
 
 ## Problem Statement
 
@@ -14,16 +14,16 @@ One-click export to Raycast-compatible JSON with validation and sync tracking.
 
 ## User Stories
 
-### US-1: Export All Snippets
+### US-1: Export All Snippets ✅
 **As a** user
 **I want** to export all snippets to Raycast JSON
 **So that** I can import them into Raycast
 
 **Acceptance Criteria:**
-- [ ] "Export to Raycast" button in toolbar/menu
-- [ ] Generates valid Raycast JSON format
-- [ ] Saves to `~/Downloads/raycast-snippets.json` (or chosen location)
-- [ ] Success toast with file path
+- [x] "Export to Raycast" button in toolbar/menu
+- [x] Generates valid Raycast JSON format
+- [x] Saves to `~/Downloads/raycast-snippets.json` (or chosen location)
+- [x] Success toast with file path
 
 ### US-2: Export Selection
 **As a** user
@@ -46,16 +46,16 @@ One-click export to Raycast-compatible JSON with validation and sync tracking.
 - [ ] Includes all nested snippets
 - [ ] Option to include/exclude subfolders
 
-### US-4: Validation Before Export
+### US-4: Validation Before Export ✅
 **As a** user
 **I want** validation errors shown before export
 **So that** I don't export broken snippets
 
 **Acceptance Criteria:**
-- [ ] Checks: name present, text present, char limit (65,536)
-- [ ] Shows list of issues with links to fix
-- [ ] Blocks export if critical errors
-- [ ] Warnings for non-critical (e.g., no keyword)
+- [x] Checks: name present, text present, char limit (65,536)
+- [x] Shows list of issues with links to fix
+- [x] Blocks export if critical errors
+- [x] Warnings for non-critical (e.g., no keyword)
 
 ### US-5: Export Tracking
 **As a** user
@@ -67,15 +67,15 @@ One-click export to Raycast-compatible JSON with validation and sync tracking.
 - [ ] Visual indicator for "not exported" / "modified since export"
 - [ ] Filter: "Show unexported"
 
-### US-6: Quick Export Path
+### US-6: Quick Export Path ✅
 **As a** user
 **I want** to set a default export location
 **So that** exports go to same place
 
 **Acceptance Criteria:**
-- [ ] Settings: Default export path
-- [ ] "Export to default" one-click action
-- [ ] Keyboard shortcut: Cmd+Shift+E
+- [x] Settings: Default export path
+- [x] "Export to default" one-click action
+- [x] Keyboard shortcut: Cmd+Shift+E
 
 ## Technical Notes
 

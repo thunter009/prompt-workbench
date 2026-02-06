@@ -1,7 +1,8 @@
 # PRD: Raycast Import
 
+**Epic ID:** prompt-workbench-088
 **Priority:** P2
-**Status:** Draft
+**Status:** 🟡 Partially Complete (US-1, US-2 done; US-3, US-4, US-5 remaining)
 
 ## Problem Statement
 
@@ -13,28 +14,28 @@ Import Raycast snippets from file system or JSON file into the app.
 
 ## User Stories
 
-### US-1: Import from JSON File
+### US-1: Import from JSON File ✅
 **As a** user
 **I want** to import a Raycast JSON file
 **So that** I can edit existing snippets
 
 **Acceptance Criteria:**
-- [ ] "Import from File" button in settings/menu
-- [ ] File picker for JSON selection
-- [ ] Parse and validate Raycast format
-- [ ] Show preview before import
-- [ ] Success toast with count imported
+- [x] "Import from File" button in settings/menu
+- [x] File picker for JSON selection (drag-drop zone)
+- [x] Parse and validate Raycast format
+- [x] Show preview before import (found existing export)
+- [x] Success toast with count imported
 
-### US-2: Import from Raycast Directory
+### US-2: Import from Raycast Directory ✅
 **As a** user
 **I want** to import directly from Raycast's data folder
 **So that** I don't need to export from Raycast first
 
 **Acceptance Criteria:**
-- [ ] Button to scan `~/Library/Application Support/Raycast/` (macOS)
-- [ ] Auto-detect snippet files
-- [ ] Handle permission errors gracefully
-- [ ] Show list of found snippet collections
+- [x] Button to scan `~/Library/Application Support/Raycast/` (macOS)
+- [x] Auto-detect snippet files ("Found existing export: 108 snippets")
+- [x] Handle permission errors gracefully
+- [x] Show list of found snippet collections
 
 ### US-3: Conflict Resolution
 **As a** user

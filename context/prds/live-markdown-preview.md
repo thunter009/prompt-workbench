@@ -2,7 +2,7 @@
 
 **Epic ID:** prompt-workbench-dc2
 **Priority:** P1
-**Status:** Draft
+**Status:** ✅ Complete
 
 ## Problem Statement
 
@@ -20,10 +20,10 @@ Live preview pane that renders markdown and highlights Raycast placeholders.
 **So that** I can verify formatting as I type
 
 **Acceptance Criteria:**
-- [ ] Renders headings, lists, code blocks, links
-- [ ] Updates within 100ms of typing (debounced)
-- [ ] Handles large documents without lag
-- [ ] GFM (GitHub Flavored Markdown) support
+- [x] Renders headings, lists, code blocks, links
+- [x] Updates within 100ms of typing (debounced)
+- [x] Handles large documents without lag
+- [x] GFM (GitHub Flavored Markdown) support
 
 ### US-2: Placeholder Visualization
 **As a** user
@@ -31,10 +31,10 @@ Live preview pane that renders markdown and highlights Raycast placeholders.
 **So that** I can identify dynamic content
 
 **Acceptance Criteria:**
-- [ ] Placeholders rendered as styled pills/badges
-- [ ] Shows placeholder type (clipboard, date, argument, etc.)
-- [ ] Tooltip with full syntax on hover
-- [ ] Nested snippets show reference name
+- [x] Placeholders rendered as styled pills/badges
+- [x] Shows placeholder type (clipboard, date, argument, etc.)
+- [x] Tooltip with full syntax on hover
+- [x] Nested snippets show reference name
 
 ### US-3: Placeholder Value Preview
 **As a** user
@@ -42,11 +42,11 @@ Live preview pane that renders markdown and highlights Raycast placeholders.
 **So that** I can understand what output looks like
 
 **Acceptance Criteria:**
-- [ ] Toggle: "Show example values"
-- [ ] `{date}` shows today's date
-- [ ] `{clipboard}` shows "[clipboard]"
-- [ ] `{argument}` shows "[input]"
-- [ ] Respects modifiers (uppercase, trim, etc.)
+- [x] Toggle: "Show example values"
+- [x] `{date}` shows today's date
+- [x] `{clipboard}` shows "[clipboard]"
+- [x] `{argument}` shows "[input]"
+- [x] Respects modifiers (uppercase, trim, etc.)
 
 ### US-4: Sync Scroll
 **As a** user
@@ -54,9 +54,9 @@ Live preview pane that renders markdown and highlights Raycast placeholders.
 **So that** I can see corresponding sections
 
 **Acceptance Criteria:**
-- [ ] Scrolling editor scrolls preview proportionally
-- [ ] Toggle to enable/disable sync scroll
-- [ ] Handles different content heights gracefully
+- [x] Scrolling editor scrolls preview proportionally
+- [x] Toggle to enable/disable sync scroll
+- [x] Handles different content heights gracefully
 
 ## Technical Notes
 

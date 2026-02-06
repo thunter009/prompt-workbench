@@ -2,7 +2,7 @@
 
 **Epic ID:** prompt-workbench-ep0
 **Priority:** P1
-**Status:** Draft
+**Status:** ❌ Not Started (flat list only, no tree structure)
 
 ## Problem Statement
 

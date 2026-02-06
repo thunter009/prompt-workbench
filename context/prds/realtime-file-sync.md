@@ -2,7 +2,7 @@
 
 **Epic ID:** prompt-workbench-esx
 **Priority:** P1
-**Status:** Draft
+**Status:** 🟡 Partially Complete (backend components exist, UI not exposed)
 
 ## Problem Statement
 

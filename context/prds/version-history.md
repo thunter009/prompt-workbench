@@ -2,7 +2,7 @@
 
 **Epic ID:** prompt-workbench-70a
 **Priority:** P2
-**Status:** Draft
+**Status:** 🟡 Partially Complete (US-1, US-2 done; US-3, US-4, US-5 remaining)
 
 ## Problem Statement
 
@@ -14,29 +14,29 @@ Auto-save snippet versions with browsable history, visual diffs, and one-click r
 
 ## User Stories
 
-### US-1: Auto-save on Edit
+### US-1: Auto-save on Edit ✅
 **As a** user
 **I want** versions saved automatically as I edit
 **So that** I never lose work
 
 **Acceptance Criteria:**
-- [ ] Save version after 2s of inactivity (debounced)
-- [ ] Don't save if content unchanged
-- [ ] Store in Supabase `snippet_versions` table
-- [ ] Max 100 versions per snippet (prune oldest)
+- [x] Save version after 2s of inactivity (debounced)
+- [x] Don't save if content unchanged
+- [x] Store in Supabase `snippet_versions` table
+- [x] Max 100 versions per snippet (prune oldest)
 
 **Related issue:** prompt-workbench-8ei
 
-### US-2: Version History Sidebar
+### US-2: Version History Sidebar ✅
 **As a** user
 **I want** to browse previous versions in a sidebar
 **So that** I can see how a snippet evolved
 
 **Acceptance Criteria:**
-- [ ] "History" tab/panel in sidebar or drawer
-- [ ] List versions with timestamp + preview
-- [ ] Click to view version content (read-only)
-- [ ] Shows relative time ("2 hours ago")
+- [x] "History" tab/panel in sidebar or drawer
+- [x] List versions with timestamp + preview
+- [x] Click to view version content (read-only)
+- [x] Shows relative time ("2 hours ago")
 
 **Related issue:** prompt-workbench-57b
 

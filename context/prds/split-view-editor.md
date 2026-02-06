@@ -2,7 +2,7 @@
 
 **Epic ID:** prompt-workbench-uqb
 **Priority:** P1
-**Status:** Draft
+**Status:** ✅ Complete
 
 ## Problem Statement
 
@@ -20,10 +20,10 @@ Implement resizable split-pane layout: editor on left, live preview on right.
 **So that** I can see rendered output while typing
 
 **Acceptance Criteria:**
-- [ ] Editor takes left pane (default 60%)
-- [ ] Preview takes right pane (default 40%)
-- [ ] Both panes scroll independently
-- [ ] Layout persists on refresh
+- [x] Editor takes left pane (default 60%)
+- [x] Preview takes right pane (default 40%)
+- [x] Both panes scroll independently
+- [x] Layout persists on refresh
 
 ### US-2: Resizable Divider
 **As a** user
@@ -31,10 +31,10 @@ Implement resizable split-pane layout: editor on left, live preview on right.
 **So that** I can adjust proportions to my preference
 
 **Acceptance Criteria:**
-- [ ] Draggable divider between panes
-- [ ] Min width 200px per pane
-- [ ] Cursor changes on hover
-- [ ] Size persists in localStorage
+- [x] Draggable divider between panes
+- [x] Min width 200px per pane
+- [x] Cursor changes on hover
+- [x] Size persists in localStorage
 
 ### US-3: Toggle Preview
 **As a** user
@@ -42,10 +42,10 @@ Implement resizable split-pane layout: editor on left, live preview on right.
 **So that** I can maximize editor when needed
 
 **Acceptance Criteria:**
-- [ ] Keyboard shortcut (Cmd+\) toggles preview
-- [ ] Button in toolbar toggles preview
-- [ ] Smooth animation on toggle
-- [ ] State persists
+- [x] Keyboard shortcut (Cmd+\) toggles preview
+- [x] Button in toolbar toggles preview
+- [x] Smooth animation on toggle
+- [x] State persists
 
 ## Technical Notes
 
