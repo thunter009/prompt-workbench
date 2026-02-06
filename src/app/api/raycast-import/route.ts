@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readFile, stat } from 'fs/promises'
+import { readFile, stat, readdir } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
 import { exec } from 'child_process'
@@ -60,14 +60,78 @@ async function parseSnippetsFile(path: string): Promise<RaycastSnippet[]> {
     }))
 }
 
-// GET: Check for existing export file
-export async function GET() {
+const WORKBENCH_DIR = join(homedir(), '.prompt-workbench')
+
+interface AvailableFile {
+  name: string
+  path: string
+  age: string
+  snippetCount: number
+  mtimeMs: number
+}
+
+async function listJsonFiles(): Promise<AvailableFile[]> {
+  const files: AvailableFile[] = []
+  try {
+    const entries = await readdir(WORKBENCH_DIR)
+    for (const entry of entries) {
+      if (!entry.endsWith('.json')) continue
+      const fullPath = join(WORKBENCH_DIR, entry)
+      try {
+        const stats = await stat(fullPath)
+        const snippets = await parseSnippetsFile(fullPath)
+        const ageMs = Date.now() - stats.mtime.getTime()
+        const ageMinutes = Math.floor(ageMs / 60000)
+        files.push({
+          name: entry,
+          path: fullPath,
+          age: ageMinutes < 60
+            ? `${ageMinutes}m ago`
+            : `${Math.floor(ageMinutes / 60)}h ago`,
+          snippetCount: snippets.length,
+          mtimeMs: stats.mtime.getTime(),
+        })
+      } catch {
+        // skip unparseable files
+      }
+    }
+  } catch {
+    // dir doesn't exist
+  }
+  // Most recent first
+  return files.sort((a, b) => b.mtimeMs - a.mtimeMs)
+}
+
+// GET: Check for existing export file + list available files
+export async function GET(request: NextRequest) {
+  const loadFile = request.nextUrl.searchParams.get('file')
+
+  // Load a specific file by name
+  if (loadFile) {
+    try {
+      const fullPath = join(WORKBENCH_DIR, loadFile)
+      // Prevent path traversal
+      if (!fullPath.startsWith(WORKBENCH_DIR)) {
+        return NextResponse.json({ error: 'Invalid path' }, { status: 400 })
+      }
+      const snippets = await parseSnippetsFile(fullPath)
+      return NextResponse.json({ found: true, path: fullPath, snippetCount: snippets.length, snippets })
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Failed to read file' },
+        { status: 500 }
+      )
+    }
+  }
+
   try {
     const latest = await findLatestExport()
+    const availableFiles = await listJsonFiles()
 
     if (!latest) {
       return NextResponse.json({
         found: false,
+        availableFiles,
         message: 'No Raycast export found. Use the trigger endpoint to open export dialog.',
       })
     }
@@ -85,6 +149,7 @@ export async function GET() {
         : `${Math.floor(ageMinutes / 60)} hour${Math.floor(ageMinutes / 60) !== 1 ? 's' : ''} ago`,
       snippetCount: snippets.length,
       snippets,
+      availableFiles,
     })
   } catch (error) {
     console.error('Error checking for export:', error)

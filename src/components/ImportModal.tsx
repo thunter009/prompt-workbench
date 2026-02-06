@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
-import { X, Upload, FileJson, Check, AlertCircle, Zap, RefreshCw, Loader2 } from 'lucide-react'
+import { X, Upload, FileJson, Check, AlertCircle, Zap, RefreshCw, Loader2, FolderOpen } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
 import type { RaycastSnippet } from '@/types'
 
@@ -17,12 +17,21 @@ interface ImportPreview {
   filename: string
 }
 
+interface AvailableFile {
+  name: string
+  path: string
+  age: string
+  snippetCount: number
+  mtimeMs: number
+}
+
 interface ExistingExport {
   found: boolean
   path?: string
   age?: string
   snippetCount?: number
   snippets?: RaycastSnippet[]
+  availableFiles?: AvailableFile[]
 }
 
 export function ImportModal({ open, onClose }: ImportModalProps) {
@@ -96,6 +105,24 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
       toast.error('Failed to open Raycast')
     } finally {
       setTriggering(false)
+    }
+  }, [])
+
+  const loadFileFromServer = useCallback(async (filename: string) => {
+    try {
+      const res = await fetch(`/api/raycast-import?file=${encodeURIComponent(filename)}`)
+      const data = await res.json()
+      if (!res.ok || !data.snippets) {
+        toast.error(data.error || 'Failed to load file')
+        return
+      }
+      setPreview({
+        snippets: data.snippets,
+        filename,
+      })
+      setSelected(new Set(data.snippets.map((_: RaycastSnippet, i: number) => i)))
+    } catch {
+      toast.error('Failed to load file')
     }
   }, [])
 
@@ -253,28 +280,6 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
         <div className="flex-1 overflow-auto p-6">
           {!preview ? (
             <>
-              {/* Auto-detect existing export */}
-              {existingExport?.found && (
-                <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-medium text-green-400 mb-1">
-                        Found existing export
-                      </h3>
-                      <p className="text-xs text-green-300/70">
-                        {existingExport.snippetCount} snippets • {existingExport.age}
-                      </p>
-                    </div>
-                    <button
-                      onClick={useExistingExport}
-                      className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-medium transition-colors"
-                    >
-                      Use This
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Quick import button */}
               <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                 <h3 className="text-sm font-medium text-blue-400 mb-2">Quick Import</h3>
@@ -309,6 +314,49 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                 </div>
               </div>
 
+              {/* Files in ~/.prompt-workbench */}
+              {existingExport?.availableFiles && existingExport.availableFiles.length > 0 && (
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <FolderOpen className="w-4 h-4 text-zinc-400" />
+                    <h3 className="text-sm font-medium text-zinc-200">
+                      <code className="px-1 bg-zinc-800 rounded text-xs">~/.prompt-workbench</code>
+                    </h3>
+                  </div>
+                  <div className="space-y-1.5">
+                    {existingExport.availableFiles.map((file, idx) => {
+                      const isMostRecent = idx === 0
+                      return (
+                        <div
+                          key={file.name}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
+                            isMostRecent
+                              ? 'border-green-500/30 bg-green-500/10'
+                              : 'border-zinc-700 bg-zinc-800/30'
+                          }`}
+                        >
+                          <FileJson className={`w-4 h-4 flex-shrink-0 ${isMostRecent ? 'text-green-400' : 'text-zinc-400'}`} />
+                          <div className="flex-1 min-w-0">
+                            <span className={`text-sm truncate block ${isMostRecent ? 'text-green-300' : 'text-zinc-200'}`}>{file.name}</span>
+                            <span className={`text-xs ${isMostRecent ? 'text-green-400/60' : 'text-zinc-500'}`}>{file.snippetCount} snippets · {file.age}</span>
+                          </div>
+                          <button
+                            onClick={() => loadFileFromServer(file.name)}
+                            className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex-shrink-0 ${
+                              isMostRecent
+                                ? 'bg-green-600 hover:bg-green-700 text-white'
+                                : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200'
+                            }`}
+                          >
+                            Use This
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Manual instructions */}
               <div className="mb-6 p-4 bg-zinc-800/50 rounded-lg border border-zinc-700">
                 <h3 className="text-sm font-medium text-zinc-200 mb-2">Or export manually:</h3>
@@ -316,7 +364,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                   <li>Open Raycast (⌘ Space)</li>
                   <li>Search for &quot;Export Snippets&quot;</li>
                   <li>Save to <code className="px-1 bg-zinc-700 rounded">~/.prompt-workbench</code></li>
-                  <li>Drop it below or click &quot;Check Again&quot;</li>
+                  <li>Select the file above or drop it below</li>
                 </ol>
               </div>
 

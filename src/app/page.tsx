@@ -34,7 +34,7 @@ import {
   getDefaultExportPath,
 } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
-import { PanelRight, PanelRightClose, Download, Upload, Settings, Zap, AlertTriangle, History, Check, Loader2, RefreshCw, HelpCircle } from 'lucide-react'
+import { PanelRight, PanelRightClose, Download, Upload, Settings, Zap, AlertTriangle, History, Check, Loader2, RefreshCw, HelpCircle, ChevronDown } from 'lucide-react'
 import type { Snippet } from '@/types'
 
 const DEFAULT_LEFT_PERCENT = 60
@@ -48,6 +48,8 @@ export default function HomePage() {
   const [mounted, setMounted] = useState(false)
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const [pendingExport, setPendingExport] = useState<Snippet[] | null>(null)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const exportMenuRef = useRef<HTMLDivElement>(null)
   const [scrollProgress, setScrollProgress] = useState(0)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
 
@@ -434,6 +436,18 @@ export default function HomePage() {
     return () => document.removeEventListener('keydown', handler)
   }, [])
 
+  // Close export menu on outside click
+  useEffect(() => {
+    if (!exportMenuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [exportMenuOpen])
+
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="h-screen flex flex-col">
@@ -460,26 +474,49 @@ export default function HomePage() {
               <RefreshCw className="w-5 h-5" />
             </button>
             <button
-              onClick={() => handleQuickExport(false)}
-              className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
-              title={`Quick export to ${exportSettings.defaultPath || '~/.prompt-workbench'} (⌘⇧E)`}
-            >
-              <Zap className="w-5 h-5" />
-            </button>
-            <button
               onClick={() => setImportOpen(true)}
               className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
               title="Import from Raycast"
             >
               <Upload className="w-5 h-5" />
             </button>
-            <button
-              onClick={handleExport}
-              className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
-              title="Export to file picker"
-            >
-              <Download className="w-5 h-5" />
-            </button>
+            <div className="relative" ref={exportMenuRef}>
+              <div className="flex items-center">
+                <button
+                  onClick={() => handleQuickExport(false)}
+                  className="p-2 rounded-l hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+                  title={`Export to ${exportSettings.defaultPath || '~/.prompt-workbench'} (⌘⇧E)`}
+                >
+                  <Download className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setExportMenuOpen((v) => !v)}
+                  className="p-2 -ml-1 rounded-r hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+                  title="More export options"
+                >
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              </div>
+              {exportMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-56 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-50 py-1">
+                  <button
+                    onClick={() => { handleQuickExport(false); setExportMenuOpen(false) }}
+                    className="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-700 transition-colors flex items-center gap-2"
+                  >
+                    <Zap className="w-4 h-4 text-zinc-400" />
+                    Quick export
+                    <span className="ml-auto text-xs text-zinc-500">⌘⇧E</span>
+                  </button>
+                  <button
+                    onClick={() => { handleExport(); setExportMenuOpen(false) }}
+                    className="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-700 transition-colors flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4 text-zinc-400" />
+                    Export to file picker...
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               onClick={() => setHistoryOpen((v) => !v)}
               className={`p-2 rounded hover:bg-zinc-800 transition-colors ${historyOpen ? 'text-blue-400' : 'text-zinc-400 hover:text-zinc-200'}`}
