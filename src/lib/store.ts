@@ -3,6 +3,31 @@ import type { Snippet, Folder } from '@/types'
 import { useVersionStore } from './version-store'
 import { generateId } from './utils/id'
 
+export const MAX_DEPTH = 3
+
+// localStorage keys
+const SNIPPETS_KEY = 'prompt-workbench-snippets'
+const FOLDERS_KEY = 'prompt-workbench-folders'
+
+function loadFromLocalStorage<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback
+  try {
+    const stored = localStorage.getItem(key)
+    return stored ? JSON.parse(stored) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function saveToLocalStorage<T>(key: string, data: T): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(key, JSON.stringify(data))
+  } catch {
+    // quota exceeded etc
+  }
+}
+
 // Debounced version saving per snippet
 const DEBOUNCE_MS = 2000
 const versionSaveTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -111,9 +136,9 @@ declare global {
 }
 
 export const useSnippetStore = create<SnippetStore>((set, get) => ({
-  // Initial state
-  snippets: [],
-  folders: [],
+  // Initial state - hydrate from localStorage
+  snippets: loadFromLocalStorage<Snippet[]>(SNIPPETS_KEY, []),
+  folders: loadFromLocalStorage<Folder[]>(FOLDERS_KEY, []),
   selectedId: null,
   selectedIds: new Set<string>(),
   selectedFolderId: null,
@@ -305,13 +330,20 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   },
 
   deleteFolder: (id) => {
-    set((state) => ({
-      folders: state.folders.filter((f) => f.id !== id),
-      // Clear folderId from snippets in the deleted folder
-      snippets: state.snippets.map((s) =>
-        s.folderId === id ? { ...s, folderId: undefined } : s
-      ),
-    }))
+    set((state) => {
+      const deleted = state.folders.find((f) => f.id === id)
+      const parentId = deleted?.parentId
+      return {
+        folders: state.folders
+          .filter((f) => f.id !== id)
+          // Orphan child folders to deleted folder's parent
+          .map((f) => f.parentId === id ? { ...f, parentId } : f),
+        // Orphan snippets to deleted folder's parent
+        snippets: state.snippets.map((s) =>
+          s.folderId === id ? { ...s, folderId: parentId } : s
+        ),
+      }
+    })
   },
 
   getSubfolderIds: (folderId) => {
@@ -464,6 +496,16 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     )
   },
 }))
+
+// Persist snippets & folders to localStorage on every change
+useSnippetStore.subscribe((state, prevState) => {
+  if (state.snippets !== prevState.snippets) {
+    saveToLocalStorage(SNIPPETS_KEY, state.snippets)
+  }
+  if (state.folders !== prevState.folders) {
+    saveToLocalStorage(FOLDERS_KEY, state.folders)
+  }
+})
 
 if (typeof window !== 'undefined') {
   window.__snippetStore = useSnippetStore

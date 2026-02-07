@@ -3,7 +3,7 @@
 import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { useSnippetStore } from '@/lib/store'
+import { useSnippetStore, MAX_DEPTH } from '@/lib/store'
 import { useUndoStore } from '@/lib/undo-store'
 import { exportSnippets } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
@@ -416,7 +416,7 @@ export function Sidebar() {
     // Check depth: target depth + folder's subtree depth must be <= 2 (0-indexed, so max 3 levels)
     const targetDepth = targetParentId ? getFolderDepth(targetParentId) + 1 : 0
     const subtreeDepth = getMaxSubtreeDepth(folderId)
-    return targetDepth + subtreeDepth <= 2
+    return targetDepth + subtreeDepth <= MAX_DEPTH - 1
   }, [getFolderDepth, isDescendantOf, getMaxSubtreeDepth])
 
   const handleDragOver = useCallback((e: React.DragEvent, targetFolderId: string | null, forcePosition?: 'inside' | 'before' | 'after') => {
@@ -1032,17 +1032,19 @@ export function Sidebar() {
           )}
           {contextMenu.type === 'folder' && (
             <>
-              <button
-                onClick={() => {
-                  closeContextMenu()
-                  if (contextMenu.folderId) {
-                    handleNewFolder(contextMenu.folderId)
-                  }
-                }}
-                className="w-full text-left px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
-              >
-                New Subfolder
-              </button>
+              {contextMenu.folderId && getFolderDepth(contextMenu.folderId) < MAX_DEPTH - 1 && (
+                <button
+                  onClick={() => {
+                    closeContextMenu()
+                    if (contextMenu.folderId) {
+                      handleNewFolder(contextMenu.folderId)
+                    }
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
+                >
+                  New Subfolder
+                </button>
+              )}
               <button
                 onClick={handleExportFolder}
                 className="w-full text-left px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
