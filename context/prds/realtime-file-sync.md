@@ -2,7 +2,7 @@
 
 **Epic ID:** prompt-workbench-esx
 **Priority:** P1
-**Status:** 🟡 Near Complete (US-1–4, US-6 done; US-5 Sync Settings UI remaining)
+**Status:** ✅ Complete (all user stories implemented)
 
 ## Problem Statement
 
@@ -58,17 +58,17 @@ Automatic file watching with chokidar + configurable interval backup via node-cr
 - [x] Uses node-cron for scheduling
 - [x] Runs even if watcher missed something
 
-### US-5: Sync Settings UI
+### US-5: Sync Settings UI ✅
 **As a** user
 **I want** to configure sync behavior
 **So that** I can adjust to my workflow
 
 **Acceptance Criteria:**
-- [ ] Toggle: Enable file watcher (default: on)
-- [ ] Toggle: Enable interval sync (default: on)
-- [ ] Dropdown: Interval frequency
-- [ ] Display: Last sync timestamp
-- [ ] Button: "Sync Now"
+- [x] Toggle: Enable file watcher (default: on)
+- [x] Toggle: Enable interval sync (default: on)
+- [x] Dropdown: Interval frequency
+- [x] Display: Last sync timestamp
+- [x] Button: "Sync Now"
 
 ### US-6: Sync History ✅
 **As a** user
