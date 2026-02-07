@@ -2,7 +2,7 @@
 
 **Epic ID:** prompt-workbench-esx
 **Priority:** P1
-**Status:** 🟡 Partially Complete (backend components exist, UI not exposed)
+**Status:** 🟡 Near Complete (US-1–4, US-6 done; US-5 Sync Settings UI remaining)
 
 ## Problem Statement
 
@@ -14,49 +14,49 @@ Automatic file watching with chokidar + configurable interval backup via node-cr
 
 ## User Stories
 
-### US-1: File Watcher Setup
+### US-1: File Watcher Setup ✅
 **As a** user
 **I want** app to watch Raycast config directory
 **So that** external changes sync automatically
 
 **Acceptance Criteria:**
-- [ ] Watches `~/Library/Application Support/Raycast/`
-- [ ] Detects file additions, changes, deletions
-- [ ] Debounced (1 second) to batch rapid changes
-- [ ] Runs in background, minimal CPU usage
+- [x] Watches `~/Library/Application Support/Raycast/`
+- [x] Detects file additions, changes, deletions
+- [x] Debounced (1 second) to batch rapid changes
+- [x] Runs in background, minimal CPU usage
 
-### US-2: Change Detection
+### US-2: Change Detection ✅
 **As a** user
 **I want** to be notified when external changes detected
 **So that** I'm aware of incoming updates
 
 **Acceptance Criteria:**
-- [ ] Toast notification on detected change
-- [ ] Shows count of changed snippets
-- [ ] "View Changes" action on toast
-- [ ] Auto-dismisses after 5 seconds
+- [x] Toast notification on detected change
+- [x] Shows count of changed snippets
+- [x] "View Changes" action on toast
+- [x] Auto-dismisses after 5 seconds
 
-### US-3: Conflict Resolution
+### US-3: Conflict Resolution ✅
 **As a** user
 **I want** to resolve conflicts when both sides changed
 **So that** I don't lose work
 
 **Acceptance Criteria:**
-- [ ] Detects when same snippet edited in both places
-- [ ] Shows side-by-side diff
-- [ ] Options: Keep Local, Keep Remote, Merge
-- [ ] "Apply to all" for bulk conflicts
+- [x] Detects when same snippet edited in both places
+- [x] Shows side-by-side diff
+- [x] Options: Keep Local, Keep Remote, Merge
+- [x] "Apply to all" for bulk conflicts
 
-### US-4: Interval Sync
+### US-4: Interval Sync ✅
 **As a** user
 **I want** scheduled sync as backup
 **So that** nothing is missed
 
 **Acceptance Criteria:**
-- [ ] Default: every 30 minutes
-- [ ] Configurable: 5m, 15m, 30m, 1h, 4h
-- [ ] Uses node-cron for scheduling
-- [ ] Runs even if watcher missed something
+- [x] Default: every 30 minutes
+- [x] Configurable: 5m, 15m, 30m, 1h, 4h
+- [x] Uses node-cron for scheduling
+- [x] Runs even if watcher missed something
 
 ### US-5: Sync Settings UI
 **As a** user
@@ -70,16 +70,16 @@ Automatic file watching with chokidar + configurable interval backup via node-cr
 - [ ] Display: Last sync timestamp
 - [ ] Button: "Sync Now"
 
-### US-6: Sync History
+### US-6: Sync History ✅
 **As a** user
 **I want** to see sync history
 **So that** I can audit what changed
 
 **Acceptance Criteria:**
-- [ ] Log of last 50 sync events
-- [ ] Shows: timestamp, direction, snippet count
-- [ ] Expandable to see individual items
-- [ ] Filterable by direction (in/out)
+- [x] Log of last 50 sync events
+- [x] Shows: timestamp, direction, snippet count
+- [x] Expandable to see individual items
+- [x] Filterable by direction (in/out)
 
 ## Technical Notes
 

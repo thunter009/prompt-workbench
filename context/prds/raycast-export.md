@@ -2,7 +2,7 @@
 
 **Epic ID:** prompt-workbench-0s6
 **Priority:** P1
-**Status:** 🟡 Mostly Complete (US-2, US-3, US-5 remaining)
+**Status:** ✅ Complete
 
 ## Problem Statement
 
@@ -25,26 +25,26 @@ One-click export to Raycast-compatible JSON with validation and sync tracking.
 - [x] Saves to `~/Downloads/raycast-snippets.json` (or chosen location)
 - [x] Success toast with file path
 
-### US-2: Export Selection
+### US-2: Export Selection ✅
 **As a** user
 **I want** to export only selected snippets
 **So that** I can do partial updates
 
 **Acceptance Criteria:**
-- [ ] Multi-select snippets in sidebar
-- [ ] Right-click > "Export Selected"
-- [ ] Only exports selected items
-- [ ] Shows count in confirmation
+- [x] Multi-select snippets in sidebar
+- [x] Right-click > "Export Selected"
+- [x] Only exports selected items
+- [x] Shows count in confirmation
 
-### US-3: Export Folder
+### US-3: Export Folder ✅
 **As a** user
 **I want** to export an entire folder
 **So that** I can share organized collections
 
 **Acceptance Criteria:**
-- [ ] Right-click folder > "Export Folder"
-- [ ] Includes all nested snippets
-- [ ] Option to include/exclude subfolders
+- [x] Right-click folder > "Export Folder"
+- [x] Includes all nested snippets
+- [x] Option to include/exclude subfolders
 
 ### US-4: Validation Before Export ✅
 **As a** user
@@ -57,15 +57,15 @@ One-click export to Raycast-compatible JSON with validation and sync tracking.
 - [x] Blocks export if critical errors
 - [x] Warnings for non-critical (e.g., no keyword)
 
-### US-5: Export Tracking
+### US-5: Export Tracking ✅
 **As a** user
 **I want** to know which snippets were exported
 **So that** I can track what's in Raycast
 
 **Acceptance Criteria:**
-- [ ] "Last exported" timestamp per snippet
-- [ ] Visual indicator for "not exported" / "modified since export"
-- [ ] Filter: "Show unexported"
+- [x] "Last exported" timestamp per snippet
+- [x] Visual indicator for "not exported" / "modified since export"
+- [x] Filter: "Show unexported"
 
 ### US-6: Quick Export Path ✅
 **As a** user

@@ -2,7 +2,7 @@
 
 **Epic ID:** prompt-workbench-ep0
 **Priority:** P1
-**Status:** ❌ Not Started (flat list only, no tree structure)
+**Status:** ✅ Complete
 
 ## Problem Statement
 
@@ -14,59 +14,59 @@ Collapsible folder tree in sidebar with drag-drop for snippets and folders.
 
 ## User Stories
 
-### US-1: Folder Data Model & Tree Display
+### US-1: Folder Data Model & Tree Display ✅
 **As a** user
 **I want** folders displayed as expandable tree
 **So that** I can organize snippets hierarchically
 
 **Acceptance Criteria:**
-- [ ] Folder type in Zustand store (`id`, `name`, `parentId`, `order`)
-- [ ] Snippets get optional `folderId` field
-- [ ] Folders render as collapsible tree with chevrons
-- [ ] Nested folders indented
-- [ ] Snippet count per folder
-- [ ] "Unfiled" section for snippets without folder
+- [x] Folder type in Zustand store (`id`, `name`, `parentId`, `order`)
+- [x] Snippets get optional `folderId` field
+- [x] Folders render as collapsible tree with chevrons
+- [x] Nested folders indented
+- [x] Snippet count per folder
+- [x] "Unfiled" section for snippets without folder
 
-### US-2: Create & Manage Folders
+### US-2: Create & Manage Folders ✅
 **As a** user
 **I want** to create, rename, and delete folders
 **So that** I can organize my work
 
 **Acceptance Criteria:**
-- [ ] "New Folder" button in sidebar header
-- [ ] Inline rename on creation and double-click
-- [ ] Can create nested folders (max 3 levels)
-- [ ] Delete folder: confirm if non-empty, move contents to parent
-- [ ] Persist folder state to localStorage
+- [x] "New Folder" button in sidebar header
+- [x] Inline rename on creation and double-click
+- [x] Can create nested folders (max 3 levels)
+- [x] Delete folder: confirm if non-empty, move contents to parent
+- [x] Persist folder state to localStorage
 
-### US-3: Drag-Drop Snippets into Folders
+### US-3: Drag-Drop Snippets into Folders ✅
 **As a** user
 **I want** to drag snippets into folders
 **So that** I can organize without menus
 
 **Acceptance Criteria:**
-- [ ] Drag snippet onto folder to move it
-- [ ] Visual drop target highlighting
-- [ ] Drop on sidebar root = unfiled
+- [x] Drag snippet onto folder to move it
+- [x] Visual drop target highlighting
+- [x] Drop on sidebar root = unfiled
 
-### US-4: Drag-Drop Folder Reordering
+### US-4: Drag-Drop Folder Reordering ✅
 **As a** user
 **I want** to reorder and nest folders via drag
 **So that** I can customize structure
 
 **Acceptance Criteria:**
-- [ ] Drag folder to reorder among siblings
-- [ ] Drag folder into folder to nest (max 3 levels)
-- [ ] Prevents circular nesting
+- [x] Drag folder to reorder among siblings
+- [x] Drag folder into folder to nest (max 3 levels)
+- [x] Prevents circular nesting
 
-### US-5: Collapse State Persistence
+### US-5: Collapse State Persistence ✅
 **As a** user
 **I want** folder open/closed state to persist
 **So that** I don't re-expand every session
 
 **Acceptance Criteria:**
-- [ ] Expanded folder IDs stored in localStorage
-- [ ] Restored on page load
+- [x] Expanded folder IDs stored in localStorage
+- [x] Restored on page load
 
 ## Technical Notes
 

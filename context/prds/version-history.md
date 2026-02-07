@@ -2,7 +2,7 @@
 
 **Epic ID:** prompt-workbench-70a
 **Priority:** P2
-**Status:** 🟡 Partially Complete (US-1, US-2 done; US-3, US-4, US-5 remaining)
+**Status:** 🟡 Partially Complete (US-1, US-2, US-5 done; US-3, US-4 remaining)
 
 ## Problem Statement
 
@@ -66,15 +66,15 @@ Auto-save snippet versions with browsable history, visual diffs, and one-click r
 
 **Related issue:** prompt-workbench-efv
 
-### US-5: Version Cleanup
+### US-5: Version Cleanup ✅
 **As a** user
 **I want** to delete old versions manually
 **So that** I can reduce clutter
 
 **Acceptance Criteria:**
-- [ ] "Delete version" option (with confirmation)
-- [ ] "Keep only last N versions" bulk action
-- [ ] Cannot delete current version
+- [x] "Delete version" option (with confirmation)
+- [x] "Keep only last N versions" bulk action
+- [x] Cannot delete current version
 
 ## Technical Notes
 
