@@ -104,7 +104,7 @@ export function FolderSuggestions({
     }
   }, [currentFolderId])
 
-  const handleSelect = (suggestion: FolderSuggestion) => {
+  const assignFolder = (suggestion: FolderSuggestion) => {
     // Check if folder already exists (case-insensitive)
     const existing = folders.find(
       (f) => f.name.toLowerCase() === suggestion.folder.toLowerCase()
@@ -129,9 +129,9 @@ export function FolderSuggestions({
   if (!loading && suggestions.length === 0 && !error) return null
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div data-testid="folder-suggestions" className="flex items-center gap-2 flex-wrap">
       {loading && (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div data-testid="folder-suggestions-loading" className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" />
           <span>Suggesting folder...</span>
         </div>
@@ -150,7 +150,10 @@ export function FolderSuggestions({
             return (
               <button
                 key={s.folder}
-                onClick={() => handleSelect(s)}
+                data-testid="folder-suggestion-pill"
+                data-folder={s.folder}
+                data-existing={isExisting}
+                onClick={() => assignFolder(s)}
                 className={cn(
                   'px-2 py-0.5 rounded-full text-xs inline-flex items-center gap-1',
                   'bg-accent hover:bg-accent-foreground/10 text-foreground',
@@ -169,6 +172,7 @@ export function FolderSuggestions({
           })}
           <button
             onClick={handleDismiss}
+            data-testid="folder-suggestions-dismiss"
             className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-secondary-foreground transition-colors"
             aria-label="Dismiss suggestions"
           >
