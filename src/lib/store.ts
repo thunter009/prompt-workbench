@@ -103,6 +103,13 @@ interface SnippetStore {
   getFilteredSnippets: () => Snippet[]
 }
 
+// Expose store for Playwright tests in development
+declare global {
+  interface Window {
+    __snippetStore?: typeof useSnippetStore
+  }
+}
+
 export const useSnippetStore = create<SnippetStore>((set, get) => ({
   // Initial state
   snippets: [],
@@ -457,3 +464,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     )
   },
 }))
+
+if (typeof window !== 'undefined') {
+  window.__snippetStore = useSnippetStore
+}

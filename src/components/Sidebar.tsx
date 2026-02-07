@@ -713,6 +713,8 @@ export function Sidebar() {
     return (
       <li
         key={snippet.id}
+        data-testid="snippet-row"
+        data-snippet-id={snippet.id}
         draggable={!isEditing}
         onDragStart={(e) => handleSnippetDragStart(e, snippet.id)}
         onDragEnd={handleDragEnd}
@@ -788,7 +790,7 @@ export function Sidebar() {
       : true
 
     return (
-      <li key={folder.id} className="relative">
+      <li key={folder.id} className="relative" data-testid="folder-row" data-folder-id={folder.id} data-depth={depth}>
         {/* Drop indicator line for 'before' position */}
         {isDropTarget && dropPosition === 'before' && (
           <div
@@ -797,6 +799,7 @@ export function Sidebar() {
           />
         )}
         <div
+          data-testid="folder-header"
           draggable={!isEditing}
           onDragStart={(e) => handleFolderDragStart(e, folder.id)}
           onDragEnd={handleDragEnd}
@@ -818,6 +821,7 @@ export function Sidebar() {
           )}
         >
           <ChevronRight
+            data-testid="folder-chevron"
             className={cn('w-4 h-4 shrink-0 transition-transform', isExpanded && 'rotate-90')}
           />
           <FolderIcon className="w-4 h-4 shrink-0" />
@@ -836,11 +840,11 @@ export function Sidebar() {
             <span className="truncate flex-1">{folder.name}</span>
           )}
           {!isEditing && snippetCount > 0 && (
-            <span className="text-xs text-zinc-500 tabular-nums">{snippetCount}</span>
+            <span data-testid="snippet-count" className="text-xs text-zinc-500 tabular-nums">({snippetCount})</span>
           )}
         </div>
         {isExpanded && (
-          <ul className="space-y-0.5">
+          <ul data-testid="folder-children" className="space-y-0.5">
             {childFolders.map((child) => renderFolder(child, depth + 1))}
             {folderSnippets.map((snippet) => renderSnippet(snippet, depth + 1))}
             {isEmpty && (
