@@ -6,6 +6,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLi
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language'
+import { placeholderAutocomplete } from '@/components/editor/placeholder-autocomplete'
 
 export interface EditorProps {
   value?: string
@@ -114,6 +115,7 @@ export function Editor({ value = '', onChange, onScrollProgress }: EditorProps) 
         markdown({ base: markdownLanguage }),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         keymap.of([...defaultKeymap, ...historyKeymap]),
+        placeholderAutocomplete,
         updateListener,
         theme,
         EditorView.lineWrapping,
