@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
-import { X, Upload, FileJson, Check, AlertCircle, Zap, RefreshCw, Loader2, FolderOpen } from 'lucide-react'
+import { X, Upload, FileJson, Check, AlertCircle, Zap, RefreshCw, Loader2, FolderOpen, ChevronDown } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
 import type { RaycastSnippet } from '@/types'
 
@@ -42,9 +42,32 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
   const [checking, setChecking] = useState(false)
   const [triggering, setTriggering] = useState(false)
   const [existingExport, setExistingExport] = useState<ExistingExport | null>(null)
+  const [targetFolderId, setTargetFolderId] = useState<string | null>(null)
+  const [folderDropdownOpen, setFolderDropdownOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const createSnippet = useSnippetStore((s) => s.createSnippet)
+  const snippets = useSnippetStore((s) => s.snippets)
+  const folders = useSnippetStore((s) => s.folders)
+
+  // Build set of existing snippet names for conflict detection
+  const existingNames = useMemo(() => {
+    const names = new Set<string>()
+    for (const s of snippets) names.add(s.name.toLowerCase())
+    return names
+  }, [snippets])
+
+  // Detect which preview snippets conflict with existing names
+  const conflicts = useMemo(() => {
+    if (!preview) return new Set<number>()
+    const set = new Set<number>()
+    for (let i = 0; i < preview.snippets.length; i++) {
+      if (existingNames.has(preview.snippets[i].name.toLowerCase())) {
+        set.add(i)
+      }
+    }
+    return set
+  }, [preview, existingNames])
 
   // Check for existing export on open
   useEffect(() => {
@@ -235,6 +258,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
           name: snippet.name,
           text: snippet.text,
           keyword: snippet.keyword,
+          folderId: targetFolderId ?? undefined,
         })
       }
 
@@ -243,19 +267,21 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
       setPreview(null)
       setSelected(new Set())
       setExistingExport(null)
+      setTargetFolderId(null)
     } catch (err) {
       console.error('Import error:', err)
       toast.error('Failed to import snippets')
     } finally {
       setImporting(false)
     }
-  }, [preview, selected, createSnippet, onClose])
+  }, [preview, selected, createSnippet, onClose, targetFolderId])
 
   const handleClose = useCallback(() => {
     onClose()
     setPreview(null)
     setSelected(new Set())
     setExistingExport(null)
+    setTargetFolderId(null)
   }, [onClose])
 
   if (!open) return null
@@ -430,6 +456,52 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                 </div>
               )}
 
+              {/* Conflict warning */}
+              {conflicts.size > 0 && (
+                <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg" data-testid="conflict-warning">
+                  <div className="flex items-center gap-2 text-amber-400">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="text-sm font-medium">
+                      {conflicts.size} snippet{conflicts.size !== 1 ? 's' : ''} already exists with the same name
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-300/70 mt-1">
+                    Duplicates will be imported as separate snippets. Deselect to skip them.
+                  </p>
+                </div>
+              )}
+
+              {/* Import to folder selector */}
+              <div className="mb-4 relative" data-testid="folder-select">
+                <label className="text-xs text-zinc-500 mb-1 block">Import to folder</label>
+                <button
+                  onClick={() => setFolderDropdownOpen((v) => !v)}
+                  className="flex items-center justify-between w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm text-zinc-200 hover:border-zinc-600 transition-colors"
+                >
+                  <span>{targetFolderId ? folders.find((f) => f.id === targetFolderId)?.name ?? 'Unknown' : 'No folder (root)'}</span>
+                  <ChevronDown className="w-4 h-4 text-zinc-400" />
+                </button>
+                {folderDropdownOpen && (
+                  <div className="absolute z-10 mt-1 w-full bg-zinc-800 border border-zinc-700 rounded shadow-lg max-h-48 overflow-auto">
+                    <button
+                      onClick={() => { setTargetFolderId(null); setFolderDropdownOpen(false) }}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-700 transition-colors ${!targetFolderId ? 'text-blue-400' : 'text-zinc-200'}`}
+                    >
+                      No folder (root)
+                    </button>
+                    {folders.map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={() => { setTargetFolderId(f.id); setFolderDropdownOpen(false) }}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-700 transition-colors ${targetFolderId === f.id ? 'text-blue-400' : 'text-zinc-200'}`}
+                      >
+                        {f.parentId ? '  └ ' : ''}{f.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Select all */}
               <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-800">
                 <button
@@ -470,6 +542,11 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-zinc-200 truncate">{snippet.name}</span>
+                          {conflicts.has(i) && (
+                            <span className="px-1.5 py-0.5 text-xs bg-amber-500/20 border border-amber-500/30 rounded text-amber-400" data-testid="duplicate-badge">
+                              duplicate
+                            </span>
+                          )}
                           {snippet.keyword && (
                             <span className="px-1.5 py-0.5 text-xs bg-zinc-700 rounded text-zinc-400">
                               {snippet.keyword}
