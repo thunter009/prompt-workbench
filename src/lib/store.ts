@@ -49,6 +49,7 @@ function scheduleVersionSave(snippetId: string, text: string) {
 }
 
 type ExportFilter = 'all' | 'unexported' | 'modified'
+type TagFilterMode = 'and' | 'or'
 
 interface ExportSettings {
   defaultPath: string | null  // Display path for UI
@@ -75,6 +76,8 @@ interface SnippetStore {
   exportSettings: ExportSettings
   recentSnippetIds: string[]
   searchSettings: SearchSettings
+  selectedTags: string[]
+  tagFilterMode: TagFilterMode
 
   // Snippet actions
   selectSnippet: (id: string | null) => void
@@ -104,6 +107,12 @@ interface SnippetStore {
   // Search settings actions
   setSearchSettings: (settings: Partial<SearchSettings>) => void
   getCurrentFolderContext: () => { folderId: string | null; folderName: string | null }
+
+  // Tag filter actions
+  toggleTagFilter: (tag: string) => void
+  clearTagFilter: () => void
+  setTagFilterMode: (mode: TagFilterMode) => void
+  getAllTags: () => string[]
 
   // Folder actions
   selectFolder: (id: string | null) => void
@@ -151,6 +160,8 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   exportSettings: { defaultPath: null, hasDirectoryHandle: false },
   recentSnippetIds: [],
   searchSettings: { scopeToCurrentFolder: false },
+  selectedTags: [],
+  tagFilterMode: 'or' as TagFilterMode,
 
   // Snippet actions
   selectSnippet: (id) => set((state) => {
@@ -284,6 +295,28 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   setSearchSettings: (settings) => set((state) => ({
     searchSettings: { ...state.searchSettings, ...settings }
   })),
+
+  // Tag filter actions
+  toggleTagFilter: (tag) => set((state) => {
+    const idx = state.selectedTags.indexOf(tag)
+    if (idx >= 0) {
+      return { selectedTags: state.selectedTags.filter((t) => t !== tag) }
+    }
+    return { selectedTags: [...state.selectedTags, tag] }
+  }),
+
+  clearTagFilter: () => set({ selectedTags: [] }),
+
+  setTagFilterMode: (mode) => set({ tagFilterMode: mode }),
+
+  getAllTags: () => {
+    const { snippets } = get()
+    const tagSet = new Set<string>()
+    for (const s of snippets) {
+      for (const t of s.tags) tagSet.add(t)
+    }
+    return Array.from(tagSet).sort()
+  },
 
   getCurrentFolderContext: () => {
     const { selectedId, selectedFolderId, snippets, folders } = get()
@@ -482,18 +515,31 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   },
 
   getFilteredSnippets: () => {
-    const { snippets, searchQuery } = get()
-    if (!searchQuery.trim()) {
-      return snippets
+    const { snippets, searchQuery, selectedTags, tagFilterMode } = get()
+    let result = snippets
+
+    // Apply tag filter
+    if (selectedTags.length > 0) {
+      result = result.filter((s) => {
+        if (tagFilterMode === 'and') {
+          return selectedTags.every((t) => s.tags.includes(t))
+        }
+        return selectedTags.some((t) => s.tags.includes(t))
+      })
     }
 
-    const query = searchQuery.toLowerCase()
-    return snippets.filter(
-      (s) =>
-        s.name.toLowerCase().includes(query) ||
-        s.text.toLowerCase().includes(query) ||
-        s.keyword?.toLowerCase().includes(query)
-    )
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(
+        (s) =>
+          s.name.toLowerCase().includes(query) ||
+          s.text.toLowerCase().includes(query) ||
+          s.keyword?.toLowerCase().includes(query)
+      )
+    }
+
+    return result
   },
 }))
 

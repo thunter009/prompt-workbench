@@ -7,6 +7,7 @@ import { useSnippetStore, MAX_DEPTH } from '@/lib/store'
 import { useUndoStore } from '@/lib/undo-store'
 import { exportSnippets } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
+import { TagFilter } from '@/components/TagFilter'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ExportFolderDialog } from '@/components/ExportFolderDialog'
 import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown, Pencil } from 'lucide-react'
@@ -63,6 +64,8 @@ export function Sidebar() {
   const reorderFolderSiblings = useSnippetStore((s) => s.reorderFolderSiblings)
   const deleteFolder = useSnippetStore((s) => s.deleteFolder)
   const getSubfolderIds = useSnippetStore((s) => s.getSubfolderIds)
+  const selectedTags = useSnippetStore((s) => s.selectedTags)
+  const tagFilterMode = useSnippetStore((s) => s.tagFilterMode)
 
   const pushUndoAction = useUndoStore((s) => s.pushAction)
   const undo = useUndoStore((s) => s.undo)
@@ -888,17 +891,33 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [filterMenuOpen])
 
-  // Filter snippets based on export status
+  // Filter snippets based on export status + tags
   const filteredSnippets = useMemo(() => {
-    if (exportFilter === 'all') return snippets
-    return snippets.filter((s) => {
-      const notExported = !s.lastExportedAt
-      const modified = s.lastExportedAt && s.updatedAt > s.lastExportedAt
-      if (exportFilter === 'unexported') return notExported
-      if (exportFilter === 'modified') return modified
-      return true
-    })
-  }, [snippets, exportFilter])
+    let result = snippets
+
+    // Export filter
+    if (exportFilter !== 'all') {
+      result = result.filter((s) => {
+        const notExported = !s.lastExportedAt
+        const modified = s.lastExportedAt && s.updatedAt > s.lastExportedAt
+        if (exportFilter === 'unexported') return notExported
+        if (exportFilter === 'modified') return modified
+        return true
+      })
+    }
+
+    // Tag filter
+    if (selectedTags.length > 0) {
+      result = result.filter((s) => {
+        if (tagFilterMode === 'and') {
+          return selectedTags.every((t) => s.tags.includes(t))
+        }
+        return selectedTags.some((t) => s.tags.includes(t))
+      })
+    }
+
+    return result
+  }, [snippets, exportFilter, selectedTags, tagFilterMode])
 
   // Recalculate root snippets with filter
   const filteredRootSnippets = useMemo(() => {
@@ -987,6 +1006,8 @@ export function Sidebar() {
           </button>
         </div>
       </div>
+
+      <TagFilter />
 
       <div
         className={cn(
