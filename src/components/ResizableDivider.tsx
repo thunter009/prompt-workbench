@@ -61,7 +61,7 @@ export function ResizableDivider({
     <div
       ref={containerRef}
       onMouseDown={handleMouseDown}
-      className="w-1 bg-zinc-800 hover:bg-zinc-600 cursor-col-resize transition-colors flex-shrink-0"
+      className="w-1 bg-accent hover:bg-accent-foreground/10 cursor-col-resize transition-colors flex-shrink-0"
     />
   )
 }

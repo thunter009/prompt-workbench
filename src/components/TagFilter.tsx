@@ -24,7 +24,7 @@ export function TagFilter() {
   if (allTags.length === 0) return null
 
   return (
-    <div data-testid="tag-filter" className="px-3 py-2 border-b border-zinc-800">
+    <div data-testid="tag-filter" className="px-3 py-2 border-b border-border">
       <div className="flex flex-wrap gap-1">
         {allTags.map((tag) => {
           const isActive = selectedTags.includes(tag)
@@ -38,7 +38,7 @@ export function TagFilter() {
                 'px-2 py-0.5 rounded-full text-xs transition-colors',
                 isActive
                   ? 'bg-blue-600 text-white'
-                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300'
+                  : 'bg-accent text-muted-foreground hover:bg-accent hover:text-secondary-foreground'
               )}
             >
               {tag}
@@ -51,14 +51,14 @@ export function TagFilter() {
           <button
             data-testid="tag-filter-mode"
             onClick={() => setTagFilterMode(tagFilterMode === 'or' ? 'and' : 'or')}
-            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+            className="text-xs text-muted-foreground hover:text-secondary-foreground transition-colors"
           >
             {tagFilterMode === 'or' ? 'ANY' : 'ALL'}
           </button>
           <button
             data-testid="tag-filter-clear"
             onClick={clearTagFilter}
-            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-0.5"
+            className="text-xs text-muted-foreground hover:text-secondary-foreground transition-colors flex items-center gap-0.5"
           >
             <X className="w-3 h-3" /> Clear
           </button>

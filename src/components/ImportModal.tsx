@@ -290,13 +290,13 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-overlay-in" onClick={handleClose} />
 
-      <div className="relative bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col animate-modal-in">
+      <div className="relative bg-muted border border-border rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col animate-modal-in">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-lg font-medium">Import from Raycast</h2>
           <button
             onClick={handleClose}
-            className="p-1.5 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+            className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
           >
             <X className="w-5 h-5" />
           </button>
@@ -328,7 +328,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                   <button
                     onClick={checkForExistingExport}
                     disabled={checking}
-                    className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 rounded text-sm font-medium transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-foreground/10 disabled:opacity-50 rounded text-sm font-medium transition-colors"
                   >
                     {checking ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -344,9 +344,9 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
               {existingExport?.availableFiles && existingExport.availableFiles.length > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center gap-2 mb-3">
-                    <FolderOpen className="w-4 h-4 text-zinc-400" />
-                    <h3 className="text-sm font-medium text-zinc-200">
-                      <code className="px-1 bg-zinc-800 rounded text-xs">~/.prompt-workbench</code>
+                    <FolderOpen className="w-4 h-4 text-muted-foreground" />
+                    <h3 className="text-sm font-medium text-foreground">
+                      <code className="px-1 bg-accent rounded text-xs">~/.prompt-workbench</code>
                     </h3>
                   </div>
                   <div className="space-y-1.5">
@@ -358,20 +358,20 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
                             isMostRecent
                               ? 'border-green-500/30 bg-green-500/10'
-                              : 'border-zinc-700 bg-zinc-800/30'
+                              : 'border-border bg-accent/30'
                           }`}
                         >
-                          <FileJson className={`w-4 h-4 flex-shrink-0 ${isMostRecent ? 'text-green-400' : 'text-zinc-400'}`} />
+                          <FileJson className={`w-4 h-4 flex-shrink-0 ${isMostRecent ? 'text-green-400' : 'text-muted-foreground'}`} />
                           <div className="flex-1 min-w-0">
-                            <span className={`text-sm truncate block ${isMostRecent ? 'text-green-300' : 'text-zinc-200'}`}>{file.name}</span>
-                            <span className={`text-xs ${isMostRecent ? 'text-green-400/60' : 'text-zinc-500'}`}>{file.snippetCount} snippets · {file.age}</span>
+                            <span className={`text-sm truncate block ${isMostRecent ? 'text-green-300' : 'text-foreground'}`}>{file.name}</span>
+                            <span className={`text-xs ${isMostRecent ? 'text-green-400/60' : 'text-muted-foreground'}`}>{file.snippetCount} snippets · {file.age}</span>
                           </div>
                           <button
                             onClick={() => loadFileFromServer(file.name)}
                             className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex-shrink-0 ${
                               isMostRecent
                                 ? 'bg-green-600 hover:bg-green-700 text-white'
-                                : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200'
+                                : 'bg-accent hover:bg-accent-foreground/10 text-foreground'
                             }`}
                           >
                             Use This
@@ -384,12 +384,12 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
               )}
 
               {/* Manual instructions */}
-              <div className="mb-6 p-4 bg-zinc-800/50 rounded-lg border border-zinc-700">
-                <h3 className="text-sm font-medium text-zinc-200 mb-2">Or export manually:</h3>
-                <ol className="text-sm text-zinc-400 space-y-1 list-decimal list-inside">
+              <div className="mb-6 p-4 bg-accent/50 rounded-lg border border-border">
+                <h3 className="text-sm font-medium text-foreground mb-2">Or export manually:</h3>
+                <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
                   <li>Open Raycast (⌘ Space)</li>
                   <li>Search for &quot;Export Snippets&quot;</li>
-                  <li>Save to <code className="px-1 bg-zinc-700 rounded">~/.prompt-workbench</code></li>
+                  <li>Save to <code className="px-1 bg-accent rounded">~/.prompt-workbench</code></li>
                   <li>Select the file above or drop it below</li>
                 </ol>
               </div>
@@ -404,12 +404,12 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                 className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
                   dragActive
                     ? 'border-blue-500 bg-blue-500/10'
-                    : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
+                    : 'border-border hover:border-border hover:bg-accent/50'
                 }`}
               >
-                <Upload className="w-8 h-8 mx-auto mb-3 text-zinc-500" />
-                <p className="text-zinc-400 text-sm mb-1">Drop JSON file here</p>
-                <p className="text-xs text-zinc-500">or click to browse</p>
+                <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+                <p className="text-muted-foreground text-sm mb-1">Drop JSON file here</p>
+                <p className="text-xs text-muted-foreground">or click to browse</p>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -424,15 +424,15 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
               {/* Preview header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <FileJson className="w-5 h-5 text-zinc-400" />
-                  <span className="text-sm text-zinc-300">{preview.filename}</span>
-                  <span className="text-xs text-zinc-500">
+                  <FileJson className="w-5 h-5 text-muted-foreground" />
+                  <span className="text-sm text-secondary-foreground">{preview.filename}</span>
+                  <span className="text-xs text-muted-foreground">
                     ({preview.snippets.length} snippet{preview.snippets.length !== 1 ? 's' : ''})
                   </span>
                 </div>
                 <button
                   onClick={() => { setPreview(null); setSelected(new Set()) }}
-                  className="text-sm text-zinc-400 hover:text-zinc-200"
+                  className="text-sm text-muted-foreground hover:text-foreground"
                 >
                   Choose different file
                 </button>
@@ -473,19 +473,19 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
 
               {/* Import to folder selector */}
               <div className="mb-4 relative" data-testid="folder-select">
-                <label className="text-xs text-zinc-500 mb-1 block">Import to folder</label>
+                <label className="text-xs text-muted-foreground mb-1 block">Import to folder</label>
                 <button
                   onClick={() => setFolderDropdownOpen((v) => !v)}
-                  className="flex items-center justify-between w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm text-zinc-200 hover:border-zinc-600 transition-colors"
+                  className="flex items-center justify-between w-full px-3 py-2 bg-accent border border-border rounded text-sm text-foreground hover:border-border transition-colors"
                 >
                   <span>{targetFolderId ? folders.find((f) => f.id === targetFolderId)?.name ?? 'Unknown' : 'No folder (root)'}</span>
-                  <ChevronDown className="w-4 h-4 text-zinc-400" />
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
                 </button>
                 {folderDropdownOpen && (
-                  <div className="absolute z-10 mt-1 w-full bg-zinc-800 border border-zinc-700 rounded shadow-lg max-h-48 overflow-auto">
+                  <div className="absolute z-10 mt-1 w-full bg-accent border border-border rounded shadow-lg max-h-48 overflow-auto">
                     <button
                       onClick={() => { setTargetFolderId(null); setFolderDropdownOpen(false) }}
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-700 transition-colors ${!targetFolderId ? 'text-blue-400' : 'text-zinc-200'}`}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${!targetFolderId ? 'text-blue-400' : 'text-foreground'}`}
                     >
                       No folder (root)
                     </button>
@@ -493,7 +493,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                       <button
                         key={f.id}
                         onClick={() => { setTargetFolderId(f.id); setFolderDropdownOpen(false) }}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-700 transition-colors ${targetFolderId === f.id ? 'text-blue-400' : 'text-zinc-200'}`}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${targetFolderId === f.id ? 'text-blue-400' : 'text-foreground'}`}
                       >
                         {f.parentId ? '  └ ' : ''}{f.name}
                       </button>
@@ -503,17 +503,17 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
               </div>
 
               {/* Select all */}
-              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-800">
+              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border">
                 <button
                   onClick={toggleAll}
-                  className="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200"
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
                 >
                   <div className={`w-4 h-4 rounded border flex items-center justify-center ${
                     selected.size === preview.snippets.length
                       ? 'bg-blue-600 border-blue-600'
                       : selected.size > 0
                         ? 'bg-blue-600/50 border-blue-600'
-                        : 'border-zinc-600'
+                        : 'border-border'
                   }`}>
                     {selected.size > 0 && <Check className="w-3 h-3" />}
                   </div>
@@ -529,31 +529,31 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                     onClick={() => toggleSelect(i)}
                     className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                       selected.has(i)
-                        ? 'bg-zinc-800 border-zinc-600'
-                        : 'bg-zinc-800/30 border-zinc-800 hover:border-zinc-700'
+                        ? 'bg-accent border-border'
+                        : 'bg-accent/30 border-border hover:border-border'
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-4 h-4 mt-0.5 rounded border flex-shrink-0 flex items-center justify-center ${
-                        selected.has(i) ? 'bg-blue-600 border-blue-600' : 'border-zinc-600'
+                        selected.has(i) ? 'bg-blue-600 border-blue-600' : 'border-border'
                       }`}>
                         {selected.has(i) && <Check className="w-3 h-3" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-zinc-200 truncate">{snippet.name}</span>
+                          <span className="text-sm font-medium text-foreground truncate">{snippet.name}</span>
                           {conflicts.has(i) && (
                             <span className="px-1.5 py-0.5 text-xs bg-amber-500/20 border border-amber-500/30 rounded text-amber-400" data-testid="duplicate-badge">
                               duplicate
                             </span>
                           )}
                           {snippet.keyword && (
-                            <span className="px-1.5 py-0.5 text-xs bg-zinc-700 rounded text-zinc-400">
+                            <span className="px-1.5 py-0.5 text-xs bg-accent rounded text-muted-foreground">
                               {snippet.keyword}
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{snippet.text}</p>
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{snippet.text}</p>
                       </div>
                     </div>
                   </div>
@@ -565,10 +565,10 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
 
         {/* Footer */}
         {preview && (
-          <div className="px-6 py-4 border-t border-zinc-800 flex justify-end gap-3">
+          <div className="px-6 py-4 border-t border-border flex justify-end gap-3">
             <button
               onClick={handleClose}
-              className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
               Cancel
             </button>

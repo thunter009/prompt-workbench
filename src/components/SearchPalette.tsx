@@ -193,23 +193,23 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
 
       {/* Dialog */}
       <Command
-        className="relative w-full max-w-lg bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden animate-modal-in"
+        className="relative w-full max-w-lg bg-muted border border-border rounded-xl shadow-2xl overflow-hidden animate-modal-in"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
         shouldFilter={false}
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 border-b border-zinc-700">
-          <Search className="w-5 h-5 text-zinc-500 shrink-0" />
+        <div className="flex items-center gap-3 px-4 border-b border-border">
+          <Search className="w-5 h-5 text-muted-foreground shrink-0" />
           <Command.Input
             value={search}
             onValueChange={setSearch}
             placeholder="Search snippets..."
             autoFocus
-            className="flex-1 h-12 bg-transparent text-zinc-100 placeholder:text-zinc-500 outline-none text-base"
+            className="flex-1 h-12 bg-transparent text-foreground placeholder:text-muted-foreground outline-none text-base"
           />
           {search && (
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs text-muted-foreground">
               {results.length} result{results.length !== 1 ? 's' : ''}
             </span>
           )}
@@ -219,7 +219,7 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
         <Command.List ref={listRef} className="max-h-80 overflow-y-auto p-2">
           {search.trim() === '' ? (
             recentSnippets.length > 0 ? (
-              <Command.Group heading="Recent" className="text-xs font-medium text-zinc-500 px-2 py-1.5">
+              <Command.Group heading="Recent" className="text-xs font-medium text-muted-foreground px-2 py-1.5">
                 {recentSnippets.map((snippet, index) => (
                   <RecentSnippetItem
                     key={snippet.id}
@@ -231,16 +231,16 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
                 ))}
               </Command.Group>
             ) : (
-              <div className="py-8 text-center text-sm text-zinc-500">
+              <div className="py-8 text-center text-sm text-muted-foreground">
                 Type to search snippets by name, content, keyword, or tags
               </div>
             )
           ) : results.length === 0 ? (
-            <Command.Empty className="py-8 text-center text-sm text-zinc-500">
+            <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
               No snippets found for &quot;{search}&quot;
             </Command.Empty>
           ) : (
-            <Command.Group heading="Snippets" className="text-xs font-medium text-zinc-500 px-2 py-1.5">
+            <Command.Group heading="Snippets" className="text-xs font-medium text-muted-foreground px-2 py-1.5">
               {results.map((result, index) => (
                 <SearchResultItem
                   key={result.snippet.id}
@@ -255,13 +255,13 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
         </Command.List>
 
         {/* Footer with folder scope toggle */}
-        <div className="flex items-center justify-between px-4 py-2 border-t border-zinc-700 text-xs text-zinc-500">
+        <div className="flex items-center justify-between px-4 py-2 border-t border-border text-xs text-muted-foreground">
           <div className="flex items-center gap-4">
             <span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded text-[10px] font-medium">↑↓</kbd> navigate
+              <kbd className="px-1.5 py-0.5 bg-accent rounded text-[10px] font-medium">↑↓</kbd> navigate
             </span>
             <span>
-              <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded text-[10px] font-medium">↵</kbd> open
+              <kbd className="px-1.5 py-0.5 bg-accent rounded text-[10px] font-medium">↵</kbd> open
             </span>
           </div>
           <button
@@ -271,7 +271,7 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
               hasCurrentFolder
                 ? searchSettings.scopeToCurrentFolder
                   ? 'bg-blue-600/30 text-blue-300 hover:bg-blue-600/40'
-                  : 'hover:bg-zinc-800 text-zinc-400 hover:text-zinc-300'
+                  : 'hover:bg-accent text-muted-foreground hover:text-secondary-foreground'
                 : 'opacity-50 cursor-not-allowed'
             }`}
             title={hasCurrentFolder
@@ -321,13 +321,13 @@ function SearchResultItem({
       data-search-item
       onClick={onSelect}
       onMouseEnter={onMouseEnter}
-      className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-zinc-300 ${
-        selected ? 'bg-zinc-800 text-zinc-100' : ''
+      className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-secondary-foreground ${
+        selected ? 'bg-accent text-foreground' : ''
       }`}
     >
       {/* Top row: icon + name + keyword */}
       <div className="flex items-center gap-2.5">
-        <FileText className="w-4 h-4 text-zinc-500 shrink-0" />
+        <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
         <span className="flex-1 text-sm font-medium truncate">
           {nameMatch ? (
             <HighlightedText text={snippet.name} indices={nameMatch.indices} />
@@ -336,7 +336,7 @@ function SearchResultItem({
           )}
         </span>
         {snippet.keyword && (
-          <span className="flex items-center gap-1 text-xs text-zinc-500">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Hash className="w-3 h-3" />
             {keywordMatch ? (
               <HighlightedText text={snippet.keyword} indices={keywordMatch.indices} />
@@ -349,7 +349,7 @@ function SearchResultItem({
 
       {/* Content preview if matched */}
       {contentMatch && (
-        <div className="ml-6.5 text-xs text-zinc-500 truncate">
+        <div className="ml-6.5 text-xs text-muted-foreground truncate">
           {(() => {
             const { text, indices } = truncateContentMatch(contentMatch.value, contentMatch.indices)
             return <HighlightedText text={text} indices={indices} />
@@ -360,14 +360,14 @@ function SearchResultItem({
       {/* Tags row if matched or present */}
       {(tagsMatch || snippet.tags.length > 0) && (
         <div className="ml-6.5 flex items-center gap-1.5 flex-wrap">
-          <Tag className="w-3 h-3 text-zinc-600" />
+          <Tag className="w-3 h-3 text-muted-foreground" />
           {snippet.tags.slice(0, 4).map((tag, i) => {
             // Check if this specific tag was matched
             const tagMatch = matches.find((m) => m.key === `tags.${i}`)
             return (
               <span
                 key={i}
-                className="text-xs px-1.5 py-0.5 bg-zinc-800 rounded text-zinc-400"
+                className="text-xs px-1.5 py-0.5 bg-accent rounded text-muted-foreground"
               >
                 {tagMatch ? (
                   <HighlightedText text={tag} indices={tagMatch.indices} />
@@ -378,7 +378,7 @@ function SearchResultItem({
             )
           })}
           {snippet.tags.length > 4 && (
-            <span className="text-xs text-zinc-600">+{snippet.tags.length - 4}</span>
+            <span className="text-xs text-muted-foreground">+{snippet.tags.length - 4}</span>
           )}
         </div>
       )}
@@ -403,15 +403,15 @@ function RecentSnippetItem({
       data-search-item
       onClick={onSelect}
       onMouseEnter={onMouseEnter}
-      className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-zinc-300 ${
-        selected ? 'bg-zinc-800 text-zinc-100' : ''
+      className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-secondary-foreground ${
+        selected ? 'bg-accent text-foreground' : ''
       }`}
     >
       <div className="flex items-center gap-2.5">
-        <Clock className="w-4 h-4 text-zinc-500 shrink-0" />
+        <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
         <span className="flex-1 text-sm font-medium truncate">{snippet.name}</span>
         {snippet.keyword && (
-          <span className="flex items-center gap-1 text-xs text-zinc-500">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Hash className="w-3 h-3" />
             {snippet.keyword}
           </span>

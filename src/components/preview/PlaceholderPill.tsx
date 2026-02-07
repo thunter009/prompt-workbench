@@ -55,7 +55,7 @@ export function PlaceholderPill({ placeholder, className }: PlaceholderPillProps
     return (
       <span
         className={cn(
-          'inline px-0.5 rounded text-zinc-200 bg-zinc-800/50',
+          'inline px-0.5 rounded text-foreground bg-accent/50',
           className
         )}
         title={`${placeholder.raw} → ${previewValue}`}
@@ -101,19 +101,19 @@ export function PlaceholderPill({ placeholder, className }: PlaceholderPillProps
         className={cn(
           'absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5',
           'px-2 py-1.5 rounded-md text-xs whitespace-nowrap',
-          'bg-zinc-800 text-zinc-200 border border-zinc-700',
+          'bg-accent text-foreground border border-border',
           'opacity-0 invisible group-hover:opacity-100 group-hover:visible',
           'transition-opacity duration-150 z-50 shadow-lg'
         )}
       >
         {/* Arrow */}
-        <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-zinc-700" />
-        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-800" />
+        <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-border" />
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-accent" />
 
         {/* Content */}
         <div className="flex flex-col gap-0.5">
-          <code className="text-[10px] text-zinc-400 font-mono">{placeholder.raw}</code>
-          <span className="text-zinc-300">{description}</span>
+          <code className="text-[10px] text-muted-foreground font-mono">{placeholder.raw}</code>
+          <span className="text-secondary-foreground">{description}</span>
         </div>
       </span>
     </span>

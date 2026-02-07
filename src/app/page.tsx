@@ -18,6 +18,7 @@ import { VersionHistorySidebar } from '@/components/VersionHistorySidebar'
 import { SettingsModal } from '@/components/SettingsModal'
 import { ImportModal } from '@/components/ImportModal'
 import { HotkeyCheatsheet } from '@/components/HotkeyCheatsheet'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { loadPersistedState, updatePersistedField } from '@/lib/persistence'
 import { useSnippetStore } from '@/lib/store'
 import { useConflictStore } from '@/lib/conflict-store'
@@ -449,15 +450,15 @@ export default function HomePage() {
   }, [exportMenuOpen])
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100">
+    <main className="min-h-screen bg-background text-foreground">
       <div className="h-screen flex flex-col">
-        <header className="border-b border-zinc-800 px-4 py-3 flex items-center justify-between">
+        <header className="border-b border-border px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-medium">Prompt Workbench</h1>
           <div className="flex items-center gap-1">
             {conflictCount > 0 && (
               <button
                 onClick={openConflictPanel}
-                className="p-2 rounded hover:bg-zinc-800 transition-colors text-amber-400 hover:text-amber-300 relative"
+                className="p-2 rounded hover:bg-accent transition-colors text-amber-400 hover:text-amber-300 relative"
                 title={`${conflictCount} conflict${conflictCount > 1 ? 's' : ''} - click to review`}
               >
                 <AlertTriangle className="w-5 h-5" />
@@ -468,14 +469,14 @@ export default function HomePage() {
             )}
             <button
               onClick={handleSyncToRaycast}
-              className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+              className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
               title="Sync to Raycast - export & auto-import (⌘⇧S)"
             >
               <RefreshCw className="w-5 h-5" />
             </button>
             <button
               onClick={() => setImportOpen(true)}
-              className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+              className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
               title="Import from Raycast"
             >
               <Upload className="w-5 h-5" />
@@ -484,34 +485,34 @@ export default function HomePage() {
               <div className="flex items-center">
                 <button
                   onClick={() => handleQuickExport(false)}
-                  className="p-2 rounded-l hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+                  className="p-2 rounded-l hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
                   title={`Export to ${exportSettings.defaultPath || '~/.prompt-workbench'} (⌘⇧E)`}
                 >
                   <Download className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => setExportMenuOpen((v) => !v)}
-                  className="p-2 -ml-1 rounded-r hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+                  className="p-2 -ml-1 rounded-r hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
                   title="More export options"
                 >
                   <ChevronDown className="w-3 h-3" />
                 </button>
               </div>
               {exportMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 w-56 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-50 py-1">
+                <div className="absolute right-0 top-full mt-1 w-56 bg-accent border border-border rounded-lg shadow-xl z-50 py-1">
                   <button
                     onClick={() => { handleQuickExport(false); setExportMenuOpen(false) }}
-                    className="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-700 transition-colors flex items-center gap-2"
+                    className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
                   >
-                    <Zap className="w-4 h-4 text-zinc-400" />
+                    <Zap className="w-4 h-4 text-muted-foreground" />
                     Quick export
-                    <span className="ml-auto text-xs text-zinc-500">⌘⇧E</span>
+                    <span className="ml-auto text-xs text-muted-foreground">⌘⇧E</span>
                   </button>
                   <button
                     onClick={() => { handleExport(); setExportMenuOpen(false) }}
-                    className="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-700 transition-colors flex items-center gap-2"
+                    className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
                   >
-                    <Download className="w-4 h-4 text-zinc-400" />
+                    <Download className="w-4 h-4 text-muted-foreground" />
                     Export to file picker...
                   </button>
                 </div>
@@ -519,29 +520,30 @@ export default function HomePage() {
             </div>
             <button
               onClick={() => setHistoryOpen((v) => !v)}
-              className={`p-2 rounded hover:bg-zinc-800 transition-colors ${historyOpen ? 'text-blue-400' : 'text-zinc-400 hover:text-zinc-200'}`}
+              className={`p-2 rounded hover:bg-accent transition-colors ${historyOpen ? 'text-blue-400' : 'text-muted-foreground hover:text-foreground'}`}
               title="Version history"
             >
               <History className="w-5 h-5" />
             </button>
             <button
               onClick={() => setSettingsOpen(true)}
-              className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+              className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
               title="Settings (⌘,)"
             >
               <Settings className="w-5 h-5" />
             </button>
             <button
               onClick={() => setHotkeySheetOpen(true)}
-              className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+              className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
               title="Keyboard shortcuts (⌘?)"
             >
               <HelpCircle className="w-5 h-5" />
             </button>
+            <ThemeToggle />
             <button
               onClick={togglePreview}
               onMouseEnter={previewVisible ? preloadEditor : preloadPreview}
-              className="p-2 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+              className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
               title={previewVisible ? 'Hide preview (⌘\\)' : 'Show preview (⌘\\)'}
             >
               {previewVisible ? (
@@ -558,9 +560,9 @@ export default function HomePage() {
             style={{ width: previewVisible ? `${leftPercent}%` : '100%' }}
             className="flex-1 flex flex-col overflow-hidden transition-[width] duration-200 ease-out"
           >
-            <div className="flex items-center border-b border-zinc-800">
+            <div className="flex items-center border-b border-border">
               <EditorPanelHeader />
-              <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-zinc-500">
+              <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
                 {saveStatus === 'saving' && (
                   <>
                     <Loader2 className="w-3 h-3 animate-spin" />

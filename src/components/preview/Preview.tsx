@@ -20,55 +20,55 @@ type ExtendedComponents = Components & {
 const markdownComponents: ExtendedComponents = {
   // Headings
   h1: ({ children }) => (
-    <h1 className="text-2xl font-bold mt-6 mb-4 text-zinc-100 border-b border-zinc-700 pb-2">{children}</h1>
+    <h1 className="text-2xl font-bold mt-6 mb-4 text-foreground border-b border-border pb-2">{children}</h1>
   ),
   h2: ({ children }) => (
-    <h2 className="text-xl font-semibold mt-5 mb-3 text-zinc-100 border-b border-zinc-800 pb-1">{children}</h2>
+    <h2 className="text-xl font-semibold mt-5 mb-3 text-foreground border-b border-border pb-1">{children}</h2>
   ),
   h3: ({ children }) => (
-    <h3 className="text-lg font-semibold mt-4 mb-2 text-zinc-100">{children}</h3>
+    <h3 className="text-lg font-semibold mt-4 mb-2 text-foreground">{children}</h3>
   ),
   h4: ({ children }) => (
-    <h4 className="text-base font-semibold mt-3 mb-2 text-zinc-200">{children}</h4>
+    <h4 className="text-base font-semibold mt-3 mb-2 text-foreground">{children}</h4>
   ),
   h5: ({ children }) => (
-    <h5 className="text-sm font-semibold mt-3 mb-1 text-zinc-200">{children}</h5>
+    <h5 className="text-sm font-semibold mt-3 mb-1 text-foreground">{children}</h5>
   ),
   h6: ({ children }) => (
-    <h6 className="text-sm font-medium mt-2 mb-1 text-zinc-300">{children}</h6>
+    <h6 className="text-sm font-medium mt-2 mb-1 text-secondary-foreground">{children}</h6>
   ),
   // Paragraphs
   p: ({ children }) => (
-    <p className="my-2 text-zinc-300 leading-relaxed">{children}</p>
+    <p className="my-2 text-secondary-foreground leading-relaxed">{children}</p>
   ),
   // Lists
   ul: ({ children }) => (
-    <ul className="my-2 ml-4 list-disc list-outside text-zinc-300 space-y-1">{children}</ul>
+    <ul className="my-2 ml-4 list-disc list-outside text-secondary-foreground space-y-1">{children}</ul>
   ),
   ol: ({ children }) => (
-    <ol className="my-2 ml-4 list-decimal list-outside text-zinc-300 space-y-1">{children}</ol>
+    <ol className="my-2 ml-4 list-decimal list-outside text-secondary-foreground space-y-1">{children}</ol>
   ),
   li: ({ children }) => (
-    <li className="text-zinc-300">{children}</li>
+    <li className="text-secondary-foreground">{children}</li>
   ),
   // Code
   code: ({ className, children }) => {
     const isBlock = className?.includes('language-')
     if (isBlock) {
       return (
-        <code className="block bg-zinc-950 text-zinc-300 rounded p-3 my-2 overflow-x-auto text-sm font-mono">
+        <code className="block bg-background text-secondary-foreground rounded p-3 my-2 overflow-x-auto text-sm font-mono">
           {children}
         </code>
       )
     }
     return (
-      <code className="bg-zinc-800 text-violet-400 px-1.5 py-0.5 rounded text-sm font-mono">
+      <code className="bg-accent text-violet-400 px-1.5 py-0.5 rounded text-sm font-mono">
         {children}
       </code>
     )
   },
   pre: ({ children }) => (
-    <pre className="bg-zinc-950 rounded-lg my-3 overflow-hidden">{children}</pre>
+    <pre className="bg-background rounded-lg my-3 overflow-hidden">{children}</pre>
   ),
   // Links
   a: ({ href, children }) => (
@@ -83,43 +83,43 @@ const markdownComponents: ExtendedComponents = {
   ),
   // Blockquotes
   blockquote: ({ children }) => (
-    <blockquote className="border-l-4 border-zinc-600 pl-4 my-3 text-zinc-400 italic">
+    <blockquote className="border-l-4 border-border pl-4 my-3 text-muted-foreground italic">
       {children}
     </blockquote>
   ),
   // Horizontal rules
-  hr: () => <hr className="my-6 border-zinc-700" />,
+  hr: () => <hr className="my-6 border-border" />,
   // Tables (GFM)
   table: ({ children }) => (
     <div className="my-4 overflow-x-auto">
-      <table className="min-w-full border border-zinc-700 rounded">{children}</table>
+      <table className="min-w-full border border-border rounded">{children}</table>
     </div>
   ),
   thead: ({ children }) => (
-    <thead className="bg-zinc-800">{children}</thead>
+    <thead className="bg-accent">{children}</thead>
   ),
   tbody: ({ children }) => (
-    <tbody className="divide-y divide-zinc-700">{children}</tbody>
+    <tbody className="divide-y divide-border">{children}</tbody>
   ),
   tr: ({ children }) => (
-    <tr className="divide-x divide-zinc-700">{children}</tr>
+    <tr className="divide-x divide-border">{children}</tr>
   ),
   th: ({ children }) => (
-    <th className="px-3 py-2 text-left text-sm font-semibold text-zinc-200">{children}</th>
+    <th className="px-3 py-2 text-left text-sm font-semibold text-foreground">{children}</th>
   ),
   td: ({ children }) => (
-    <td className="px-3 py-2 text-sm text-zinc-300">{children}</td>
+    <td className="px-3 py-2 text-sm text-secondary-foreground">{children}</td>
   ),
   // Strikethrough (GFM)
   del: ({ children }) => (
-    <del className="text-zinc-500 line-through">{children}</del>
+    <del className="text-muted-foreground line-through">{children}</del>
   ),
   // Strong/emphasis
   strong: ({ children }) => (
-    <strong className="font-semibold text-zinc-100">{children}</strong>
+    <strong className="font-semibold text-foreground">{children}</strong>
   ),
   em: ({ children }) => (
-    <em className="italic text-zinc-300">{children}</em>
+    <em className="italic text-secondary-foreground">{children}</em>
   ),
   // Task lists (GFM)
   input: ({ checked, disabled }) => (
@@ -188,14 +188,14 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
 
   if (!debouncedContent) {
     return (
-      <div className="h-full flex flex-col bg-zinc-900">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
-          <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Preview</span>
+      <div className="h-full flex flex-col bg-muted">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preview</span>
           <div className="flex items-center gap-1">
             <button
               onClick={toggleSyncScroll}
-              className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
-                syncScroll ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
+              className={`p-1.5 rounded hover:bg-accent transition-colors ${
+                syncScroll ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
               }`}
               title={syncScroll ? 'Disable scroll sync' : 'Enable scroll sync'}
             >
@@ -203,8 +203,8 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
             </button>
             <button
               onClick={togglePreviewValues}
-              className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
-                previewValues ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
+              className={`p-1.5 rounded hover:bg-accent transition-colors ${
+                previewValues ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
               }`}
               title={previewValues ? 'Hide example values' : 'Show example values'}
             >
@@ -213,21 +213,21 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <span className="text-zinc-500 text-sm">Start typing to see preview...</span>
+          <span className="text-muted-foreground text-sm">Start typing to see preview...</span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="h-full flex flex-col bg-zinc-900">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
-        <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Preview</span>
+    <div className="h-full flex flex-col bg-muted">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preview</span>
         <div className="flex items-center gap-1">
           <button
             onClick={toggleSyncScroll}
-            className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
-              syncScroll ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
+            className={`p-1.5 rounded hover:bg-accent transition-colors ${
+              syncScroll ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
             }`}
             title={syncScroll ? 'Disable scroll sync' : 'Enable scroll sync'}
           >
@@ -235,8 +235,8 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
           </button>
           <button
             onClick={togglePreviewValues}
-            className={`p-1.5 rounded hover:bg-zinc-800 transition-colors ${
-              previewValues ? 'text-blue-400' : 'text-zinc-500 hover:text-zinc-300'
+            className={`p-1.5 rounded hover:bg-accent transition-colors ${
+              previewValues ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
             }`}
             title={previewValues ? 'Hide example values' : 'Show example values'}
           >

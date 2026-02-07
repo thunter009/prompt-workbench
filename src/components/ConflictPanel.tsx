@@ -37,46 +37,46 @@ function ConflictItem({ conflict, onResolve }: ConflictItemProps) {
 
   if (mergeMode && canMerge) {
     return (
-      <div className="border border-zinc-700 rounded-lg overflow-hidden">
+      <div className="border border-border rounded-lg overflow-hidden">
         {/* Header */}
-        <div className="px-3 py-2 bg-zinc-800/50 border-b border-zinc-700 flex items-center justify-between">
+        <div className="px-3 py-2 bg-accent/50 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <GitMerge className="w-4 h-4 text-green-400" />
             <span className="font-medium text-sm">Merge: {mergeName}</span>
           </div>
           <button
             onClick={() => setMergeMode(false)}
-            className="text-xs text-zinc-400 hover:text-zinc-200"
+            className="text-xs text-muted-foreground hover:text-foreground"
           >
             Cancel
           </button>
         </div>
 
         {/* Reference views */}
-        <div className="grid grid-cols-2 divide-x divide-zinc-700 bg-zinc-900/30">
+        <div className="grid grid-cols-2 divide-x divide-border bg-muted/30">
           <div className="p-2">
-            <div className="text-xs text-zinc-500 mb-1 flex items-center gap-1">
+            <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-blue-500" />
               Local (reference)
             </div>
-            <pre className="text-xs text-zinc-400 whitespace-pre-wrap font-mono bg-zinc-900/50 p-2 rounded max-h-24 overflow-auto">
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-muted/50 p-2 rounded max-h-24 overflow-auto">
               {localSnippet.text || '(empty)'}
             </pre>
           </div>
           <div className="p-2">
-            <div className="text-xs text-zinc-500 mb-1 flex items-center gap-1">
+            <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-purple-500" />
               Raycast (reference)
             </div>
-            <pre className="text-xs text-zinc-400 whitespace-pre-wrap font-mono bg-zinc-900/50 p-2 rounded max-h-24 overflow-auto">
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-muted/50 p-2 rounded max-h-24 overflow-auto">
               {remoteSnippet.text || '(empty)'}
             </pre>
           </div>
         </div>
 
         {/* Merge editor */}
-        <div className="p-3 border-t border-zinc-700">
-          <div className="text-xs text-zinc-500 mb-2 flex items-center gap-1">
+        <div className="p-3 border-t border-border">
+          <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-green-500" />
             Merged result
           </div>
@@ -86,38 +86,38 @@ function ConflictItem({ conflict, onResolve }: ConflictItemProps) {
               value={mergeName}
               onChange={(e) => setMergeName(e.target.value)}
               placeholder="Name"
-              className="w-full px-2 py-1 text-xs bg-zinc-800 border border-zinc-700 rounded text-zinc-200 focus:outline-none focus:border-green-500"
+              className="w-full px-2 py-1 text-xs bg-accent border border-border rounded text-foreground focus:outline-none focus:border-green-500"
             />
             <textarea
               value={mergeText}
               onChange={(e) => setMergeText(e.target.value)}
               placeholder="Snippet text..."
               rows={5}
-              className="w-full px-2 py-1.5 text-xs font-mono bg-zinc-800 border border-zinc-700 rounded text-zinc-200 focus:outline-none focus:border-green-500 resize-none"
+              className="w-full px-2 py-1.5 text-xs font-mono bg-accent border border-border rounded text-foreground focus:outline-none focus:border-green-500 resize-none"
             />
             <input
               type="text"
               value={mergeKeyword}
               onChange={(e) => setMergeKeyword(e.target.value)}
               placeholder="Keyword (optional)"
-              className="w-full px-2 py-1 text-xs bg-zinc-800 border border-zinc-700 rounded text-zinc-200 focus:outline-none focus:border-green-500"
+              className="w-full px-2 py-1 text-xs bg-accent border border-border rounded text-foreground focus:outline-none focus:border-green-500"
             />
           </div>
         </div>
 
         {/* Merge actions */}
-        <div className="px-3 py-2 bg-zinc-800/30 border-t border-zinc-700 flex items-center gap-2">
+        <div className="px-3 py-2 bg-accent/30 border-t border-border flex items-center gap-2">
           <button
             onClick={handleMerge}
             disabled={!mergeName.trim() || !mergeText.trim()}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded bg-green-600 hover:bg-green-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded bg-green-600 hover:bg-green-500 disabled:bg-accent disabled:text-muted-foreground text-white transition-colors"
           >
             <Check className="w-3.5 h-3.5" />
             Apply Merge
           </button>
           <button
             onClick={() => setMergeMode(false)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded bg-accent hover:bg-accent-foreground/10 text-foreground transition-colors"
           >
             <X className="w-3.5 h-3.5" />
             Cancel
@@ -128,9 +128,9 @@ function ConflictItem({ conflict, onResolve }: ConflictItemProps) {
   }
 
   return (
-    <div className="border border-zinc-700 rounded-lg overflow-hidden">
+    <div className="border border-border rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="px-3 py-2 bg-zinc-800/50 border-b border-zinc-700 flex items-center justify-between">
+      <div className="px-3 py-2 bg-accent/50 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-400" />
           <span className="font-medium text-sm">
@@ -143,40 +143,40 @@ function ConflictItem({ conflict, onResolve }: ConflictItemProps) {
       </div>
 
       {/* Diff view */}
-      <div className="grid grid-cols-2 divide-x divide-zinc-700">
+      <div className="grid grid-cols-2 divide-x divide-border">
         {/* Local */}
         <div className="p-3">
-          <div className="text-xs text-zinc-500 mb-2 flex items-center gap-1">
+          <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-blue-500" />
             Local
           </div>
           {localSnippet ? (
-            <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono bg-zinc-900/50 p-2 rounded max-h-40 overflow-auto">
+            <pre className="text-xs text-secondary-foreground whitespace-pre-wrap font-mono bg-muted/50 p-2 rounded max-h-40 overflow-auto">
               {localSnippet.text || '(empty)'}
             </pre>
           ) : (
-            <p className="text-xs text-zinc-500 italic">Not in local</p>
+            <p className="text-xs text-muted-foreground italic">Not in local</p>
           )}
         </div>
 
         {/* Remote */}
         <div className="p-3">
-          <div className="text-xs text-zinc-500 mb-2 flex items-center gap-1">
+          <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-purple-500" />
             Raycast
           </div>
           {remoteSnippet ? (
-            <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono bg-zinc-900/50 p-2 rounded max-h-40 overflow-auto">
+            <pre className="text-xs text-secondary-foreground whitespace-pre-wrap font-mono bg-muted/50 p-2 rounded max-h-40 overflow-auto">
               {remoteSnippet.text || '(empty)'}
             </pre>
           ) : (
-            <p className="text-xs text-zinc-500 italic">Deleted in Raycast</p>
+            <p className="text-xs text-muted-foreground italic">Deleted in Raycast</p>
           )}
         </div>
       </div>
 
       {/* Actions */}
-      <div className="px-3 py-2 bg-zinc-800/30 border-t border-zinc-700 flex items-center gap-2">
+      <div className="px-3 py-2 bg-accent/30 border-t border-border flex items-center gap-2">
         {localSnippet && (
           <button
             onClick={() => onResolve(conflict.id, 'keep_local')}
@@ -315,9 +315,9 @@ export function ConflictPanel() {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl w-[700px] max-h-[80vh] flex flex-col">
+      <div className="bg-muted border border-border rounded-lg shadow-xl w-[700px] max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-zinc-700 flex items-center justify-between shrink-0">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-amber-400" />
             <h2 className="font-medium">
@@ -326,7 +326,7 @@ export function ConflictPanel() {
           </div>
           <button
             onClick={closePanel}
-            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
           >
             <X className="w-5 h-5" />
           </button>
@@ -344,14 +344,14 @@ export function ConflictPanel() {
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-zinc-700 flex items-center justify-between shrink-0">
-          <p className="text-xs text-zinc-500">
+        <div className="px-4 py-3 border-t border-border flex items-center justify-between shrink-0">
+          <p className="text-xs text-muted-foreground">
             {conflicts.length} conflict{conflicts.length !== 1 ? 's' : ''} remaining
           </p>
           <div className="flex items-center gap-2 relative">
             <button
               onClick={() => setApplyToAllOpen(!applyToAllOpen)}
-              className="px-3 py-1.5 text-sm rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-colors flex items-center gap-1.5"
+              className="px-3 py-1.5 text-sm rounded bg-accent hover:bg-accent-foreground/10 text-foreground transition-colors flex items-center gap-1.5"
             >
               Apply to All
               <svg
@@ -372,18 +372,18 @@ export function ConflictPanel() {
                   onClick={() => setApplyToAllOpen(false)}
                 />
                 {/* Dropdown menu */}
-                <div className="absolute bottom-full right-0 mb-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg overflow-hidden z-50 min-w-48">
+                <div className="absolute bottom-full right-0 mb-1 bg-accent border border-border rounded-lg shadow-lg overflow-hidden z-50 min-w-48">
                   {conflictsWithLocal.length > 0 && (
                     <button
                       onClick={() => {
                         handleResolveAll('keep_local')
                         setApplyToAllOpen(false)
                       }}
-                      className="w-full px-3 py-2 text-sm text-left text-zinc-200 hover:bg-zinc-700 flex items-center gap-2"
+                      className="w-full px-3 py-2 text-sm text-left text-foreground hover:bg-accent flex items-center gap-2"
                     >
                       <Check className="w-4 h-4 text-blue-400" />
                       <span>Keep All Local</span>
-                      <span className="ml-auto text-xs text-zinc-500">
+                      <span className="ml-auto text-xs text-muted-foreground">
                         {conflictsWithLocal.length}
                       </span>
                     </button>
@@ -394,11 +394,11 @@ export function ConflictPanel() {
                         handleResolveAll('keep_remote')
                         setApplyToAllOpen(false)
                       }}
-                      className="w-full px-3 py-2 text-sm text-left text-zinc-200 hover:bg-zinc-700 flex items-center gap-2"
+                      className="w-full px-3 py-2 text-sm text-left text-foreground hover:bg-accent flex items-center gap-2"
                     >
                       <RefreshCw className="w-4 h-4 text-purple-400" />
                       <span>Use All Raycast</span>
-                      <span className="ml-auto text-xs text-zinc-500">
+                      <span className="ml-auto text-xs text-muted-foreground">
                         {conflictsWithRemote.length}
                       </span>
                     </button>
@@ -409,11 +409,11 @@ export function ConflictPanel() {
                         handleResolveAll('keep_both')
                         setApplyToAllOpen(false)
                       }}
-                      className="w-full px-3 py-2 text-sm text-left text-zinc-200 hover:bg-zinc-700 flex items-center gap-2 border-t border-zinc-700"
+                      className="w-full px-3 py-2 text-sm text-left text-foreground hover:bg-accent flex items-center gap-2 border-t border-border"
                     >
-                      <Copy className="w-4 h-4 text-zinc-400" />
+                      <Copy className="w-4 h-4 text-muted-foreground" />
                       <span>Keep All Both</span>
-                      <span className="ml-auto text-xs text-zinc-500">
+                      <span className="ml-auto text-xs text-muted-foreground">
                         {modifiedConflicts.length}
                       </span>
                     </button>

@@ -731,8 +731,8 @@ export function Sidebar() {
           selectedIds.has(snippet.id)
             ? 'bg-blue-600/30 text-blue-200'
             : selectedId === snippet.id
-              ? 'bg-zinc-800 text-zinc-200'
-              : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300 active:scale-[0.98]'
+              ? 'bg-accent text-foreground'
+              : 'text-muted-foreground hover:bg-accent/50 hover:text-secondary-foreground active:scale-[0.98]'
         )}
       >
         <FileText className="w-4 h-4 shrink-0" />
@@ -745,7 +745,7 @@ export function Sidebar() {
             onBlur={handleSnippetNameSubmit}
             onKeyDown={handleSnippetNameKeyDown}
             onClick={(e) => e.stopPropagation()}
-            className="flex-1 bg-zinc-700 border border-zinc-600 rounded px-1 py-0.5 text-sm text-zinc-200 focus:outline-none focus:border-blue-500"
+            className="flex-1 bg-accent border border-border rounded px-1 py-0.5 text-sm text-foreground focus:outline-none focus:border-blue-500"
           />
         ) : (
           <>
@@ -756,7 +756,7 @@ export function Sidebar() {
                 setEditingSnippetId(snippet.id)
                 setEditingSnippetName(snippet.name)
               }}
-              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300 transition-opacity"
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-secondary-foreground transition-opacity"
               title="Edit name"
             >
               <Pencil className="w-3 h-3" />
@@ -819,8 +819,8 @@ export function Sidebar() {
             isDropTarget && dropPosition === 'inside' && canReceiveDrop && 'ring-2 ring-blue-500 bg-blue-500/20',
             isDropTarget && dropPosition === 'inside' && !canReceiveDrop && 'ring-2 ring-red-500 bg-red-500/20',
             selectedFolderId === folder.id
-              ? 'bg-zinc-800 text-zinc-200'
-              : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300 active:scale-[0.98]'
+              ? 'bg-accent text-foreground'
+              : 'text-muted-foreground hover:bg-accent/50 hover:text-secondary-foreground active:scale-[0.98]'
           )}
         >
           <ChevronRight
@@ -837,13 +837,13 @@ export function Sidebar() {
               onBlur={handleFolderNameSubmit}
               onKeyDown={handleFolderNameKeyDown}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 bg-zinc-700 border border-zinc-600 rounded px-1 py-0.5 text-sm text-zinc-200 focus:outline-none focus:border-blue-500"
+              className="flex-1 bg-accent border border-border rounded px-1 py-0.5 text-sm text-foreground focus:outline-none focus:border-blue-500"
             />
           ) : (
             <span className="truncate flex-1">{folder.name}</span>
           )}
           {!isEditing && snippetCount > 0 && (
-            <span data-testid="snippet-count" className="text-xs text-zinc-500 tabular-nums">({snippetCount})</span>
+            <span data-testid="snippet-count" className="text-xs text-muted-foreground tabular-nums">({snippetCount})</span>
           )}
         </div>
         <div className={cn(
@@ -856,7 +856,7 @@ export function Sidebar() {
             {isEmpty && (
               <li
                 style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
-                className="py-1.5 text-xs text-zinc-600 italic"
+                className="py-1.5 text-xs text-muted-foreground italic"
               >
                 Empty folder
               </li>
@@ -940,15 +940,15 @@ export function Sidebar() {
   }, [filteredSnippets, folderMap])
 
   return (
-    <aside className="w-64 border-r border-zinc-800 flex flex-col bg-zinc-900/50">
-      <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
-        <span className="text-sm font-medium text-zinc-400">Snippets</span>
+    <aside className="w-64 border-r border-border flex flex-col bg-muted/50">
+      <div className="p-3 border-b border-border flex items-center justify-between">
+        <span className="text-sm font-medium text-muted-foreground">Snippets</span>
         <div className="flex items-center gap-1">
           <div className="relative" ref={filterMenuRef}>
             <button
               onClick={() => setFilterMenuOpen((v) => !v)}
               className={cn(
-                'p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200',
+                'p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground',
                 exportFilter !== 'all' && 'text-blue-400'
               )}
               title="Filter by export status"
@@ -956,7 +956,7 @@ export function Sidebar() {
               <Filter className="w-4 h-4" />
             </button>
             {filterMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg py-1 min-w-[140px] z-50 animate-dropdown-in">
+              <div className="absolute right-0 top-full mt-1 bg-accent border border-border rounded-md shadow-lg py-1 min-w-[140px] z-50 animate-dropdown-in">
                 {(['all', 'unexported', 'modified'] as const).map((f) => (
                   <button
                     key={f}
@@ -965,8 +965,8 @@ export function Sidebar() {
                       setFilterMenuOpen(false)
                     }}
                     className={cn(
-                      'w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-700',
-                      exportFilter === f ? 'text-blue-400' : 'text-zinc-300'
+                      'w-full text-left px-3 py-1.5 text-sm hover:bg-accent',
+                      exportFilter === f ? 'text-blue-400' : 'text-secondary-foreground'
                     )}
                   >
                     {f === 'all' ? 'All' : f === 'unexported' ? 'Never exported' : 'Modified'}
@@ -979,14 +979,14 @@ export function Sidebar() {
             <>
               <button
                 onClick={expandAllFolders}
-                className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
                 title="Expand all folders"
               >
                 <ChevronsUpDown className="w-4 h-4" />
               </button>
               <button
                 onClick={collapseAllFolders}
-                className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
                 title="Collapse all folders"
               >
                 <ChevronsDownUp className="w-4 h-4" />
@@ -995,14 +995,14 @@ export function Sidebar() {
           )}
           <button
             onClick={() => handleNewFolder()}
-            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
             title="New folder"
           >
             <FolderPlus className="w-4 h-4" />
           </button>
           <button
             onClick={handleNewSnippet}
-            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
             title="New snippet"
           >
             <Plus className="w-4 h-4" />
@@ -1022,9 +1022,9 @@ export function Sidebar() {
         onDrop={(e) => handleDrop(e, null)}
       >
         {folders.length === 0 && snippets.length === 0 ? (
-          <p className="text-sm text-zinc-500 p-2">No snippets yet</p>
+          <p className="text-sm text-muted-foreground p-2">No snippets yet</p>
         ) : filteredSnippets.length === 0 && exportFilter !== 'all' ? (
-          <p className="text-sm text-zinc-500 p-2">No {exportFilter} snippets</p>
+          <p className="text-sm text-muted-foreground p-2">No {exportFilter} snippets</p>
         ) : (
           <ul className="space-y-0.5">
             {rootFolders.map((folder) => renderFolder(folder))}
@@ -1034,7 +1034,7 @@ export function Sidebar() {
       </div>
 
       {selectedIds.size > 0 && (
-        <div className="p-2 border-t border-zinc-800 text-xs text-zinc-500">
+        <div className="p-2 border-t border-border text-xs text-muted-foreground">
           {selectedIds.size} selected
         </div>
       )}
@@ -1044,12 +1044,12 @@ export function Sidebar() {
         <div
           ref={menuRef}
           style={{ top: contextMenu.y, left: contextMenu.x }}
-          className="fixed z-50 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg py-1 min-w-[160px] animate-dropdown-in"
+          className="fixed z-50 bg-accent border border-border rounded-md shadow-lg py-1 min-w-[160px] animate-dropdown-in"
         >
           {contextMenu.type === 'snippet' && (
             <button
               onClick={handleExportSelected}
-              className="w-full text-left px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
+              className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors"
             >
               Export Selected ({selectedIds.size})
             </button>
@@ -1064,20 +1064,20 @@ export function Sidebar() {
                       handleNewFolder(contextMenu.folderId)
                     }
                   }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
+                  className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors"
                 >
                   New Subfolder
                 </button>
               )}
               <button
                 onClick={handleExportFolder}
-                className="w-full text-left px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
+                className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors"
               >
                 Export Folder
               </button>
               <button
                 onClick={handleDeleteFolder}
-                className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-zinc-700 transition-colors"
+                className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-accent transition-colors"
               >
                 Delete Folder
               </button>
@@ -1108,15 +1108,15 @@ export function Sidebar() {
       {/* Delete Folder Confirmation Dialog */}
       {deleteFolderDialog.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-overlay-in">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-4 max-w-sm mx-4 animate-modal-in">
-            <h3 className="text-lg font-medium text-zinc-100 mb-2">Delete Folder?</h3>
-            <p className="text-sm text-zinc-400 mb-4">
+          <div className="bg-muted border border-border rounded-lg shadow-xl p-4 max-w-sm mx-4 animate-modal-in">
+            <h3 className="text-lg font-medium text-foreground mb-2">Delete Folder?</h3>
+            <p className="text-sm text-muted-foreground mb-4">
               This folder contains items. Deleting it will move all snippets to the root level and remove all subfolders.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setDeleteFolderDialog({ open: false, folderId: null, hasContents: false })}
-                className="px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 rounded transition-colors"
+                className="px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded transition-colors"
               >
                 Cancel
               </button>

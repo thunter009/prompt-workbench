@@ -39,13 +39,13 @@ export function HotkeyCheatsheet({ open, onClose }: HotkeyCheatsheetProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-overlay-in" onClick={onClose} />
 
-      <div className="relative bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl max-w-md w-full mx-4 animate-modal-in">
+      <div className="relative bg-muted border border-border rounded-lg shadow-xl max-w-md w-full mx-4 animate-modal-in">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-lg font-medium">Keyboard Shortcuts</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+            className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
           >
             <X className="w-5 h-5" />
           </button>
@@ -55,14 +55,14 @@ export function HotkeyCheatsheet({ open, onClose }: HotkeyCheatsheetProps) {
         <div className="p-6 space-y-6">
           {HOTKEYS.map((section) => (
             <div key={section.section}>
-              <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
                 {section.section}
               </h3>
               <div className="space-y-2">
                 {section.keys.map((hotkey) => (
                   <div key={hotkey.key} className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-300">{hotkey.description}</span>
-                    <kbd className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded text-xs font-mono text-zinc-400">
+                    <span className="text-sm text-secondary-foreground">{hotkey.description}</span>
+                    <kbd className="px-2 py-1 bg-accent border border-border rounded text-xs font-mono text-muted-foreground">
                       {hotkey.key}
                     </kbd>
                   </div>

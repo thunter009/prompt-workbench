@@ -207,7 +207,7 @@ export function EditorPanelHeader() {
   return (
     <div className="px-4 py-2 flex flex-col gap-2">
       <div className="flex items-center gap-3">
-        <label className="text-sm text-zinc-500 shrink-0">Keyword</label>
+        <label className="text-sm text-muted-foreground shrink-0">Keyword</label>
         <div className="relative flex-1 max-w-xs">
           <input
             type="text"
@@ -215,10 +215,10 @@ export function EditorPanelHeader() {
             onChange={handleKeywordChange}
             placeholder="!keyword"
             className={cn(
-              'w-full bg-zinc-800 border rounded px-2 py-1 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none',
+              'w-full bg-accent border rounded px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none',
               keywordConflict.conflict
                 ? 'border-amber-600 focus:border-amber-500'
-                : 'border-zinc-700 focus:border-blue-500'
+                : 'border-border focus:border-blue-500'
             )}
           />
           {keywordConflict.conflict && (
@@ -244,8 +244,8 @@ export function EditorPanelHeader() {
             className={cn(
               'p-1.5 rounded transition-colors',
               loading
-                ? 'bg-zinc-700 text-zinc-400'
-                : 'hover:bg-zinc-700 text-zinc-400 hover:text-amber-400'
+                ? 'bg-accent text-muted-foreground'
+                : 'hover:bg-accent text-muted-foreground hover:text-amber-400'
             )}
           >
             {loading ? (
@@ -259,13 +259,13 @@ export function EditorPanelHeader() {
           {popoverOpen && (
             <div
               ref={popoverRef}
-              className="absolute top-full right-0 mt-1 z-50 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl min-w-[200px] max-w-[280px]"
+              className="absolute top-full right-0 mt-1 z-50 bg-accent border border-border rounded-lg shadow-xl min-w-[200px] max-w-[280px]"
             >
-              <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-700">
-                <span className="text-xs text-zinc-400 font-medium">Keyword Suggestions</span>
+              <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                <span className="text-xs text-muted-foreground font-medium">Keyword Suggestions</span>
                 <button
                   onClick={() => setPopoverOpen(false)}
-                  className="p-0.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-secondary-foreground transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -273,7 +273,7 @@ export function EditorPanelHeader() {
 
               <div className="p-2">
                 {loading && (
-                  <div className="flex items-center gap-2 py-2 px-1 text-xs text-zinc-500">
+                  <div className="flex items-center gap-2 py-2 px-1 text-xs text-muted-foreground">
                     <Loader2 className="w-3 h-3 animate-spin" />
                     <span>Generating suggestions...</span>
                   </div>
@@ -295,7 +295,7 @@ export function EditorPanelHeader() {
                             'w-full text-left px-2 py-1.5 rounded text-sm flex items-center justify-between',
                             conflict?.conflict
                               ? 'bg-amber-900/30 hover:bg-amber-800/40 text-amber-200'
-                              : 'bg-zinc-700/50 hover:bg-zinc-600 text-zinc-200',
+                              : 'bg-accent/50 hover:bg-accent-foreground/10 text-foreground',
                             'transition-colors cursor-pointer'
                           )}
                           title={

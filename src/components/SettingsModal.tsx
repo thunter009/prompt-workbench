@@ -192,13 +192,13 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-overlay-in" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col animate-modal-in">
+      <div className="relative bg-muted border border-border rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col animate-modal-in">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-lg font-medium">Settings</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+            className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
           >
             <X className="w-5 h-5" />
           </button>
@@ -208,9 +208,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         <div className="flex-1 overflow-auto p-6 space-y-6">
           {/* Export settings */}
           <section>
-            <h3 className="text-sm font-medium text-zinc-300 mb-3">Default Export Path</h3>
+            <h3 className="text-sm font-medium text-secondary-foreground mb-3">Default Export Path</h3>
             <div className="flex items-center gap-2">
-              <div className="flex-1 px-3 py-2 bg-zinc-800 rounded text-sm text-zinc-300 truncate">
+              <div className="flex-1 px-3 py-2 bg-accent rounded text-sm text-secondary-foreground truncate">
                 {displayPath}
               </div>
               {canPickDirectory ? (
@@ -224,35 +224,35 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   {exportSettings.defaultPath && exportSettings.defaultPath !== getDefaultExportPath() && (
                     <button
                       onClick={handleClearExportDir}
-                      className="px-3 py-2 bg-zinc-700 hover:bg-zinc-600 rounded text-sm font-medium transition-colors"
+                      className="px-3 py-2 bg-accent hover:bg-accent-foreground/10 rounded text-sm font-medium transition-colors"
                     >
                       Reset
                     </button>
                   )}
                 </>
               ) : (
-                <span className="text-xs text-zinc-500">Fixed path (Firefox)</span>
+                <span className="text-xs text-muted-foreground">Fixed path (Firefox)</span>
               )}
             </div>
-            <p className="text-xs text-zinc-500 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               Quick export (⌘⇧E) saves directly to this folder
             </p>
           </section>
 
           {/* Sync settings */}
-          <section className="border-t border-zinc-800 pt-6">
-            <h3 className="text-sm font-medium text-zinc-300 mb-4">Raycast Sync</h3>
+          <section className="border-t border-border pt-6">
+            <h3 className="text-sm font-medium text-secondary-foreground mb-4">Raycast Sync</h3>
 
             {/* File watcher toggle */}
             <div className="flex items-center justify-between mb-4">
               <div>
-                <label className="text-sm text-zinc-300">File Watcher</label>
-                <p className="text-xs text-zinc-500">Real-time sync on file changes</p>
+                <label className="text-sm text-secondary-foreground">File Watcher</label>
+                <p className="text-xs text-muted-foreground">Real-time sync on file changes</p>
               </div>
               <button
                 onClick={() => setFileWatcherEnabled(!fileWatcherEnabled)}
                 data-state={fileWatcherEnabled ? 'on' : 'off'}
-                className="w-10 h-6 rounded-full transition-colors duration-150 data-[state=on]:bg-blue-600 data-[state=off]:bg-zinc-700"
+                className="w-10 h-6 rounded-full transition-colors duration-150 data-[state=on]:bg-blue-600 data-[state=off]:bg-accent"
               >
                 <div
                   className="w-4 h-4 bg-white rounded-full transition-transform duration-150 ease-out mx-1 data-[state=on]:translate-x-4 data-[state=off]:translate-x-0"
@@ -264,13 +264,13 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             {/* Interval sync toggle */}
             <div className="flex items-center justify-between mb-4">
               <div>
-                <label className="text-sm text-zinc-300">Interval Sync</label>
-                <p className="text-xs text-zinc-500">Scheduled backup sync</p>
+                <label className="text-sm text-secondary-foreground">Interval Sync</label>
+                <p className="text-xs text-muted-foreground">Scheduled backup sync</p>
               </div>
               <button
                 onClick={() => setIntervalEnabled(!intervalEnabled)}
                 data-state={intervalEnabled ? 'on' : 'off'}
-                className="w-10 h-6 rounded-full transition-colors duration-150 data-[state=on]:bg-blue-600 data-[state=off]:bg-zinc-700"
+                className="w-10 h-6 rounded-full transition-colors duration-150 data-[state=on]:bg-blue-600 data-[state=off]:bg-accent"
               >
                 <div
                   className="w-4 h-4 bg-white rounded-full transition-transform duration-150 ease-out mx-1 data-[state=on]:translate-x-4 data-[state=off]:translate-x-0"
@@ -282,11 +282,11 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             {/* Interval frequency */}
             {intervalEnabled && (
               <div className="flex items-center justify-between mb-4">
-                <label className="text-sm text-zinc-400">Frequency</label>
+                <label className="text-sm text-muted-foreground">Frequency</label>
                 <select
                   value={syncInterval}
                   onChange={(e) => setSyncInterval(e.target.value as SyncInterval)}
-                  className="bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm text-zinc-300"
+                  className="bg-accent border border-border rounded px-3 py-1.5 text-sm text-secondary-foreground"
                 >
                   {SYNC_INTERVALS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -298,8 +298,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             )}
 
             {/* Last sync + manual sync */}
-            <div className="flex items-center justify-between pt-4 border-t border-zinc-800">
-              <div className="text-xs text-zinc-500">
+            <div className="flex items-center justify-between pt-4 border-t border-border">
+              <div className="text-xs text-muted-foreground">
                 {lastSyncTime
                   ? `Last sync: ${new Date(lastSyncTime).toLocaleTimeString()}`
                   : 'Not synced yet'}
@@ -307,7 +307,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               <button
                 onClick={triggerSync}
                 disabled={isSyncing}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 rounded text-sm font-medium transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent-foreground/10 disabled:opacity-50 rounded text-sm font-medium transition-colors"
               >
                 {isSyncing ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -320,24 +320,24 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           </section>
 
           {/* AI Settings */}
-          <section className="border-t border-zinc-800 pt-6">
-            <h3 className="text-sm font-medium text-zinc-300 mb-4">AI Settings</h3>
+          <section className="border-t border-border pt-6">
+            <h3 className="text-sm font-medium text-secondary-foreground mb-4">AI Settings</h3>
 
             {/* Ollama URL */}
             <div className="mb-4">
-              <label className="text-sm text-zinc-400 block mb-1.5">Ollama URL</label>
+              <label className="text-sm text-muted-foreground block mb-1.5">Ollama URL</label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={ollamaUrl}
                   onChange={(e) => setOllamaUrl(e.target.value)}
                   placeholder={DEFAULT_OLLAMA_URL}
-                  className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-300 placeholder:text-zinc-500"
+                  className="flex-1 bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground placeholder:text-muted-foreground"
                 />
                 <button
                   onClick={testOllamaConnection}
                   disabled={connectionStatus === 'testing'}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 rounded text-sm font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-accent hover:bg-accent-foreground/10 disabled:opacity-50 rounded text-sm font-medium transition-colors"
                 >
                   {connectionStatus === 'testing' ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -349,19 +349,19 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   Test
                 </button>
               </div>
-              <p className="text-xs text-zinc-500 mt-1.5">
+              <p className="text-xs text-muted-foreground mt-1.5">
                 Used for auto-generating snippet titles
               </p>
             </div>
 
             {/* Model selection */}
             <div>
-              <label className="text-sm text-zinc-400 block mb-1.5">Model</label>
+              <label className="text-sm text-muted-foreground block mb-1.5">Model</label>
               <select
                 value={ollamaModel}
                 onChange={(e) => setOllamaModel(e.target.value)}
                 disabled={modelsLoading || ollamaModels.length === 0}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-300 disabled:opacity-50"
+                className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground disabled:opacity-50"
               >
                 {modelsLoading ? (
                   <option>Loading models...</option>
@@ -379,13 +379,13 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           </section>
 
           {/* Keyword Style Preferences */}
-          <section className="border-t border-zinc-800 pt-6">
+          <section className="border-t border-border pt-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-zinc-300">Keyword Style</h3>
+              <h3 className="text-sm font-medium text-secondary-foreground">Keyword Style</h3>
               <button
                 onClick={handleInferKeywordStyle}
                 disabled={inferring || snippets.length === 0}
-                className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 rounded text-xs font-medium transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-accent hover:bg-accent-foreground/10 disabled:opacity-50 rounded text-xs font-medium transition-colors"
               >
                 {inferring ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -398,43 +398,43 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
             {/* Prefix */}
             <div className="mb-4">
-              <label className="text-sm text-zinc-400 block mb-1.5">Prefix</label>
+              <label className="text-sm text-muted-foreground block mb-1.5">Prefix</label>
               <input
                 type="text"
                 value={keywordPrefix}
                 onChange={(e) => setKeywordPrefix(e.target.value)}
                 placeholder="!, @, //, or leave empty"
                 maxLength={3}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-300 placeholder:text-zinc-500"
+                className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground placeholder:text-muted-foreground"
               />
-              <p className="text-xs text-zinc-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Character(s) that start all keywords
               </p>
             </div>
 
             {/* Max Length */}
             <div className="mb-4">
-              <label className="text-sm text-zinc-400 block mb-1.5">Max Length</label>
+              <label className="text-sm text-muted-foreground block mb-1.5">Max Length</label>
               <input
                 type="number"
                 value={keywordMaxLength}
                 onChange={(e) => setKeywordMaxLength(parseInt(e.target.value) || 6)}
                 min={2}
                 max={12}
-                className="w-24 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-300"
+                className="w-24 bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground"
               />
-              <p className="text-xs text-zinc-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Max keyword length (2-12 chars)
               </p>
             </div>
 
             {/* Case Preference */}
             <div className="mb-4">
-              <label className="text-sm text-zinc-400 block mb-1.5">Case Style</label>
+              <label className="text-sm text-muted-foreground block mb-1.5">Case Style</label>
               <select
                 value={keywordCase}
                 onChange={(e) => setKeywordCase(e.target.value as CasePreference)}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-300"
+                className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground"
               >
                 {CASE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -445,23 +445,23 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             </div>
 
             {/* Audit Keywords */}
-            <div className="pt-3 border-t border-zinc-800">
+            <div className="pt-3 border-t border-border">
               <button
                 onClick={() => setAuditModalOpen(true)}
                 disabled={snippets.length === 0}
-                className="flex items-center gap-2 px-3 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 rounded text-sm font-medium transition-colors w-full justify-center"
+                className="flex items-center gap-2 px-3 py-2 bg-accent hover:bg-accent-foreground/10 disabled:opacity-50 rounded text-sm font-medium transition-colors w-full justify-center"
               >
                 <Search className="w-4 h-4" />
                 Audit Keywords
               </button>
-              <p className="text-xs text-zinc-500 mt-2 text-center">
+              <p className="text-xs text-muted-foreground mt-2 text-center">
                 Find missing or inconsistent keywords
               </p>
             </div>
           </section>
 
           {/* Sync History */}
-          <section className="border-t border-zinc-800 pt-6">
+          <section className="border-t border-border pt-6">
             <SyncHistory />
           </section>
         </div>

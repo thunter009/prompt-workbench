@@ -395,25 +395,25 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-overlay-in" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col animate-modal-in">
+      <div className="relative bg-muted border border-border rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col animate-modal-in">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
             <h2 className="text-lg font-medium">Keyword Audit</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {snippets.length} snippets · {problemCount} need attention
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+            className="p-1.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Actions bar */}
-        <div className="flex items-center gap-3 px-6 py-3 border-b border-zinc-800 bg-zinc-900/50">
+        <div className="flex items-center gap-3 px-6 py-3 border-b border-border bg-muted/50">
           <button
             onClick={handleScanAndSuggest}
             disabled={scanning || problemCount === 0}
@@ -451,13 +451,13 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
 
           {scanning && (
             <div className="flex-1 flex items-center gap-3">
-              <div className="flex-1 bg-zinc-800 rounded-full h-2 overflow-hidden">
+              <div className="flex-1 bg-accent rounded-full h-2 overflow-hidden">
                 <div
                   className="bg-blue-500 h-full transition-all"
                   style={{ width: `${(scanProgress.current / scanProgress.total) * 100}%` }}
                 />
               </div>
-              <span className="text-xs text-zinc-400">
+              <span className="text-xs text-muted-foreground">
                 {scanProgress.current}/{scanProgress.total}
               </span>
             </div>
@@ -469,7 +469,7 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
           {/* Missing keyword group */}
           {groupedResults.missing.length > 0 && (
             <section>
-              <h3 className="flex items-center gap-2 text-sm font-medium text-zinc-300 mb-3">
+              <h3 className="flex items-center gap-2 text-sm font-medium text-secondary-foreground mb-3">
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
                 Missing keyword ({groupedResults.missing.length})
               </h3>
@@ -488,7 +488,7 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
           {/* Inconsistent style group */}
           {groupedResults.inconsistent.length > 0 && (
             <section>
-              <h3 className="flex items-center gap-2 text-sm font-medium text-zinc-300 mb-3">
+              <h3 className="flex items-center gap-2 text-sm font-medium text-secondary-foreground mb-3">
                 <AlertTriangle className="w-4 h-4 text-orange-500" />
                 Inconsistent style ({groupedResults.inconsistent.length})
               </h3>
@@ -509,7 +509,7 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
           {/* OK group */}
           {groupedResults.ok.length > 0 && (
             <section>
-              <h3 className="flex items-center gap-2 text-sm font-medium text-zinc-300 mb-3">
+              <h3 className="flex items-center gap-2 text-sm font-medium text-secondary-foreground mb-3">
                 <CheckCircle className="w-4 h-4 text-green-500" />
                 OK ({groupedResults.ok.length})
               </h3>
@@ -527,16 +527,16 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
           )}
 
           {snippets.length === 0 && (
-            <div className="text-center text-zinc-500 py-8">No snippets to audit</div>
+            <div className="text-center text-muted-foreground py-8">No snippets to audit</div>
           )}
         </div>
 
         {/* Standardize All Confirmation Dialog */}
         {showConfirmDialog && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
-            <div className="bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl max-w-md w-full mx-4 p-5">
+            <div className="bg-accent border border-border rounded-lg shadow-xl max-w-md w-full mx-4 p-5">
               <h3 className="text-lg font-medium mb-3">Replace {standardizeItems.length} keywords?</h3>
-              <p className="text-sm text-zinc-400 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 This will standardize inconsistent keywords to match your style preferences.
               </p>
 
@@ -544,11 +544,11 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
               <div className="max-h-48 overflow-auto mb-4 space-y-1.5">
                 {standardizeItems.map((item) => (
                   <div key={item.snippetId} className="flex items-center gap-2 text-xs">
-                    <span className="truncate flex-1 text-zinc-300">{item.snippetName}</span>
-                    <code className="bg-zinc-700 px-1.5 py-0.5 rounded text-zinc-400 line-through">
+                    <span className="truncate flex-1 text-secondary-foreground">{item.snippetName}</span>
+                    <code className="bg-accent px-1.5 py-0.5 rounded text-muted-foreground line-through">
                       {item.currentKeyword}
                     </code>
-                    <span className="text-zinc-500">→</span>
+                    <span className="text-muted-foreground">→</span>
                     <code className="bg-green-900/50 px-1.5 py-0.5 rounded text-green-300">
                       {item.suggestions![0]}
                     </code>
@@ -559,7 +559,7 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setShowConfirmDialog(false)}
-                  className="px-3 py-1.5 rounded text-sm bg-zinc-700 hover:bg-zinc-600 transition-colors"
+                  className="px-3 py-1.5 rounded text-sm bg-accent hover:bg-accent-foreground/10 transition-colors"
                 >
                   Cancel
                 </button>
@@ -592,13 +592,13 @@ function AuditRow({ result, onApply, onKeep, collapsed = false, showReplaceActio
   return (
     <div
       className={cn(
-        'flex items-center gap-3 px-3 py-2 rounded bg-zinc-800/50',
+        'flex items-center gap-3 px-3 py-2 rounded bg-accent/50',
         collapsed && 'opacity-60'
       )}
     >
       {/* Snippet name */}
       <div className="flex-1 min-w-0">
-        <span className="text-sm text-zinc-200 truncate block">{result.snippetName}</span>
+        <span className="text-sm text-foreground truncate block">{result.snippetName}</span>
         {result.statusReason && (
           <span className="text-xs text-orange-400">{result.statusReason}</span>
         )}
@@ -607,18 +607,18 @@ function AuditRow({ result, onApply, onKeep, collapsed = false, showReplaceActio
       {/* Current keyword */}
       <div className="w-24 shrink-0 text-right">
         {result.currentKeyword ? (
-          <code className="text-xs bg-zinc-700 px-1.5 py-0.5 rounded text-zinc-300">
+          <code className="text-xs bg-accent px-1.5 py-0.5 rounded text-secondary-foreground">
             {result.currentKeyword}
           </code>
         ) : (
-          <span className="text-xs text-zinc-500">—</span>
+          <span className="text-xs text-muted-foreground">—</span>
         )}
       </div>
 
       {/* Arrow and suggested replacement for inconsistent */}
       {showReplaceActions && topSuggestion && (
         <>
-          <span className="text-zinc-500 text-xs">→</span>
+          <span className="text-muted-foreground text-xs">→</span>
           <code className="text-xs bg-green-900/50 px-1.5 py-0.5 rounded text-green-300">
             {topSuggestion}
           </code>
@@ -641,7 +641,7 @@ function AuditRow({ result, onApply, onKeep, collapsed = false, showReplaceActio
           {onKeep && (
             <button
               onClick={() => onKeep(result.snippetId)}
-              className="px-2 py-0.5 rounded text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition-colors"
+              className="px-2 py-0.5 rounded text-xs bg-accent hover:bg-accent-foreground/10 text-secondary-foreground transition-colors"
               title="Keep current keyword (mark as OK)"
             >
               Keep
@@ -654,7 +654,7 @@ function AuditRow({ result, onApply, onKeep, collapsed = false, showReplaceActio
       {showReplaceActions && !topSuggestion && onKeep && (
         <button
           onClick={() => onKeep(result.snippetId)}
-          className="px-2 py-0.5 rounded text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition-colors"
+          className="px-2 py-0.5 rounded text-xs bg-accent hover:bg-accent-foreground/10 text-secondary-foreground transition-colors"
           title="Keep current keyword (mark as OK)"
         >
           Keep
@@ -672,7 +672,7 @@ function AuditRow({ result, onApply, onKeep, collapsed = false, showReplaceActio
                 'px-2 py-0.5 rounded-full text-xs transition-colors cursor-pointer',
                 idx === 0
                   ? 'bg-green-700/50 hover:bg-green-600/60 text-green-200'
-                  : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'
+                  : 'bg-accent hover:bg-accent-foreground/10 text-secondary-foreground'
               )}
               title={idx === 0 ? 'Top suggestion' : undefined}
             >

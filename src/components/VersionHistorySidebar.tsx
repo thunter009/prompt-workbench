@@ -53,7 +53,7 @@ function InlineDiff({ changes }: { changes: DiffChange[] }) {
           )
         }
         return (
-          <span key={i} className="text-zinc-400">
+          <span key={i} className="text-muted-foreground">
             {change.value}
           </span>
         )
@@ -189,12 +189,12 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
   if (!open) return null
 
   return (
-    <div className="w-80 border-l border-zinc-800 flex flex-col bg-zinc-900/50 h-full relative animate-in slide-in-from-right-2 duration-150">
+    <div className="w-80 border-l border-border flex flex-col bg-muted/50 h-full relative animate-in slide-in-from-right-2 duration-150">
       {/* Header */}
-      <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
+      <div className="p-3 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <History className="w-4 h-4 text-zinc-400" />
-          <span className="text-sm font-medium text-zinc-300">Version History</span>
+          <History className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-secondary-foreground">Version History</span>
         </div>
         <div className="flex items-center gap-1">
           {/* Cleanup dropdown */}
@@ -202,7 +202,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
             <div className="relative">
               <button
                 onClick={() => setCleanupMenuOpen(!cleanupMenuOpen)}
-                className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 flex items-center gap-0.5"
+                className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground flex items-center gap-0.5"
                 title="Cleanup versions"
               >
                 <Trash2 className="w-4 h-4" />
@@ -214,8 +214,8 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                     className="fixed inset-0 z-10"
                     onClick={() => setCleanupMenuOpen(false)}
                   />
-                  <div className="absolute right-0 top-full mt-1 z-20 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg py-1 min-w-[140px]">
-                    <p className="px-3 py-1 text-[10px] text-zinc-500 uppercase tracking-wide">
+                  <div className="absolute right-0 top-full mt-1 z-20 bg-accent border border-border rounded-md shadow-lg py-1 min-w-[140px]">
+                    <p className="px-3 py-1 text-[10px] text-muted-foreground uppercase tracking-wide">
                       Keep only last...
                     </p>
                     {[5, 10, 20, 50].map((n) => (
@@ -226,8 +226,8 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                         className={cn(
                           'w-full text-left px-3 py-1.5 text-xs transition-colors',
                           versions.length <= n
-                            ? 'text-zinc-600 cursor-not-allowed'
-                            : 'text-zinc-300 hover:bg-zinc-700'
+                            ? 'text-muted-foreground cursor-not-allowed'
+                            : 'text-secondary-foreground hover:bg-accent'
                         )}
                       >
                         {n} versions
@@ -240,7 +240,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
           )}
           <button
             onClick={handleClose}
-            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
           >
             <X className="w-4 h-4" />
           </button>
@@ -250,13 +250,13 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
       {/* Content */}
       {!selectedId ? (
         <div className="flex-1 flex items-center justify-center p-4">
-          <p className="text-sm text-zinc-500 text-center">Select a snippet to view its history</p>
+          <p className="text-sm text-muted-foreground text-center">Select a snippet to view its history</p>
         </div>
       ) : versions.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center p-4 gap-2">
-          <Clock className="w-8 h-8 text-zinc-600" />
-          <p className="text-sm text-zinc-500 text-center">No version history yet</p>
-          <p className="text-xs text-zinc-600 text-center">
+          <Clock className="w-8 h-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground text-center">No version history yet</p>
+          <p className="text-xs text-muted-foreground text-center">
             Versions are saved automatically as you edit
           </p>
         </div>
@@ -265,15 +265,15 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
           {/* Version list */}
           <div className={cn(
             'overflow-y-auto',
-            selectedVersion ? 'h-1/2 border-b border-zinc-800' : 'flex-1'
+            selectedVersion ? 'h-1/2 border-b border-border' : 'flex-1'
           )}>
             <div className="p-2 space-y-1">
               <div className="flex items-center justify-between px-2 py-1">
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-muted-foreground">
                   {versions.length} version{versions.length !== 1 ? 's' : ''}
                 </p>
                 {selectedVersionId && (
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-muted-foreground">
                     Click <GitCompare className="w-3 h-3 inline" /> to compare
                   </p>
                 )}
@@ -293,7 +293,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                         ? 'bg-blue-600/30 text-blue-200'
                         : isCompare
                         ? 'bg-purple-600/30 text-purple-200'
-                        : 'hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-300'
+                        : 'hover:bg-accent/50 text-muted-foreground hover:text-secondary-foreground'
                     )}
                   >
                     <div className="flex items-center justify-between mb-1">
@@ -305,7 +305,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                       <div className="flex items-center gap-1">
                         <button
                           onClick={(e) => handleRestoreClick(version, e)}
-                          className="p-0.5 rounded transition-colors text-zinc-500 hover:text-green-400 opacity-0 group-hover:opacity-100"
+                          className="p-0.5 rounded transition-colors text-muted-foreground hover:text-green-400 opacity-0 group-hover:opacity-100"
                           title="Restore this version"
                         >
                           <RotateCcw className="w-3 h-3" />
@@ -317,7 +317,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                               'p-0.5 rounded transition-colors',
                               isCompare
                                 ? 'text-purple-400'
-                                : 'text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100'
+                                : 'text-muted-foreground hover:text-secondary-foreground opacity-0 group-hover:opacity-100'
                             )}
                             title="Compare with selected"
                           >
@@ -327,18 +327,18 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                         {!isCurrent && (
                           <button
                             onClick={(e) => handleDeleteVersion(version.id, e)}
-                            className="p-0.5 rounded transition-colors text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100"
+                            className="p-0.5 rounded transition-colors text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100"
                             title="Delete this version"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
                         )}
-                        <span className="text-[10px] text-zinc-500">
+                        <span className="text-[10px] text-muted-foreground">
                           {version.text.length} chars
                         </span>
                       </div>
                     </div>
-                    <p className="text-xs text-zinc-500 line-clamp-2">
+                    <p className="text-xs text-muted-foreground line-clamp-2">
                       {truncatePreview(version.text)}
                     </p>
                   </button>
@@ -351,15 +351,15 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
           {selectedVersion && (
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Panel header with view mode toggle */}
-              <div className="px-3 py-2 border-b border-zinc-800 flex items-center justify-between">
+              <div className="px-3 py-2 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setViewMode('preview')}
                     className={cn(
                       'p-1 rounded transition-colors',
                       viewMode === 'preview'
-                        ? 'bg-zinc-700 text-zinc-200'
-                        : 'text-zinc-500 hover:text-zinc-300'
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:text-secondary-foreground'
                     )}
                     title="Preview"
                   >
@@ -370,8 +370,8 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                     className={cn(
                       'p-1 rounded transition-colors',
                       viewMode === 'diff'
-                        ? 'bg-zinc-700 text-zinc-200'
-                        : 'text-zinc-500 hover:text-zinc-300'
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:text-secondary-foreground'
                     )}
                     title="Diff view"
                   >
@@ -403,7 +403,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                       setCompareVersionId(null)
                       setViewMode('preview')
                     }}
-                    className="text-xs text-zinc-500 hover:text-zinc-300"
+                    className="text-xs text-muted-foreground hover:text-secondary-foreground"
                   >
                     Close
                   </button>
@@ -412,11 +412,11 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
 
               {/* Comparison info */}
               {viewMode === 'diff' && (
-                <div className="px-3 py-1.5 bg-zinc-800/50 text-[10px] text-zinc-500 flex items-center justify-between">
+                <div className="px-3 py-1.5 bg-accent/50 text-[10px] text-muted-foreground flex items-center justify-between">
                   <span>
                     {formatRelativeTime(selectedVersion.createdAt)}
                   </span>
-                  <span className="text-zinc-600">→</span>
+                  <span className="text-muted-foreground">→</span>
                   <span>
                     {compareVersion
                       ? formatRelativeTime(compareVersion.createdAt)
@@ -428,13 +428,13 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
               {/* Content */}
               <div className="flex-1 overflow-auto p-3">
                 {viewMode === 'preview' ? (
-                  <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono leading-relaxed">
+                  <pre className="text-xs text-secondary-foreground whitespace-pre-wrap font-mono leading-relaxed">
                     {selectedVersion.text}
                   </pre>
                 ) : diffResult ? (
                   <InlineDiff changes={diffResult.changes} />
                 ) : (
-                  <p className="text-xs text-zinc-500">No changes</p>
+                  <p className="text-xs text-muted-foreground">No changes</p>
                 )}
               </div>
             </div>
@@ -444,22 +444,22 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
 
       {/* Restore confirmation dialog */}
       {restoreConfirmVersion && (
-        <div className="absolute inset-0 bg-zinc-900/95 flex flex-col z-10">
-          <div className="p-3 border-b border-zinc-800">
-            <h3 className="text-sm font-medium text-zinc-200">Restore version?</h3>
-            <p className="text-xs text-zinc-500 mt-1">
+        <div className="absolute inset-0 bg-muted/95 flex flex-col z-10">
+          <div className="p-3 border-b border-border">
+            <h3 className="text-sm font-medium text-foreground">Restore version?</h3>
+            <p className="text-xs text-muted-foreground mt-1">
               From {formatRelativeTime(restoreConfirmVersion.createdAt)}
             </p>
           </div>
           <div className="flex-1 overflow-auto p-3">
-            <pre className="text-xs text-zinc-400 whitespace-pre-wrap font-mono leading-relaxed">
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
               {restoreConfirmVersion.text}
             </pre>
           </div>
-          <div className="p-3 border-t border-zinc-800 flex gap-2 justify-end">
+          <div className="p-3 border-t border-border flex gap-2 justify-end">
             <button
               onClick={handleRestoreCancel}
-              className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 rounded hover:bg-zinc-800 transition-colors"
+              className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded hover:bg-accent transition-colors"
             >
               Cancel
             </button>

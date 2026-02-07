@@ -207,7 +207,7 @@ export function KeywordSuggestions({
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {loading && (
-        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" />
           <span>Suggesting...</span>
         </div>
@@ -219,7 +219,7 @@ export function KeywordSuggestions({
 
       {suggestions.length > 0 && (
         <>
-          <Sparkles className="h-3 w-3 text-zinc-500" />
+          <Sparkles className="h-3 w-3 text-muted-foreground" />
           {suggestions.map((kw) => {
             const conflict = conflicts.get(kw)
             return (
@@ -230,7 +230,7 @@ export function KeywordSuggestions({
                   'px-2 py-0.5 rounded-full text-xs inline-flex items-center gap-1',
                   conflict?.conflict
                     ? 'bg-amber-900/50 hover:bg-amber-800/60 text-amber-200 border border-amber-700/50'
-                    : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200',
+                    : 'bg-accent hover:bg-accent-foreground/10 text-foreground',
                   'transition-colors cursor-pointer'
                 )}
                 title={
@@ -248,7 +248,7 @@ export function KeywordSuggestions({
           })}
           <button
             onClick={handleDismiss}
-            className="p-0.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-300 transition-colors"
+            className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-secondary-foreground transition-colors"
             aria-label="Dismiss suggestions"
           >
             <X className="h-3 w-3" />

@@ -49,13 +49,13 @@ export function ExportFolderDialog({
       onClick={handleBackdropClick}
       className="backdrop:bg-black/50 bg-transparent p-0 max-w-sm w-full"
     >
-      <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl">
+      <div className="bg-muted border border-border rounded-lg shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-700">
-          <h2 className="text-lg font-medium text-zinc-100">Export Folder</h2>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h2 className="text-lg font-medium text-foreground">Export Folder</h2>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
           >
             <X className="w-5 h-5" />
           </button>
@@ -64,8 +64,8 @@ export function ExportFolderDialog({
         {/* Content */}
         <div className="p-4">
           <div className="flex items-center gap-2 mb-4">
-            <Folder className="w-5 h-5 text-zinc-400" />
-            <span className="text-sm text-zinc-200">{folderName}</span>
+            <Folder className="w-5 h-5 text-muted-foreground" />
+            <span className="text-sm text-foreground">{folderName}</span>
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer">
@@ -73,17 +73,17 @@ export function ExportFolderDialog({
               type="checkbox"
               checked={includeSubfolders}
               onChange={(e) => setIncludeSubfolders(e.target.checked)}
-              className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-zinc-900"
+              className="w-4 h-4 rounded border-border bg-accent text-blue-600 focus:ring-blue-500 focus:ring-offset-background"
             />
-            <span className="text-sm text-zinc-300">Include subfolders</span>
+            <span className="text-sm text-secondary-foreground">Include subfolders</span>
           </label>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-zinc-700">
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 text-sm rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors"
+            className="px-3 py-1.5 text-sm rounded bg-accent text-secondary-foreground hover:bg-accent transition-colors"
           >
             Cancel
           </button>

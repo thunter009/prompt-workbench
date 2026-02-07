@@ -60,15 +60,15 @@ export function ValidationDialog({
       onClick={handleBackdropClick}
       className="backdrop:bg-black/50 bg-transparent p-0 max-w-lg w-full"
     >
-      <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl">
+      <div className="bg-muted border border-border rounded-lg shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-700">
-          <h2 className="text-lg font-medium text-zinc-100">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h2 className="text-lg font-medium text-foreground">
             {result.valid ? 'Export Warnings' : 'Export Blocked'}
           </h2>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
           >
             <X className="w-5 h-5" />
           </button>
@@ -77,7 +77,7 @@ export function ValidationDialog({
         {/* Content */}
         <div className="p-4 max-h-[60vh] overflow-y-auto">
           {/* Summary */}
-          <p className="text-sm text-zinc-400 mb-4">
+          <p className="text-sm text-muted-foreground mb-4">
             {result.errorCount > 0 && (
               <span className="text-red-400">
                 {result.errorCount} error{result.errorCount > 1 ? 's' : ''}
@@ -107,7 +107,7 @@ export function ValidationDialog({
                     >
                       <div className="flex items-center gap-2 text-sm">
                         <FileText className="w-4 h-4 text-red-400 shrink-0" />
-                        <span className="text-zinc-200 truncate">{issue.snippetName}</span>
+                        <span className="text-foreground truncate">{issue.snippetName}</span>
                       </div>
                       <p className="text-xs text-red-300 mt-1 ml-6">{issue.message}</p>
                     </button>
@@ -133,7 +133,7 @@ export function ValidationDialog({
                     >
                       <div className="flex items-center gap-2 text-sm">
                         <FileText className="w-4 h-4 text-yellow-400 shrink-0" />
-                        <span className="text-zinc-200 truncate">{issue.snippetName}</span>
+                        <span className="text-foreground truncate">{issue.snippetName}</span>
                       </div>
                       <p className="text-xs text-yellow-300 mt-1 ml-6">{issue.message}</p>
                     </button>
@@ -145,10 +145,10 @@ export function ValidationDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-zinc-700">
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 text-sm rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors"
+            className="px-3 py-1.5 text-sm rounded bg-accent text-secondary-foreground hover:bg-accent transition-colors"
           >
             Cancel
           </button>
@@ -159,7 +159,7 @@ export function ValidationDialog({
               'px-3 py-1.5 text-sm rounded transition-colors',
               canProceed
                 ? 'bg-blue-600 text-white hover:bg-blue-500'
-                : 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
+                : 'bg-accent text-muted-foreground cursor-not-allowed'
             )}
           >
             {canProceed ? 'Export Anyway' : 'Fix Errors First'}

@@ -71,36 +71,36 @@ export function Editor({ value = '', onChange, onScrollProgress }: EditorProps) 
     const theme = EditorView.theme({
       '&': {
         height: '100%',
-        backgroundColor: 'rgb(9 9 11)', // zinc-950
+        backgroundColor: 'hsl(var(--background))',
       },
       '.cm-content': {
         fontFamily: 'ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace',
         fontSize: '14px',
         padding: '16px 0',
-        caretColor: 'rgb(250 250 250)', // zinc-50
+        caretColor: 'hsl(var(--foreground))',
       },
       '.cm-line': {
         padding: '0 16px',
       },
       '.cm-cursor': {
-        borderLeftColor: 'rgb(250 250 250)',
+        borderLeftColor: 'hsl(var(--foreground))',
       },
       '.cm-gutters': {
-        backgroundColor: 'rgb(9 9 11)',
-        color: 'rgb(113 113 122)', // zinc-500
+        backgroundColor: 'hsl(var(--background))',
+        color: 'hsl(var(--muted-foreground))',
         border: 'none',
       },
       '.cm-activeLineGutter': {
-        backgroundColor: 'rgb(24 24 27)', // zinc-900
+        backgroundColor: 'hsl(var(--muted))',
       },
       '.cm-activeLine': {
-        backgroundColor: 'rgb(24 24 27)',
+        backgroundColor: 'hsl(var(--muted))',
       },
       '.cm-selectionBackground': {
-        backgroundColor: 'rgb(63 63 70) !important', // zinc-700
+        backgroundColor: 'hsl(var(--accent)) !important',
       },
       '&.cm-focused .cm-selectionBackground': {
-        backgroundColor: 'rgb(63 63 70) !important',
+        backgroundColor: 'hsl(var(--accent)) !important',
       },
     })
 
@@ -141,7 +141,7 @@ export function Editor({ value = '', onChange, onScrollProgress }: EditorProps) 
 
   if (!mounted) {
     return (
-      <div className="h-full bg-zinc-950 flex items-center justify-center text-zinc-500">
+      <div className="h-full bg-background flex items-center justify-center text-muted-foreground">
         Loading editor...
       </div>
     )
