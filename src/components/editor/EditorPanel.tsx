@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, Sparkles, X, AlertTriangle } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
 import { KeywordSuggestions } from '@/components/KeywordSuggestions'
+import { FolderSuggestions } from '@/components/FolderSuggestions'
 import { cn } from '@/lib/utils'
 import { checkKeywordConflict, checkKeywordConflicts, type KeywordConflict } from '@/lib/keyword-analysis'
 
@@ -324,6 +325,12 @@ export function EditorPanelHeader() {
         snippetText={snippet.text}
         currentKeyword={keywordValue}
         onSelect={handleSuggestionSelect}
+      />
+      <FolderSuggestions
+        snippetId={selectedId}
+        snippetName={snippet.name}
+        snippetText={snippet.text}
+        currentFolderId={snippet.folderId}
       />
     </div>
   )
