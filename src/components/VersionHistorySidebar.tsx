@@ -65,7 +65,7 @@ function InlineDiff({ changes }: { changes: DiffChange[] }) {
 // Diff stats badge
 function DiffStats({ added, removed }: { added: number; removed: number }) {
   return (
-    <span className="flex items-center gap-1 text-[10px]">
+    <span data-testid="diff-stats" className="flex items-center gap-1 text-[10px]">
       {added > 0 && <span className="text-green-400">+{added}</span>}
       {removed > 0 && <span className="text-red-400">-{removed}</span>}
     </span>
@@ -189,7 +189,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
   if (!open) return null
 
   return (
-    <div className="w-80 border-l border-border flex flex-col bg-muted/50 h-full relative animate-in slide-in-from-right-2 duration-150">
+    <div data-testid="version-history-sidebar" className="w-80 border-l border-border flex flex-col bg-muted/50 h-full relative animate-in slide-in-from-right-2 duration-150">
       {/* Header */}
       <div className="p-3 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -286,6 +286,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                 return (
                   <button
                     key={version.id}
+                    data-testid="version-entry"
                     onClick={() => handleVersionClick(version)}
                     className={cn(
                       'w-full text-left p-2 rounded transition-colors group',
@@ -304,6 +305,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                       </span>
                       <div className="flex items-center gap-1">
                         <button
+                          data-testid="version-restore-btn"
                           onClick={(e) => handleRestoreClick(version, e)}
                           className="p-0.5 rounded transition-colors text-muted-foreground hover:text-green-400 opacity-0 group-hover:opacity-100"
                           title="Restore this version"
@@ -313,6 +315,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                         {selectedVersionId && !isSelected && (
                           <button
                             onClick={(e) => handleCompareClick(version, e)}
+                            data-testid="version-compare-btn"
                             className={cn(
                               'p-0.5 rounded transition-colors',
                               isCompare
@@ -354,6 +357,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
               <div className="px-3 py-2 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <button
+                    data-testid="view-mode-preview"
                     onClick={() => setViewMode('preview')}
                     className={cn(
                       'p-1 rounded transition-colors',
@@ -366,6 +370,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                     <Eye className="w-3.5 h-3.5" />
                   </button>
                   <button
+                    data-testid="view-mode-diff"
                     onClick={() => setViewMode('diff')}
                     className={cn(
                       'p-1 rounded transition-colors',
@@ -444,7 +449,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
 
       {/* Restore confirmation dialog */}
       {restoreConfirmVersion && (
-        <div className="absolute inset-0 bg-muted/95 flex flex-col z-10">
+        <div data-testid="restore-confirm-dialog" className="absolute inset-0 bg-muted/95 flex flex-col z-10">
           <div className="p-3 border-b border-border">
             <h3 className="text-sm font-medium text-foreground">Restore version?</h3>
             <p className="text-xs text-muted-foreground mt-1">
@@ -458,12 +463,14 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
           </div>
           <div className="p-3 border-t border-border flex gap-2 justify-end">
             <button
+              data-testid="restore-cancel-btn"
               onClick={handleRestoreCancel}
               className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded hover:bg-accent transition-colors"
             >
               Cancel
             </button>
             <button
+              data-testid="restore-confirm-btn"
               onClick={handleRestoreConfirm}
               className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-500 text-white rounded transition-colors flex items-center gap-1"
             >

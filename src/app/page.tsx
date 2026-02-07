@@ -519,6 +519,7 @@ export default function HomePage() {
               )}
             </div>
             <button
+              data-testid="history-toggle-btn"
               onClick={() => setHistoryOpen((v) => !v)}
               className={`p-2 rounded hover:bg-accent transition-colors ${historyOpen ? 'text-blue-400' : 'text-muted-foreground hover:text-foreground'}`}
               title="Version history"

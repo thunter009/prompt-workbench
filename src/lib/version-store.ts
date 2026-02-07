@@ -19,6 +19,13 @@ interface VersionStore {
   clearVersionsForSnippet: (snippetId: string) => void
 }
 
+// Expose store for Playwright tests
+declare global {
+  interface Window {
+    __versionStore?: typeof useVersionStore
+  }
+}
+
 export const useVersionStore = create<VersionStore>((set, get) => ({
   versions: [],
 
@@ -136,3 +143,7 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newVersions))
   },
 }))
+
+if (typeof window !== 'undefined') {
+  window.__versionStore = useVersionStore
+}
