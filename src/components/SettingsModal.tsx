@@ -189,10 +189,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-overlay-in" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="relative bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col animate-modal-in">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
           <h2 className="text-lg font-medium">Settings</h2>
@@ -251,14 +251,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               </div>
               <button
                 onClick={() => setFileWatcherEnabled(!fileWatcherEnabled)}
-                className={`w-10 h-6 rounded-full transition-colors ${
-                  fileWatcherEnabled ? 'bg-blue-600' : 'bg-zinc-700'
-                }`}
+                data-state={fileWatcherEnabled ? 'on' : 'off'}
+                className="w-10 h-6 rounded-full transition-colors duration-150 data-[state=on]:bg-blue-600 data-[state=off]:bg-zinc-700"
               >
                 <div
-                  className={`w-4 h-4 bg-white rounded-full transition-transform mx-1 ${
-                    fileWatcherEnabled ? 'translate-x-4' : 'translate-x-0'
-                  }`}
+                  className="w-4 h-4 bg-white rounded-full transition-transform duration-150 ease-out mx-1 data-[state=on]:translate-x-4 data-[state=off]:translate-x-0"
+                  data-state={fileWatcherEnabled ? 'on' : 'off'}
                 />
               </button>
             </div>
@@ -271,14 +269,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               </div>
               <button
                 onClick={() => setIntervalEnabled(!intervalEnabled)}
-                className={`w-10 h-6 rounded-full transition-colors ${
-                  intervalEnabled ? 'bg-blue-600' : 'bg-zinc-700'
-                }`}
+                data-state={intervalEnabled ? 'on' : 'off'}
+                className="w-10 h-6 rounded-full transition-colors duration-150 data-[state=on]:bg-blue-600 data-[state=off]:bg-zinc-700"
               >
                 <div
-                  className={`w-4 h-4 bg-white rounded-full transition-transform mx-1 ${
-                    intervalEnabled ? 'translate-x-4' : 'translate-x-0'
-                  }`}
+                  className="w-4 h-4 bg-white rounded-full transition-transform duration-150 ease-out mx-1 data-[state=on]:translate-x-4 data-[state=off]:translate-x-0"
+                  data-state={intervalEnabled ? 'on' : 'off'}
                 />
               </button>
             </div>

@@ -726,13 +726,13 @@ export function Sidebar() {
         onContextMenu={(e) => handleSnippetContextMenu(e, snippet.id)}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         className={cn(
-          'group flex items-center gap-2 pr-2 py-1.5 rounded cursor-pointer text-sm transition-colors',
+          'group flex items-center gap-2 pr-2 py-1.5 rounded cursor-pointer text-sm transition-all duration-100',
           isBeingDragged && 'opacity-50',
           selectedIds.has(snippet.id)
             ? 'bg-blue-600/30 text-blue-200'
             : selectedId === snippet.id
               ? 'bg-zinc-800 text-zinc-200'
-              : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300'
+              : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300 active:scale-[0.98]'
         )}
       >
         <FileText className="w-4 h-4 shrink-0" />
@@ -814,18 +814,18 @@ export function Sidebar() {
           onDrop={(e) => handleDrop(e, folder.id)}
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
           className={cn(
-            'flex items-center gap-1 pr-2 py-1.5 rounded cursor-pointer text-sm transition-colors',
+            'flex items-center gap-1 pr-2 py-1.5 rounded cursor-pointer text-sm transition-all duration-100',
             isBeingDragged && 'opacity-50',
             isDropTarget && dropPosition === 'inside' && canReceiveDrop && 'ring-2 ring-blue-500 bg-blue-500/20',
             isDropTarget && dropPosition === 'inside' && !canReceiveDrop && 'ring-2 ring-red-500 bg-red-500/20',
             selectedFolderId === folder.id
               ? 'bg-zinc-800 text-zinc-200'
-              : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300'
+              : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300 active:scale-[0.98]'
           )}
         >
           <ChevronRight
             data-testid="folder-chevron"
-            className={cn('w-4 h-4 shrink-0 transition-transform', isExpanded && 'rotate-90')}
+            className={cn('w-4 h-4 shrink-0 transition-transform duration-150 ease-out', isExpanded && 'rotate-90')}
           />
           <FolderIcon className="w-4 h-4 shrink-0" />
           {isEditing ? (
@@ -846,8 +846,11 @@ export function Sidebar() {
             <span data-testid="snippet-count" className="text-xs text-zinc-500 tabular-nums">({snippetCount})</span>
           )}
         </div>
-        {isExpanded && (
-          <ul data-testid="folder-children" className="space-y-0.5">
+        <div className={cn(
+          'grid transition-[grid-template-rows] duration-150 ease-out',
+          isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+        )}>
+          <ul data-testid="folder-children" className="space-y-0.5 overflow-hidden">
             {childFolders.map((child) => renderFolder(child, depth + 1))}
             {folderSnippets.map((snippet) => renderSnippet(snippet, depth + 1))}
             {isEmpty && (
@@ -859,7 +862,7 @@ export function Sidebar() {
               </li>
             )}
           </ul>
-        )}
+        </div>
         {/* Drop indicator line for 'after' position */}
         {isDropTarget && dropPosition === 'after' && (
           <div
@@ -953,7 +956,7 @@ export function Sidebar() {
               <Filter className="w-4 h-4" />
             </button>
             {filterMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg py-1 min-w-[140px] z-50">
+              <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg py-1 min-w-[140px] z-50 animate-dropdown-in">
                 {(['all', 'unexported', 'modified'] as const).map((f) => (
                   <button
                     key={f}
@@ -1041,7 +1044,7 @@ export function Sidebar() {
         <div
           ref={menuRef}
           style={{ top: contextMenu.y, left: contextMenu.x }}
-          className="fixed z-50 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg py-1 min-w-[160px]"
+          className="fixed z-50 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg py-1 min-w-[160px] animate-dropdown-in"
         >
           {contextMenu.type === 'snippet' && (
             <button
@@ -1104,8 +1107,8 @@ export function Sidebar() {
 
       {/* Delete Folder Confirmation Dialog */}
       {deleteFolderDialog.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-4 max-w-sm mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-overlay-in">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-4 max-w-sm mx-4 animate-modal-in">
             <h3 className="text-lg font-medium text-zinc-100 mb-2">Delete Folder?</h3>
             <p className="text-sm text-zinc-400 mb-4">
               This folder contains items. Deleting it will move all snippets to the root level and remove all subfolders.

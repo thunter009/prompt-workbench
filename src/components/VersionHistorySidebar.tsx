@@ -189,7 +189,7 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
   if (!open) return null
 
   return (
-    <div className="w-80 border-l border-zinc-800 flex flex-col bg-zinc-900/50 h-full relative">
+    <div className="w-80 border-l border-zinc-800 flex flex-col bg-zinc-900/50 h-full relative animate-in slide-in-from-right-2 duration-150">
       {/* Header */}
       <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
         <div className="flex items-center gap-2">

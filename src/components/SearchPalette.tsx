@@ -189,11 +189,11 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
       onClick={() => onOpenChange(false)}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-overlay-in" />
 
       {/* Dialog */}
       <Command
-        className="relative w-full max-w-lg bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden"
+        className="relative w-full max-w-lg bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden animate-modal-in"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
         shouldFilter={false}
