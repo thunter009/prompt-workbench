@@ -10,7 +10,8 @@ import { validateSnippets, type ValidationResult } from '@/lib/raycast/validatio
 import { TagFilter } from '@/components/TagFilter'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ExportFolderDialog } from '@/components/ExportFolderDialog'
-import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown, Pencil } from 'lucide-react'
+import { FolderReorgModal } from '@/components/FolderReorgModal'
+import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown, Pencil, Sparkles } from 'lucide-react'
 import type { Snippet, Folder } from '@/types'
 
 type DragItemType = 'snippet' | 'folder'
@@ -88,6 +89,7 @@ export function Sidebar() {
   const [editingSnippetId, setEditingSnippetId] = useState<string | null>(null)
   const [editingSnippetName, setEditingSnippetName] = useState('')
   const [deleteFolderDialog, setDeleteFolderDialog] = useState<{ open: boolean; folderId: string | null; hasContents: boolean }>({ open: false, folderId: null, hasContents: false })
+  const [reorgOpen, setReorgOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
   const snippetInputRef = useRef<HTMLInputElement>(null)
@@ -994,6 +996,14 @@ export function Sidebar() {
             </>
           )}
           <button
+            onClick={() => setReorgOpen(true)}
+            data-testid="reorg-trigger"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-amber-400"
+            title="Batch reorganize"
+          >
+            <Sparkles className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => handleNewFolder()}
             className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
             title="New folder"
@@ -1104,6 +1114,8 @@ export function Sidebar() {
           onConfirm={handleExportFolderConfirm}
         />
       )}
+
+      <FolderReorgModal open={reorgOpen} onClose={() => setReorgOpen(false)} />
 
       {/* Delete Folder Confirmation Dialog */}
       {deleteFolderDialog.open && (
