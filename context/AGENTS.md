@@ -13,6 +13,21 @@ Instructions for AI coding assistants.
 - Two-way sync with Raycast snippets (file watcher + interval)
 - **Ollama for all AI features** (title inference, etc.) - no cloud AI APIs
 
+## Session Setup (REQUIRED)
+
+Before starting any work, register with agent mail for multi-agent coordination:
+
+1. Call `macro_start_session` with:
+   - `human_key`: `/Users/thom/10-19_projects/prompt-workbench`
+   - `program`: your program name (e.g. `claude-code`)
+   - `model`: your model name
+   - `task_description`: brief description of current task
+2. Note your assigned agent name from the response
+3. Check inbox for messages from other agents before starting work
+4. Periodically check inbox during long tasks to pick up coordination messages
+
+This enables parallel ralph-tui loops to coordinate and avoid file conflicts.
+
 ## Critical Rules
 
 ### Code Style
