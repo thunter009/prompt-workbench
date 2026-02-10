@@ -1,16 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useTransition } from 'react'
+import { useState, useEffect, useCallback, useRef, useTransition, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { toast } from 'sonner'
+import { Group, Panel, Separator, useDefaultLayout, usePanelRef } from 'react-resizable-panels'
 import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
 import { useTitleInference } from '@/hooks/useTitleInference'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
 import { EditorDynamic, preloadEditor } from '@/components/editor/EditorDynamic'
 import { EditorPanelHeader } from '@/components/editor/EditorPanel'
 import { PreviewDynamic, preloadPreview } from '@/components/preview/PreviewDynamic'
-import { ResizableDivider } from '@/components/ResizableDivider'
 import { Sidebar } from '@/components/Sidebar'
+import { SidebarRail } from '@/components/SidebarRail'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ConflictPanel } from '@/components/ConflictPanel'
 import { SearchPalette } from '@/components/SearchPalette'
@@ -38,15 +39,14 @@ import { validateSnippets, type ValidationResult } from '@/lib/raycast/validatio
 import { PanelRight, PanelRightClose, Download, Upload, Settings, Zap, AlertTriangle, History, Check, Loader2, RefreshCw, HelpCircle, ChevronDown } from 'lucide-react'
 import type { Snippet } from '@/types'
 
-const DEFAULT_LEFT_PERCENT = 60
 const AUTOSAVE_DEBOUNCE_MS = 500
 
 type SaveStatus = 'idle' | 'saving' | 'saved'
 
 export default function HomePage() {
   const [content, setContent] = useState('')
-  const [leftPercent, setLeftPercent] = useState(DEFAULT_LEFT_PERCENT)
   const [mounted, setMounted] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const [pendingExport, setPendingExport] = useState<Snippet[] | null>(null)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
@@ -57,13 +57,14 @@ export default function HomePage() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const keyboardHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  const sidebarPanelRef = usePanelRef()
+  const previewPanelRef = usePanelRef()
   const [, startTransition] = useTransition()
 
   // UI state - grouped to reduce re-renders
-  const { previewVisible, togglePreview, setPreviewVisible, syncScroll } = useSnippetStore(
+  const { previewVisible, setPreviewVisible, syncScroll } = useSnippetStore(
     useShallow((s) => ({
       previewVisible: s.previewVisible,
-      togglePreview: s.togglePreview,
       setPreviewVisible: s.setPreviewVisible,
       syncScroll: s.syncScroll,
     }))
@@ -191,7 +192,6 @@ export default function HomePage() {
   useEffect(() => {
     const state = loadPersistedState()
     setContent(state.content)
-    setLeftPercent(state.dividerPercent)
     setPreviewVisible(state.previewVisible)
 
     // Load export settings
@@ -223,10 +223,6 @@ export default function HomePage() {
   }, [content, mounted])
 
   useEffect(() => {
-    if (mounted) updatePersistedField('dividerPercent', leftPercent)
-  }, [leftPercent, mounted])
-
-  useEffect(() => {
     if (mounted) updatePersistedField('previewVisible', previewVisible)
   }, [previewVisible, mounted])
 
@@ -244,10 +240,6 @@ export default function HomePage() {
       cancelInference()
     }
   }, [cancelInference])
-
-  const handleResize = useCallback((percent: number) => {
-    setLeftPercent(percent)
-  }, [])
 
   const handleEditorScroll = useCallback((progress: number) => {
     if (syncScroll) {
@@ -403,10 +395,17 @@ export default function HomePage() {
       e.preventDefault()
       setSearchOpen(true)
     }
-    // Cmd+\ to toggle preview
+    // Cmd+\ to toggle preview panel
     if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
       e.preventDefault()
-      togglePreview()
+      const panel = previewPanelRef.current
+      if (panel) {
+        if (panel.isCollapsed()) {
+          panel.expand()
+        } else {
+          panel.collapse()
+        }
+      }
     }
     // Cmd+Shift+E for quick export
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
@@ -448,6 +447,27 @@ export default function HomePage() {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [exportMenuOpen])
+
+  // Persist panel layout across reloads (SSR-safe storage)
+  const ssrSafeStorage = useMemo(() => ({
+    getItem: (key: string) => (typeof window !== 'undefined' ? localStorage.getItem(key) : null),
+    setItem: (key: string, value: string) => { if (typeof window !== 'undefined') localStorage.setItem(key, value) },
+  }), [])
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+    id: 'prompt-workbench-layout',
+    storage: ssrSafeStorage,
+  })
+
+  const togglePreviewPanel = useCallback(() => {
+    const panel = previewPanelRef.current
+    if (panel) {
+      if (panel.isCollapsed()) {
+        panel.expand()
+      } else {
+        panel.collapse()
+      }
+    }
+  }, [previewPanelRef])
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -542,7 +562,7 @@ export default function HomePage() {
             </button>
             <ThemeToggle />
             <button
-              onClick={togglePreview}
+              onClick={togglePreviewPanel}
               onMouseEnter={previewVisible ? preloadEditor : preloadPreview}
               className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
               title={previewVisible ? 'Hide preview (⌘\\)' : 'Show preview (⌘\\)'}
@@ -556,43 +576,76 @@ export default function HomePage() {
           </div>
         </header>
         <div className="flex-1 flex overflow-hidden">
-          <Sidebar />
-          <div
-            style={{ width: previewVisible ? `${leftPercent}%` : '100%' }}
-            className="flex-1 flex flex-col overflow-hidden transition-[width] duration-200 ease-out"
+          {sidebarCollapsed && (
+            <SidebarRail
+              onExpand={() => sidebarPanelRef.current?.expand()}
+              onOpenSearch={() => setSearchOpen(true)}
+            />
+          )}
+          <Group
+            orientation="horizontal"
+            id="prompt-workbench-layout"
+            defaultLayout={defaultLayout}
+            onLayoutChanged={onLayoutChanged}
           >
-            <div className="flex items-center border-b border-border">
-              <EditorPanelHeader />
-              <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
-                {saveStatus === 'saving' && (
-                  <>
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                )}
-                {saveStatus === 'saved' && (
-                  <>
-                    <Check className="w-3 h-3 text-green-500" />
-                    <span className="text-green-500">Saved</span>
-                  </>
-                )}
+            {/* Sidebar panel - collapsible to icon rail */}
+            <Panel
+              id="sidebar"
+              panelRef={sidebarPanelRef}
+              defaultSize="20%"
+              minSize="15%"
+              collapsible
+              collapsedSize="0%"
+              onResize={(size) => setSidebarCollapsed(size.asPercentage === 0)}
+            >
+              <Sidebar />
+            </Panel>
+            {!sidebarCollapsed && (
+              <Separator className="w-1 bg-border hover:bg-blue-500 transition-colors data-[active]:bg-blue-500" />
+            )}
+
+            {/* Editor panel */}
+            <Panel id="editor" defaultSize="50%" minSize="20%">
+              <div className="flex flex-col h-full overflow-hidden">
+                <div className="flex items-center border-b border-border">
+                  <EditorPanelHeader />
+                  <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    {saveStatus === 'saving' && (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    )}
+                    {saveStatus === 'saved' && (
+                      <>
+                        <Check className="w-3 h-3 text-green-500" />
+                        <span className="text-green-500">Saved</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="flex-1 overflow-auto">
+                  <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} />
+                </div>
               </div>
-            </div>
-            <div className="flex-1 overflow-auto">
-              <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} />
-            </div>
-          </div>
-          {previewVisible && (
-            <>
-              <ResizableDivider onResize={handleResize} minLeftPx={200} minRightPx={200} />
-              <div
-                style={{ width: `${100 - leftPercent}%` }}
-                className="overflow-auto transition-[width] duration-200 ease-out"
-              >
+            </Panel>
+            <Separator className="w-1 bg-border hover:bg-blue-500 transition-colors data-[active]:bg-blue-500" />
+
+            {/* Preview panel - collapsible */}
+            <Panel
+              id="preview"
+              panelRef={previewPanelRef}
+              defaultSize="30%"
+              minSize="15%"
+              collapsible
+              collapsedSize="0%"
+              onResize={(size) => setPreviewVisible(size.asPercentage > 0)}
+            >
+              <div className="h-full overflow-auto">
                 <PreviewDynamic content={content} scrollProgress={syncScroll ? scrollProgress : undefined} />
               </div>
-            </>
-          )}
+            </Panel>
+          </Group>
           <VersionHistorySidebar open={historyOpen} onOpenChange={setHistoryOpen} />
         </div>
       </div>

@@ -942,7 +942,7 @@ export function Sidebar() {
   }, [filteredSnippets, folderMap])
 
   return (
-    <aside className="w-64 border-r border-border flex flex-col bg-muted/50">
+    <aside className="h-full flex flex-col bg-muted/50">
       <div className="p-3 border-b border-border flex items-center justify-between">
         <span className="text-sm font-medium text-muted-foreground">Snippets</span>
         <div className="flex items-center gap-1">
