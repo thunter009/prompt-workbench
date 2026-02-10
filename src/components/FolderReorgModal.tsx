@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   X,
   Loader2,
@@ -10,7 +10,9 @@ import {
   Check,
   CheckSquare,
   Square,
-  ArrowRight,
+  Minus,
+  ChevronRight,
+  Search,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSnippetStore } from '@/lib/store'
@@ -40,6 +42,8 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [applying, setApplying] = useState(false)
   const [done, setDone] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   const snippets = useSnippetStore((s) => s.snippets)
   const folders = useSnippetStore((s) => s.folders)
@@ -55,6 +59,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     if (open) {
       dialog.showModal()
       setDone(false)
+      setSearchQuery('')
       analyze()
     } else {
       dialog.close()
@@ -134,6 +139,15 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
       results.filter((r) => r.status === 'suggested').map((r) => r.snippet.id)
     )
     setSelected(suggestedIds)
+
+    // Expand all folder groups + unfiled/well-placed by default
+    const folderNames = new Set(
+      results
+        .filter((r) => r.status === 'suggested' && r.suggestion)
+        .map((r) => r.suggestion!.folder)
+    )
+    setExpandedGroups(new Set([...folderNames, '__unfiled__', '__well-placed__']))
+
     setLoading(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snippets, folders, ollamaUrl, ollamaModel])
@@ -161,6 +175,28 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     } else {
       setSelected(new Set(suggested.map((i) => i.snippet.id)))
     }
+  }
+
+  const toggleGroup = (groupName: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(groupName)) next.delete(groupName)
+      else next.add(groupName)
+      return next
+    })
+  }
+
+  const toggleFolderSelection = (folderSnippetIds: string[]) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      const allSelected = folderSnippetIds.every((id) => next.has(id))
+      if (allSelected) {
+        folderSnippetIds.forEach((id) => next.delete(id))
+      } else {
+        folderSnippetIds.forEach((id) => next.add(id))
+      }
+      return next
+    })
   }
 
   const handleApply = async () => {
@@ -198,24 +234,106 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
   const unfiledItems = items.filter((i) => i.status === 'unfiled')
   const wellPlacedItems = items.filter((i) => i.status === 'well-placed')
 
+  // Group suggested items by target folder
+  const folderGroups = useMemo(() => {
+    const groups = new Map<string, SnippetSuggestion[]>()
+    for (const item of suggestedItems) {
+      const folderName = item.suggestion!.folder
+      const list = groups.get(folderName) ?? []
+      list.push(item)
+      groups.set(folderName, list)
+    }
+    return groups
+  }, [suggestedItems])
+
+  // Summary stats
+  const summaryStats = useMemo(() => {
+    const existingFolderNames = new Set(folders.map((f) => f.name.toLowerCase()))
+    let newCount = 0
+    let existingCount = 0
+    for (const folderName of folderGroups.keys()) {
+      if (existingFolderNames.has(folderName.toLowerCase())) {
+        existingCount++
+      } else {
+        newCount++
+      }
+    }
+    return { newCount, existingCount }
+  }, [folderGroups, folders])
+
+  // Filtered items based on search
+  const filteredFolderGroups = useMemo(() => {
+    if (!searchQuery.trim()) return folderGroups
+    const q = searchQuery.toLowerCase()
+    const filtered = new Map<string, SnippetSuggestion[]>()
+    for (const [folderName, groupItems] of folderGroups) {
+      if (folderName.toLowerCase().includes(q)) {
+        filtered.set(folderName, groupItems)
+        continue
+      }
+      const matchingItems = groupItems.filter((item) =>
+        item.snippet.name.toLowerCase().includes(q)
+      )
+      if (matchingItems.length > 0) {
+        filtered.set(folderName, matchingItems)
+      }
+    }
+    return filtered
+  }, [folderGroups, searchQuery])
+
+  const filteredUnfiled = useMemo(() => {
+    if (!searchQuery.trim()) return unfiledItems
+    const q = searchQuery.toLowerCase()
+    return unfiledItems.filter((item) => item.snippet.name.toLowerCase().includes(q))
+  }, [unfiledItems, searchQuery])
+
+  const filteredWellPlaced = useMemo(() => {
+    if (!searchQuery.trim()) return wellPlacedItems
+    const q = searchQuery.toLowerCase()
+    return wellPlacedItems.filter((item) => item.snippet.name.toLowerCase().includes(q))
+  }, [wellPlacedItems, searchQuery])
+
+  const isExistingFolder = (name: string) =>
+    folders.some((f) => f.name.toLowerCase() === name.toLowerCase())
+
+  const confidenceDot = (confidence: number) => (
+    <span
+      className={cn(
+        'inline-block w-1.5 h-1.5 rounded-full shrink-0',
+        confidence > 0.8 ? 'bg-green-500' : 'bg-yellow-500'
+      )}
+    />
+  )
+
   return (
     <dialog
       ref={dialogRef}
       onClick={handleBackdropClick}
       data-testid="reorg-modal"
-      className="backdrop:bg-black/50 bg-transparent p-0 max-w-lg w-full"
+      className="backdrop:bg-black/50 bg-transparent p-0 max-w-xl w-full"
     >
       <div className="bg-muted border border-border rounded-lg shadow-xl max-h-[80vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <h2 className="text-lg font-medium text-foreground">Batch Reorganize</h2>
-          <button
-            onClick={onClose}
-            data-testid="reorg-modal-close"
-            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {!loading && !done && suggestedItems.length > 0 && (
+              <button
+                onClick={toggleAll}
+                data-testid="reorg-toggle-all"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {selected.size === suggestedItems.length ? 'Deselect all' : 'Select all'}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              data-testid="reorg-modal-close"
+              className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -240,100 +358,188 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
           )}
 
           {!loading && !done && items.length > 0 && (
-            <div className="flex flex-col gap-4">
-              {/* Suggested moves */}
+            <div className="flex flex-col gap-3">
+              {/* Summary stats */}
               {suggestedItems.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {summaryStats.newCount > 0 && `Creating ${summaryStats.newCount} new folder${summaryStats.newCount !== 1 ? 's' : ''}`}
+                  {summaryStats.newCount > 0 && summaryStats.existingCount > 0 && ' · '}
+                  {summaryStats.existingCount > 0 && `Adding to ${summaryStats.existingCount} existing`}
+                </p>
+              )}
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Filter snippets or folders..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-sm bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/60"
+                />
+              </div>
+
+              {/* Suggested moves - grouped by folder */}
+              {filteredFolderGroups.size > 0 && (
                 <section data-testid="reorg-suggested">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-foreground">
-                      Suggested Moves ({suggestedItems.length})
-                    </h3>
-                    <button
-                      onClick={toggleAll}
-                      data-testid="reorg-toggle-all"
-                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {selected.size === suggestedItems.length ? 'Deselect all' : 'Select all'}
-                    </button>
+                  <h3 className="text-sm font-medium text-foreground mb-2">
+                    Suggested Moves ({suggestedItems.length})
+                  </h3>
+                  <div className="flex flex-col gap-1">
+                    {[...filteredFolderGroups.entries()].map(([folderName, groupItems]) => {
+                      const snippetIds = groupItems.map((i) => i.snippet.id)
+                      const allSelected = snippetIds.every((id) => selected.has(id))
+                      const someSelected = snippetIds.some((id) => selected.has(id))
+                      const isExpanded = expandedGroups.has(folderName)
+                      const existing = isExistingFolder(folderName)
+
+                      return (
+                        <div key={folderName} className="rounded border border-border/50">
+                          {/* Folder header */}
+                          <div
+                            className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent/50 cursor-pointer select-none"
+                            onClick={() => toggleGroup(folderName)}
+                          >
+                            <button
+                              className="shrink-0 text-muted-foreground"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleFolderSelection(snippetIds)
+                              }}
+                            >
+                              {allSelected ? (
+                                <CheckSquare className="w-4 h-4 text-blue-500" />
+                              ) : someSelected ? (
+                                <Minus className="w-4 h-4 text-blue-500 border border-blue-500 rounded-[3px]" />
+                              ) : (
+                                <Square className="w-4 h-4" />
+                              )}
+                            </button>
+                            {existing ? (
+                              <FolderIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            ) : (
+                              <FolderPlus className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            )}
+                            <span className="text-sm font-medium flex-1 truncate">{folderName}</span>
+                            <span className="text-xs text-muted-foreground">{groupItems.length}</span>
+                            <ChevronRight
+                              className={cn(
+                                'w-3.5 h-3.5 text-muted-foreground transition-transform duration-150',
+                                isExpanded && 'rotate-90'
+                              )}
+                            />
+                          </div>
+
+                          {/* Collapsible snippet list */}
+                          <div className={cn(
+                            'grid transition-[grid-template-rows] duration-150 ease-out',
+                            isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                          )}>
+                            <ul className="overflow-hidden">
+                              {groupItems.map((item) => (
+                                <li
+                                  key={item.snippet.id}
+                                  data-testid="reorg-suggestion-row"
+                                  className="flex items-center gap-2 pl-8 pr-2 py-1 hover:bg-accent/30 cursor-pointer"
+                                  onClick={() => toggleSelected(item.snippet.id)}
+                                >
+                                  <button
+                                    data-testid="reorg-checkbox"
+                                    className="shrink-0 text-muted-foreground"
+                                  >
+                                    {selected.has(item.snippet.id) ? (
+                                      <CheckSquare className="w-4 h-4 text-blue-500" />
+                                    ) : (
+                                      <Square className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                  {confidenceDot(item.suggestion!.confidence)}
+                                  <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                  <span className="text-sm truncate flex-1">{item.snippet.name}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                  <ul className="flex flex-col gap-1">
-                    {suggestedItems.map((item) => (
-                      <li
-                        key={item.snippet.id}
-                        data-testid="reorg-suggestion-row"
-                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent/50 cursor-pointer"
-                        onClick={() => toggleSelected(item.snippet.id)}
-                      >
-                        <button
-                          data-testid="reorg-checkbox"
-                          className="shrink-0 text-muted-foreground"
-                        >
-                          {selected.has(item.snippet.id) ? (
-                            <CheckSquare className="w-4 h-4 text-blue-500" />
-                          ) : (
-                            <Square className="w-4 h-4" />
-                          )}
-                        </button>
-                        <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-sm truncate flex-1">{item.snippet.name}</span>
-                        <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />
-                        {folders.some(
-                          (f) =>
-                            f.name.toLowerCase() === item.suggestion!.folder.toLowerCase()
-                        ) ? (
-                          <FolderIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        ) : (
-                          <FolderPlus className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        )}
-                        <span className="text-sm text-muted-foreground truncate max-w-[120px]">
-                          {item.suggestion!.folder}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
                 </section>
               )}
 
               {/* Unfiled */}
-              {unfiledItems.length > 0 && (
+              {filteredUnfiled.length > 0 && (
                 <section data-testid="reorg-unfiled">
-                  <h3 className="text-sm font-medium text-foreground mb-2">
-                    Unfiled ({unfiledItems.length})
-                  </h3>
-                  <ul className="flex flex-col gap-1">
-                    {unfiledItems.map((item) => (
-                      <li
-                        key={item.snippet.id}
-                        data-testid="reorg-unfiled-row"
-                        className="flex items-center gap-2 px-2 py-1.5 text-muted-foreground"
-                      >
-                        <FileText className="w-3.5 h-3.5 shrink-0" />
-                        <span className="text-sm truncate">{item.snippet.name}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div
+                    className="flex items-center gap-2 mb-1 cursor-pointer select-none"
+                    onClick={() => toggleGroup('__unfiled__')}
+                  >
+                    <ChevronRight
+                      className={cn(
+                        'w-3.5 h-3.5 text-muted-foreground transition-transform duration-150',
+                        expandedGroups.has('__unfiled__') && 'rotate-90'
+                      )}
+                    />
+                    <h3 className="text-sm font-medium text-foreground">
+                      Unfiled ({unfiledItems.length})
+                    </h3>
+                  </div>
+                  <div className={cn(
+                    'grid transition-[grid-template-rows] duration-150 ease-out',
+                    expandedGroups.has('__unfiled__') ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                  )}>
+                    <ul className="flex flex-col gap-1 overflow-hidden">
+                      {filteredUnfiled.map((item) => (
+                        <li
+                          key={item.snippet.id}
+                          data-testid="reorg-unfiled-row"
+                          className="flex items-center gap-2 px-2 py-1.5 text-muted-foreground"
+                        >
+                          <FileText className="w-3.5 h-3.5 shrink-0" />
+                          <span className="text-sm truncate">{item.snippet.name}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </section>
               )}
 
               {/* Well-placed */}
-              {wellPlacedItems.length > 0 && (
+              {filteredWellPlaced.length > 0 && (
                 <section data-testid="reorg-well-placed">
-                  <h3 className="text-sm font-medium text-foreground mb-2">
-                    Well Placed ({wellPlacedItems.length})
-                  </h3>
-                  <ul className="flex flex-col gap-1">
-                    {wellPlacedItems.map((item) => (
-                      <li
-                        key={item.snippet.id}
-                        data-testid="reorg-well-placed-row"
-                        className="flex items-center gap-2 px-2 py-1.5 text-muted-foreground"
-                      >
-                        <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                        <FileText className="w-3.5 h-3.5 shrink-0" />
-                        <span className="text-sm truncate">{item.snippet.name}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div
+                    className="flex items-center gap-2 mb-1 cursor-pointer select-none"
+                    onClick={() => toggleGroup('__well-placed__')}
+                  >
+                    <ChevronRight
+                      className={cn(
+                        'w-3.5 h-3.5 text-muted-foreground transition-transform duration-150',
+                        expandedGroups.has('__well-placed__') && 'rotate-90'
+                      )}
+                    />
+                    <h3 className="text-sm font-medium text-foreground">
+                      Well Placed ({wellPlacedItems.length})
+                    </h3>
+                  </div>
+                  <div className={cn(
+                    'grid transition-[grid-template-rows] duration-150 ease-out',
+                    expandedGroups.has('__well-placed__') ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                  )}>
+                    <ul className="flex flex-col gap-1 overflow-hidden">
+                      {filteredWellPlaced.map((item) => (
+                        <li
+                          key={item.snippet.id}
+                          data-testid="reorg-well-placed-row"
+                          className="flex items-center gap-2 px-2 py-1.5 text-muted-foreground"
+                        >
+                          <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                          <FileText className="w-3.5 h-3.5 shrink-0" />
+                          <span className="text-sm truncate">{item.snippet.name}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </section>
               )}
             </div>
