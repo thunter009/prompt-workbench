@@ -18,6 +18,7 @@ import { SidebarRail } from '@/components/SidebarRail'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ConflictPanel } from '@/components/ConflictPanel'
 import { SearchPalette } from '@/components/SearchPalette'
+import { CrossSnippetSearch } from '@/components/CrossSnippetSearch'
 import { VersionHistorySidebar } from '@/components/VersionHistorySidebar'
 import { SettingsModal } from '@/components/SettingsModal'
 import { ImportModal } from '@/components/ImportModal'
@@ -121,6 +122,7 @@ export default function HomePage() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [hotkeySheetOpen, setHotkeySheetOpen] = useState(false)
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
   const [deleteDialogIds, setDeleteDialogIds] = useState<string[]>([])
   const deleteDialogRef = useRef<HTMLDialogElement>(null)
   const [isMobile, setIsMobile] = useState(false)
@@ -514,6 +516,11 @@ export default function HomePage() {
           panel.collapse()
         }
       }
+    }
+    // Cmd+Shift+F for cross-snippet search
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+      e.preventDefault()
+      setGlobalSearchOpen(true)
     }
     // Cmd+Shift+E for quick export
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
@@ -953,6 +960,7 @@ export default function HomePage() {
       <ConflictPanel />
 
       <SearchPalette open={searchOpen} onOpenChange={setSearchOpen} />
+      <CrossSnippetSearch open={globalSearchOpen} onOpenChange={setGlobalSearchOpen} />
 
       {validationResult && (
         <ValidationDialog

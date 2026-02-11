@@ -17,6 +17,9 @@ const HOTKEYS = [
   { section: 'Editor', keys: [
     { key: '⌘ \\', description: 'Toggle preview panel' },
     { key: '⌘ K', description: 'Suggest keyword' },
+    { key: '⌘ F', description: 'Find in editor' },
+    { key: '⌘ H', description: 'Find & replace in editor' },
+    { key: '⌘ ⇧ F', description: 'Search across all snippets' },
   ]},
   { section: 'Snippets', keys: [
     { key: '⌘ N', description: 'New snippet' },
