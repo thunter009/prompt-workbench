@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { DEFAULT_OLLAMA_URL, DEFAULT_OLLAMA_MODEL } from '@/lib/ai-settings-store'
+import { getMethodologyPromptContext, type MethodologyConfig } from '@/lib/folder-methodology'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,6 +9,7 @@ interface SuggestFolderRequest {
   existingFolders: string[]
   ollamaUrl?: string
   model?: string
+  methodology?: MethodologyConfig
 }
 
 interface FolderSuggestion {
@@ -22,7 +24,7 @@ interface OllamaGenerateResponse {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as SuggestFolderRequest
-    const { snippet, existingFolders, ollamaUrl, model } = body
+    const { snippet, existingFolders, ollamaUrl, model, methodology } = body
 
     if (!snippet?.name || typeof snippet.name !== 'string') {
       return NextResponse.json({ error: 'snippet.name required' }, { status: 400 })
@@ -40,7 +42,10 @@ export async function POST(request: NextRequest) {
       ? `Existing folders:\n${existingFolders.map((f) => `- ${f}`).join('\n')}`
       : 'No existing folders yet.'
 
+    const methodologyPrompt = getMethodologyPromptContext(methodology)
+
     const prompt = `Suggest up to 3 folder names to organize a text snippet. Prefer existing folders when relevant. Each suggestion needs a confidence score 0.0-1.0.
+${methodologyPrompt ? `\nOrganization rules: ${methodologyPrompt}` : ''}
 
 Snippet name: "${snippet.name}"
 ${keywordsBlock}

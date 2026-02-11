@@ -17,6 +17,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useSnippetStore } from '@/lib/store'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
+import { useMethodologyStore } from '@/lib/folder-methodology'
 import type { Snippet } from '@/types'
 
 interface FolderSuggestion {
@@ -54,6 +55,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
 
   const ollamaUrl = useAISettingsStore((s) => s.ollamaUrl)
   const ollamaModel = useAISettingsStore((s) => s.ollamaModel)
+  const methodologyConfig = useMethodologyStore((s) => s.config)
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -120,6 +122,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
                     existingFolders,
                     ollamaUrl,
                     model: ollamaModel,
+                    methodology: methodologyConfig,
                   }),
                   signal: perReqController.signal,
                 })
@@ -180,8 +183,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     setExpandedGroups(new Set([...folderNames, '__unfiled__', '__well-placed__']))
 
     setLoading(false)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snippets, folders, ollamaUrl, ollamaModel])
+  }, [snippets, folders, ollamaUrl, ollamaModel, methodologyConfig])
 
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {

@@ -5,6 +5,7 @@ import { Loader2, Sparkles, X, FolderPlus, Folder as FolderIcon } from 'lucide-r
 import { cn } from '@/lib/utils'
 import { useSnippetStore } from '@/lib/store'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
+import { useMethodologyStore } from '@/lib/folder-methodology'
 
 const DEBOUNCE_MS = 2000
 const MIN_TEXT_LENGTH = 30
@@ -48,6 +49,7 @@ export function FolderSuggestions({
 
   const ollamaUrl = useAISettingsStore((s) => s.ollamaUrl)
   const ollamaModel = useAISettingsStore((s) => s.ollamaModel)
+  const methodologyConfig = useMethodologyStore((s) => s.config)
 
   const doFetch = useCallback(async (signal?: AbortSignal): Promise<FolderSuggestion[]> => {
     const existingFolders = folders.map((f) => f.name)
@@ -59,12 +61,13 @@ export function FolderSuggestions({
         existingFolders,
         ollamaUrl,
         model: ollamaModel,
+        methodology: methodologyConfig,
       }),
       signal,
     })
     const data = await res.json()
     return data.suggestions ?? []
-  }, [snippetName, snippetText, folders, ollamaUrl, ollamaModel])
+  }, [snippetName, snippetText, folders, ollamaUrl, ollamaModel, methodologyConfig])
 
   // Auto-suggest fetch (debounced, only when no folder assigned)
   const fetchAutoSuggestions = useCallback(async () => {
