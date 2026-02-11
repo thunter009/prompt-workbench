@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Loader2, Sparkles, X, FolderPlus, Folder as FolderIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSnippetStore } from '@/lib/store'
@@ -220,7 +221,7 @@ export function FolderSuggestions({
         >
           {currentFolder ? currentFolder.name : 'None'}
         </span>
-        <div className="relative ml-auto">
+        <div className="ml-auto">
           <button
             ref={buttonRef}
             onClick={fetchOnDemand}
@@ -241,12 +242,20 @@ export function FolderSuggestions({
             )}
           </button>
 
-          {/* On-demand popover */}
-          {popoverOpen && (
+          {/* On-demand popover rendered via portal to escape overflow-hidden parents */}
+          {popoverOpen && createPortal(
             <div
               ref={popoverRef}
               data-testid="folder-suggest-popover"
-              className="absolute top-full right-0 mt-1 z-50 bg-accent border border-border rounded-lg shadow-xl min-w-[220px] max-w-[300px]"
+              className="fixed z-50 bg-accent border border-border rounded-lg shadow-xl min-w-[220px] max-w-[300px]"
+              style={(() => {
+                const rect = buttonRef.current?.getBoundingClientRect()
+                if (!rect) return { top: 0, right: 0 }
+                return {
+                  top: rect.bottom + 4,
+                  right: window.innerWidth - rect.right,
+                }
+              })()}
             >
               <div className="flex items-center justify-between px-3 py-2 border-b border-border">
                 <span className="text-xs text-muted-foreground font-medium">Folder Suggestions</span>
@@ -307,7 +316,8 @@ export function FolderSuggestions({
                   </div>
                 )}
               </div>
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
       </div>

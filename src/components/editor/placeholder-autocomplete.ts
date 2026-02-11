@@ -60,6 +60,7 @@ const autocompleteTheme = EditorView.theme({
     borderRadius: '6px',
     fontFamily: 'ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace',
     fontSize: '13px',
+    zIndex: '50',
   },
   '.cm-tooltip-autocomplete ul': {
     maxHeight: '200px',

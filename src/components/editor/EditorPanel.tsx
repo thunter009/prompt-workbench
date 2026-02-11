@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Loader2, Sparkles, X, AlertTriangle } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
 import { KeywordSuggestions } from '@/components/KeywordSuggestions'
@@ -246,7 +247,7 @@ export function EditorPanelHeader() {
             Used by: {keywordConflict.existingSnippet?.name}
           </span>
         )}
-        <div className="relative">
+        <div>
           <button
             ref={buttonRef}
             onClick={fetchSuggestions}
@@ -266,11 +267,19 @@ export function EditorPanelHeader() {
             )}
           </button>
 
-          {/* Popover */}
-          {popoverOpen && (
+          {/* Popover rendered via portal to escape overflow-hidden parents */}
+          {popoverOpen && createPortal(
             <div
               ref={popoverRef}
-              className="absolute top-full right-0 mt-1 z-50 bg-accent border border-border rounded-lg shadow-xl min-w-[200px] max-w-[280px]"
+              className="fixed z-50 bg-accent border border-border rounded-lg shadow-xl min-w-[200px] max-w-[280px]"
+              style={(() => {
+                const rect = buttonRef.current?.getBoundingClientRect()
+                if (!rect) return { top: 0, right: 0 }
+                return {
+                  top: rect.bottom + 4,
+                  right: window.innerWidth - rect.right,
+                }
+              })()}
             >
               <div className="flex items-center justify-between px-3 py-2 border-b border-border">
                 <span className="text-xs text-muted-foreground font-medium">Keyword Suggestions</span>
@@ -325,7 +334,8 @@ export function EditorPanelHeader() {
                   </div>
                 )}
               </div>
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
       </div>

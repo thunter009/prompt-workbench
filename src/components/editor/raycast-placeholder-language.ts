@@ -224,6 +224,7 @@ export const raycastPlaceholderTheme = EditorView.baseTheme({
       "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace",
     fontSize: "13px",
     color: "rgb(212 212 216)",
+    zIndex: "50",
   },
   ".cm-snippet-tooltip-title": {
     fontWeight: "600",
