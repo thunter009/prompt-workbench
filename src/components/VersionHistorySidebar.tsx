@@ -1,13 +1,17 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, lazy, Suspense } from 'react'
 import { History, X, Clock, GitCompare, Eye, RotateCcw, Trash2, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useVersionStore } from '@/lib/version-store'
 import { useSnippetStore } from '@/lib/store'
-import { computeLineDiff, type DiffChange } from '@/lib/diff'
+import { computeLineDiff } from '@/lib/diff'
 import type { SnippetVersion } from '@/types'
+
+const DiffMergeView = lazy(() =>
+  import('@/components/editor/DiffMergeView').then((m) => ({ default: m.DiffMergeView }))
+)
 
 function formatRelativeTime(timestamp: number): string {
   const now = Date.now()
@@ -31,35 +35,6 @@ function formatRelativeTime(timestamp: number): string {
 function truncatePreview(text: string, maxLength: number = 80): string {
   if (text.length <= maxLength) return text
   return text.slice(0, maxLength).trim() + '...'
-}
-
-// Inline diff view component
-function InlineDiff({ changes }: { changes: DiffChange[] }) {
-  return (
-    <pre className="text-xs font-mono leading-relaxed whitespace-pre-wrap">
-      {changes.map((change, i) => {
-        if (change.added) {
-          return (
-            <span key={i} className="bg-green-900/50 text-green-300">
-              {change.value}
-            </span>
-          )
-        }
-        if (change.removed) {
-          return (
-            <span key={i} className="bg-red-900/50 text-red-300 line-through">
-              {change.value}
-            </span>
-          )
-        }
-        return (
-          <span key={i} className="text-muted-foreground">
-            {change.value}
-          </span>
-        )
-      })}
-    </pre>
-  )
 }
 
 // Diff stats badge
@@ -437,7 +412,12 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
                     {selectedVersion.text}
                   </pre>
                 ) : diffResult ? (
-                  <InlineDiff changes={diffResult.changes} />
+                  <Suspense fallback={<p className="text-xs text-muted-foreground">Loading diff...</p>}>
+                    <DiffMergeView
+                      original={selectedVersion.text}
+                      modified={compareVersion?.text ?? selectedSnippet?.text ?? ''}
+                    />
+                  </Suspense>
                 ) : (
                   <p className="text-xs text-muted-foreground">No changes</p>
                 )}
