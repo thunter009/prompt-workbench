@@ -255,9 +255,9 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
       ) : versions.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center p-4 gap-2">
           <Clock className="w-8 h-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground text-center">No version history yet</p>
+          <p className="text-sm text-muted-foreground text-center">No versions yet</p>
           <p className="text-xs text-muted-foreground text-center">
-            Versions are saved automatically as you edit
+            Versions are created automatically when you edit
           </p>
         </div>
       ) : (

@@ -36,7 +36,7 @@ import {
   getDefaultExportPath,
 } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
-import { PanelRight, PanelRightClose, Download, Upload, Settings, Zap, AlertTriangle, History, Check, Loader2, RefreshCw, HelpCircle, ChevronDown } from 'lucide-react'
+import { PanelRight, PanelRightClose, Download, Upload, Settings, Zap, AlertTriangle, History, Check, Loader2, RefreshCw, HelpCircle, ChevronDown, Menu, X } from 'lucide-react'
 import type { Snippet } from '@/types'
 
 const AUTOSAVE_DEBOUNCE_MS = 500
@@ -96,6 +96,8 @@ export default function HomePage() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [hotkeySheetOpen, setHotkeySheetOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   // Conflict state
   const { addConflicts, conflictCount, openConflictPanel } = useConflictStore(
@@ -294,7 +296,7 @@ export default function HomePage() {
       setSaveStatus('saved')
       savedIndicatorTimerRef.current = setTimeout(() => {
         setSaveStatus('idle')
-      }, 1500)
+      }, 3000)
     }, AUTOSAVE_DEBOUNCE_MS)
   }, [selectedId, updateSnippet, createSnippet, getSelectedSnippet, scheduleInference])
 
@@ -442,6 +444,15 @@ export default function HomePage() {
     }
   }
 
+  // Track viewport width for responsive layout
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    setIsMobile(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
   // Bind keyboard listener once on mount
   useEffect(() => {
     const handler = (e: KeyboardEvent) => keyboardHandlerRef.current(e)
@@ -486,7 +497,19 @@ export default function HomePage() {
     <main className="min-h-screen bg-background text-foreground">
       <div className="h-screen flex flex-col">
         <header className="border-b border-border px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-medium">Prompt Workbench</h1>
+          <div className="flex items-center gap-2">
+            {isMobile && (
+              <button
+                data-testid="sidebar-toggle"
+                onClick={() => setMobileSidebarOpen((v) => !v)}
+                className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                aria-label={mobileSidebarOpen ? 'Close sidebar' : 'Menu'}
+              >
+                {mobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            )}
+            <h1 className="text-lg font-medium">Prompt Workbench</h1>
+          </div>
           <div className="flex items-center gap-1">
             {conflictCount > 0 && (
               <button
@@ -584,93 +607,137 @@ export default function HomePage() {
               <HelpCircle className="w-5 h-5" />
             </button>
             <ThemeToggle />
-            <button
-              onClick={togglePreviewPanel}
-              onMouseEnter={previewVisible ? preloadEditor : preloadPreview}
-              className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-              title={previewVisible ? 'Hide preview (⌘\\)' : 'Show preview (⌘\\)'}
-              aria-label={previewVisible ? 'Hide preview' : 'Show preview'}
-              aria-expanded={previewVisible}
-            >
-              {previewVisible ? (
-                <PanelRightClose className="w-5 h-5" />
-              ) : (
-                <PanelRight className="w-5 h-5" />
-              )}
-            </button>
+            {!isMobile && (
+              <button
+                onClick={togglePreviewPanel}
+                onMouseEnter={previewVisible ? preloadEditor : preloadPreview}
+                className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                title={previewVisible ? 'Hide preview (⌘\\)' : 'Show preview (⌘\\)'}
+                aria-label={previewVisible ? 'Hide preview' : 'Show preview'}
+                aria-expanded={previewVisible}
+              >
+                {previewVisible ? (
+                  <PanelRightClose className="w-5 h-5" />
+                ) : (
+                  <PanelRight className="w-5 h-5" />
+                )}
+              </button>
+            )}
           </div>
         </header>
-        <div className="flex-1 flex overflow-hidden">
-          {sidebarCollapsed && (
-            <SidebarRail
-              onExpand={() => sidebarPanelRef.current?.expand()}
-              onOpenSearch={() => setSearchOpen(true)}
-            />
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Mobile sidebar overlay */}
+          {isMobile && mobileSidebarOpen && (
+            <>
+              <div className="absolute inset-0 bg-black/50 z-30" onClick={() => setMobileSidebarOpen(false)} />
+              <aside className="absolute inset-y-0 left-0 w-72 z-40 bg-background shadow-xl animate-in slide-in-from-left duration-150">
+                <Sidebar />
+              </aside>
+            </>
           )}
-          <Group
-            orientation="horizontal"
-            id="prompt-workbench-layout"
-            defaultLayout={defaultLayout}
-            onLayoutChanged={onLayoutChanged}
-          >
-            {/* Sidebar panel - collapsible to icon rail */}
-            <Panel
-              id="sidebar"
-              panelRef={sidebarPanelRef}
-              defaultSize="20%"
-              minSize="15%"
-              collapsible
-              collapsedSize="0%"
-              onResize={(size) => setSidebarCollapsed(size.asPercentage === 0)}
-            >
-              <Sidebar />
-            </Panel>
-            {!sidebarCollapsed && (
-              <Separator className="w-1 bg-border hover:bg-blue-500 transition-colors data-[active]:bg-blue-500" />
-            )}
 
-            {/* Editor panel */}
-            <Panel id="editor" defaultSize="50%" minSize="20%">
-              <div className="flex flex-col h-full overflow-hidden">
-                <div className="flex items-center border-b border-border">
-                  <EditorPanelHeader />
-                  <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
-                    {saveStatus === 'saving' && (
-                      <>
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        <span>Saving...</span>
-                      </>
-                    )}
-                    {saveStatus === 'saved' && (
-                      <>
-                        <Check className="w-3 h-3 text-green-500" />
-                        <span className="text-green-500">Saved</span>
-                      </>
-                    )}
+          {/* Desktop layout with resizable panels */}
+          {!isMobile && (
+            <>
+              {sidebarCollapsed && (
+                <SidebarRail
+                  onExpand={() => sidebarPanelRef.current?.expand()}
+                  onOpenSearch={() => setSearchOpen(true)}
+                />
+              )}
+              <Group
+                orientation="horizontal"
+                id="prompt-workbench-layout"
+                defaultLayout={defaultLayout}
+                onLayoutChanged={onLayoutChanged}
+              >
+                {/* Sidebar panel - collapsible to icon rail */}
+                <Panel
+                  id="sidebar"
+                  panelRef={sidebarPanelRef}
+                  defaultSize="20%"
+                  minSize="15%"
+                  collapsible
+                  collapsedSize="0%"
+                  onResize={(size) => setSidebarCollapsed(size.asPercentage === 0)}
+                >
+                  <Sidebar />
+                </Panel>
+                {!sidebarCollapsed && (
+                  <Separator className="w-1 bg-border hover:bg-blue-500 transition-colors data-[active]:bg-blue-500" />
+                )}
+
+                {/* Editor panel */}
+                <Panel id="editor" defaultSize="50%" minSize="20%">
+                  <div className="flex flex-col h-full overflow-hidden">
+                    <div className="flex items-center border-b border-border">
+                      <EditorPanelHeader />
+                      <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
+                        {saveStatus === 'saving' && (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Saving...</span>
+                          </>
+                        )}
+                        {saveStatus === 'saved' && (
+                          <>
+                            <Check className="w-3 h-3 text-green-500" />
+                            <span className="text-green-500">Saved</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-auto">
+                      <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} />
+                    </div>
                   </div>
-                </div>
-                <div className="flex-1 overflow-auto">
-                  <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} />
-                </div>
-              </div>
-            </Panel>
-            <Separator className="w-1 bg-border hover:bg-blue-500 transition-colors data-[active]:bg-blue-500" />
+                </Panel>
+                <Separator className="w-1 bg-border hover:bg-blue-500 transition-colors data-[active]:bg-blue-500" />
 
-            {/* Preview panel - collapsible */}
-            <Panel
-              id="preview"
-              panelRef={previewPanelRef}
-              defaultSize="30%"
-              minSize="15%"
-              collapsible
-              collapsedSize="0%"
-              onResize={(size) => setPreviewVisible(size.asPercentage > 0)}
-            >
-              <div className="h-full overflow-auto">
-                <PreviewDynamic content={content} scrollProgress={syncScroll ? scrollProgress : undefined} />
+                {/* Preview panel - collapsible */}
+                <Panel
+                  id="preview"
+                  panelRef={previewPanelRef}
+                  defaultSize="30%"
+                  minSize="15%"
+                  collapsible
+                  collapsedSize="0%"
+                  onResize={(size) => setPreviewVisible(size.asPercentage > 0)}
+                >
+                  <div className="h-full overflow-auto">
+                    <PreviewDynamic content={content} scrollProgress={syncScroll ? scrollProgress : undefined} />
+                  </div>
+                </Panel>
+              </Group>
+            </>
+          )}
+
+          {/* Mobile editor (full-width, no preview) */}
+          {isMobile && (
+            <div className="flex-1 flex flex-col h-full overflow-hidden">
+              <div className="flex items-center border-b border-border">
+                <EditorPanelHeader />
+                <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  {saveStatus === 'saving' && (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  )}
+                  {saveStatus === 'saved' && (
+                    <>
+                      <Check className="w-3 h-3 text-green-500" />
+                      <span className="text-green-500">Saved</span>
+                    </>
+                  )}
+                </div>
               </div>
-            </Panel>
-          </Group>
+              <div className="flex-1 overflow-auto">
+                <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} />
+              </div>
+            </div>
+          )}
+
           <VersionHistorySidebar open={historyOpen} onOpenChange={setHistoryOpen} />
         </div>
       </div>

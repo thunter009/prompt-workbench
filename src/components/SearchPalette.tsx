@@ -193,7 +193,7 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
 
       {/* Dialog */}
       <Command
-        className="relative w-full max-w-lg bg-muted border border-border rounded-xl shadow-2xl overflow-hidden animate-modal-in"
+        className="relative w-full max-w-lg mx-4 sm:mx-0 bg-muted border border-border rounded-xl shadow-2xl overflow-hidden animate-modal-in"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
         shouldFilter={false}
@@ -237,7 +237,8 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
             )
           ) : results.length === 0 ? (
             <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
-              No snippets found for &quot;{search}&quot;
+              <p>No results for &ldquo;{search}&rdquo;</p>
+              <p className="text-xs mt-1">Try a shorter or different query</p>
             </Command.Empty>
           ) : (
             <Command.Group heading="Snippets" className="text-xs font-medium text-muted-foreground px-2 py-1.5">
@@ -285,7 +286,7 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
               <FolderTree className="w-3.5 h-3.5" />
             )}
             {searchSettings.scopeToCurrentFolder && currentFolderName ? (
-              <span className="max-w-[120px] truncate">{currentFolderName}</span>
+              <span className="max-w-[120px] truncate" title={currentFolderName ?? undefined}>{currentFolderName}</span>
             ) : (
               <span>All folders</span>
             )}
@@ -323,14 +324,14 @@ function SearchResultItem({
       aria-selected={selected}
       onClick={onSelect}
       onMouseEnter={onMouseEnter}
-      className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-secondary-foreground ${
-        selected ? 'bg-accent text-foreground' : ''
+      className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-secondary-foreground transition-colors ${
+        selected ? 'bg-blue-600/30 text-blue-200' : 'hover:bg-accent/50'
       }`}
     >
       {/* Top row: icon + name + keyword */}
       <div className="flex items-center gap-2.5">
         <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-        <span className="flex-1 text-sm font-medium truncate">
+        <span className="flex-1 text-sm font-medium truncate" title={snippet.name}>
           {nameMatch ? (
             <HighlightedText text={snippet.name} indices={nameMatch.indices} />
           ) : (
@@ -407,13 +408,13 @@ function RecentSnippetItem({
       aria-selected={selected}
       onClick={onSelect}
       onMouseEnter={onMouseEnter}
-      className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-secondary-foreground ${
-        selected ? 'bg-accent text-foreground' : ''
+      className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-secondary-foreground transition-colors ${
+        selected ? 'bg-blue-600/30 text-blue-200' : 'hover:bg-accent/50'
       }`}
     >
       <div className="flex items-center gap-2.5">
         <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
-        <span className="flex-1 text-sm font-medium truncate">{snippet.name}</span>
+        <span className="flex-1 text-sm font-medium truncate" title={snippet.name}>{snippet.name}</span>
         {snippet.keyword && (
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Hash className="w-3 h-3" />

@@ -39,6 +39,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [items, setItems] = useState<SnippetSuggestion[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [applying, setApplying] = useState(false)
@@ -80,6 +81,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     setLoading(true)
     setItems([])
     setSelected(new Set())
+    setProgress({ done: 0, total: snippets.length })
 
     const existingFolders = folders.map((f) => f.name)
     const results: SnippetSuggestion[] = []
@@ -156,6 +158,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
           })
         )
         results.push(...batchResults)
+        setProgress({ done: Math.min(i + batchSize, snippets.length), total: snippets.length })
       }
     } catch {
       // Global abort — use whatever results we have so far
@@ -394,7 +397,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
             >
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                Analyzing {snippets.length} snippets...
+                Analyzing {progress.done} of {progress.total} snippets...
               </span>
               <button
                 onClick={handleCancel}
@@ -477,7 +480,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
                             ) : (
                               <FolderPlus className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                             )}
-                            <span className="text-sm font-medium flex-1 truncate">{folderName}</span>
+                            <span className="text-sm font-medium flex-1 truncate" title={folderName}>{folderName}</span>
                             <span className="text-xs text-muted-foreground">{groupItems.length}</span>
                             <ChevronRight
                               className={cn(
@@ -512,7 +515,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
                                   </button>
                                   {confidenceDot(item.suggestion!.confidence)}
                                   <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                  <span className="text-sm truncate flex-1">{item.snippet.name}</span>
+                                  <span className="text-sm truncate flex-1" title={item.snippet.name}>{item.snippet.name}</span>
                                 </li>
                               ))}
                             </ul>
@@ -553,7 +556,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
                           className="flex items-center gap-2 px-2 py-1.5 text-muted-foreground"
                         >
                           <FileText className="w-3.5 h-3.5 shrink-0" />
-                          <span className="text-sm truncate">{item.snippet.name}</span>
+                          <span className="text-sm truncate" title={item.snippet.name}>{item.snippet.name}</span>
                         </li>
                       ))}
                     </ul>
@@ -591,7 +594,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
                         >
                           <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
                           <FileText className="w-3.5 h-3.5 shrink-0" />
-                          <span className="text-sm truncate">{item.snippet.name}</span>
+                          <span className="text-sm truncate" title={item.snippet.name}>{item.snippet.name}</span>
                         </li>
                       ))}
                     </ul>

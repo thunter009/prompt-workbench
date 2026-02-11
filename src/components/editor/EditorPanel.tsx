@@ -255,7 +255,7 @@ export function EditorPanelHeader() {
             className={cn(
               'p-1.5 rounded transition-colors',
               loading
-                ? 'bg-accent text-muted-foreground'
+                ? 'opacity-50 cursor-not-allowed'
                 : 'hover:bg-accent text-muted-foreground hover:text-amber-400'
             )}
           >

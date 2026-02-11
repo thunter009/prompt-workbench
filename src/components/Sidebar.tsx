@@ -90,7 +90,7 @@ export function Sidebar() {
   const [editingFolderName, setEditingFolderName] = useState('')
   const [editingSnippetId, setEditingSnippetId] = useState<string | null>(null)
   const [editingSnippetName, setEditingSnippetName] = useState('')
-  const [deleteFolderDialog, setDeleteFolderDialog] = useState<{ open: boolean; folderId: string | null; hasContents: boolean }>({ open: false, folderId: null, hasContents: false })
+  const [deleteFolderDialog, setDeleteFolderDialog] = useState<{ open: boolean; folderId: string | null; hasContents: boolean; snippetCount: number; subfolderCount: number }>({ open: false, folderId: null, hasContents: false, snippetCount: 0, subfolderCount: 0 })
   const [deleteSnippetDialog, setDeleteSnippetDialog] = useState<{ open: boolean; snippetIds: string[] }>({ open: false, snippetIds: [] })
   const [moveToFolderOpen, setMoveToFolderOpen] = useState(false)
   const [reorgOpen, setReorgOpen] = useState(false)
@@ -287,7 +287,8 @@ export function Sidebar() {
     const hasContents = hasSubfolders || hasSnippets
 
     if (hasContents) {
-      setDeleteFolderDialog({ open: true, folderId: contextMenu.folderId, hasContents: true })
+      const affectedSnippetCount = snippets.filter((s) => s.folderId && folderIds.includes(s.folderId)).length
+      setDeleteFolderDialog({ open: true, folderId: contextMenu.folderId, hasContents: true, snippetCount: affectedSnippetCount, subfolderCount: subfolderIds.length })
     } else {
       // Delete immediately if empty
       deleteFolder(contextMenu.folderId)
@@ -308,7 +309,7 @@ export function Sidebar() {
     }
 
     toast.success('Folder deleted')
-    setDeleteFolderDialog({ open: false, folderId: null, hasContents: false })
+    setDeleteFolderDialog({ open: false, folderId: null, hasContents: false, snippetCount: 0, subfolderCount: 0 })
   }, [deleteFolderDialog.folderId, getSubfolderIds, deleteFolder])
 
   // Snippet CRUD handlers
@@ -379,8 +380,16 @@ export function Sidebar() {
     }
 
     const folderName = targetFolderId ? folders.find((f) => f.id === targetFolderId)?.name : 'Root'
-    toast.success(`Moved ${snippetsToMove.length} snippet${snippetsToMove.length > 1 ? 's' : ''} to ${folderName || 'Root'}`)
-  }, [selectedIds, snippets, folders, moveSnippetsToFolder, pushUndoAction, closeContextMenu])
+    const movedNames = snippetsToMove.map((id) => snippets.find((s) => s.id === id)?.name).filter(Boolean)
+    const label = movedNames.length === 1 ? `"${movedNames[0]}"` : `${movedNames.length} snippets`
+    toast.success(`Moved ${label} to ${folderName || 'Root'}`, {
+      duration: 5000,
+      action: {
+        label: 'Undo',
+        onClick: () => undo(),
+      },
+    })
+  }, [selectedIds, snippets, folders, moveSnippetsToFolder, pushUndoAction, closeContextMenu, undo])
 
   const handleExportFolderConfirm = useCallback((includeSubfolders: boolean) => {
     if (!exportFolderDialog.folderId) return
@@ -530,6 +539,7 @@ export function Sidebar() {
     return targetDepth + subtreeDepth <= MAX_DEPTH - 1
   }, [getFolderDepth, isDescendantOf, getMaxSubtreeDepth])
 
+  // dragover handler: visual feedback on drop targets
   const handleDragOver = useCallback((e: React.DragEvent, targetFolderId: string | null, forcePosition?: 'inside' | 'before' | 'after') => {
     e.preventDefault()
     e.stopPropagation()
@@ -1020,7 +1030,7 @@ export function Sidebar() {
           />
         ) : (
           <>
-            <span className="truncate flex-1">{snippet.name}</span>
+            <span className="truncate flex-1" title={snippet.name}>{snippet.name}</span>
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -1089,8 +1099,8 @@ export function Sidebar() {
           className={cn(
             'flex items-center gap-1 pr-2 py-1.5 rounded cursor-pointer text-sm transition-all duration-100 outline-none focus-visible:ring-2 focus-visible:ring-ring',
             isBeingDragged && 'opacity-50',
-            isDropTarget && dropPosition === 'inside' && canReceiveDrop && 'ring-2 ring-blue-500 bg-blue-500/20',
-            isDropTarget && dropPosition === 'inside' && !canReceiveDrop && 'ring-2 ring-red-500 bg-red-500/20',
+            isDropTarget && dropPosition === 'inside' && canReceiveDrop && 'ring-2 ring-blue-500 bg-blue-500/20 border-blue-500',
+            isDropTarget && dropPosition === 'inside' && !canReceiveDrop && 'ring-2 ring-red-500 bg-red-500/20 border-red-500',
             selectedFolderId === folder.id
               ? 'bg-accent text-foreground'
               : 'text-muted-foreground hover:bg-accent/50 hover:text-secondary-foreground active:scale-[0.98]'
@@ -1120,7 +1130,7 @@ export function Sidebar() {
               className="flex-1 bg-accent border border-border rounded px-1 py-0.5 text-sm text-foreground focus:outline-none focus:border-blue-500"
             />
           ) : (
-            <span className="truncate flex-1">{folder.name}</span>
+            <span className="truncate flex-1" title={folder.name}>{folder.name}</span>
           )}
           {!isEditing && snippetCount > 0 && (
             <span data-testid="snippet-count" className="text-xs text-muted-foreground tabular-nums">({snippetCount})</span>
@@ -1284,7 +1294,16 @@ export function Sidebar() {
         onDrop={(e) => handleDrop(e, null)}
       >
         {folders.length === 0 && snippets.length === 0 ? (
-          <p className="text-sm text-muted-foreground p-2">No snippets yet</p>
+          <div className="flex flex-col items-center justify-center py-8 px-4 text-center gap-3">
+            <p className="text-sm text-muted-foreground">Create your first snippet to get started</p>
+            <button
+              onClick={handleNewSnippet}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              New Snippet
+            </button>
+          </div>
         ) : filteredSnippets.length === 0 && exportFilter !== 'all' ? (
           <p className="text-sm text-muted-foreground p-2">No {exportFilter} snippets</p>
         ) : (
@@ -1493,17 +1512,17 @@ export function Sidebar() {
       {/* Delete Folder Confirmation Dialog */}
       <dialog
         ref={deleteFolderDialogRef}
-        onClick={(e) => { if (e.target === deleteFolderDialogRef.current) setDeleteFolderDialog({ open: false, folderId: null, hasContents: false }) }}
+        onClick={(e) => { if (e.target === deleteFolderDialogRef.current) setDeleteFolderDialog({ open: false, folderId: null, hasContents: false, snippetCount: 0, subfolderCount: 0 }) }}
         className="backdrop:bg-black/50 bg-transparent p-0 max-w-sm w-full"
       >
         <div className="bg-muted border border-border rounded-lg shadow-xl p-4 mx-4">
           <h3 className="text-lg font-medium text-foreground mb-2">Delete Folder?</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            This folder contains items. Deleting it will move all snippets to the root level and remove all subfolders.
+            This folder contains {deleteFolderDialog.snippetCount > 0 ? `${deleteFolderDialog.snippetCount} snippet${deleteFolderDialog.snippetCount !== 1 ? 's' : ''}` : ''}{deleteFolderDialog.snippetCount > 0 && deleteFolderDialog.subfolderCount > 0 ? ' and ' : ''}{deleteFolderDialog.subfolderCount > 0 ? `${deleteFolderDialog.subfolderCount} subfolder${deleteFolderDialog.subfolderCount !== 1 ? 's' : ''}` : ''}. Snippets will be moved to root.
           </p>
           <div className="flex justify-end gap-2">
             <button
-              onClick={() => setDeleteFolderDialog({ open: false, folderId: null, hasContents: false })}
+              onClick={() => setDeleteFolderDialog({ open: false, folderId: null, hasContents: false, snippetCount: 0, subfolderCount: 0 })}
               className="px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded transition-colors"
             >
               Cancel
