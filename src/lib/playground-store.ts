@@ -7,7 +7,9 @@ type ActiveTab = 'preview' | 'playground'
 const STORAGE_KEY = 'prompt-workbench-playground'
 const TEST_VALUES_KEY = 'prompt-workbench-test-values'
 const HISTORY_KEY = 'prompt-workbench-run-history'
+const COMPARE_MODELS_KEY = 'prompt-workbench-compare-models'
 const MAX_RUNS = 5
+const MAX_COMPARE_MODELS = 3
 
 export interface PlaygroundRun {
   timestamp: number
@@ -17,6 +19,8 @@ export interface PlaygroundRun {
   response: string
   tokenCount: number
   durationMs: number
+  /** If part of a comparison, all models in the group */
+  compareGroup?: string[]
 }
 
 // testValues keyed by snippetId, then by placeholder key (e.g. "clipboard", "argument:Name")
@@ -53,6 +57,15 @@ interface ResponseMeta {
   elapsedMs: number
 }
 
+export interface CompareResponse {
+  model: string
+  response: string
+  tokenCount: number
+  elapsedMs: number
+  isRunning: boolean
+  error?: string
+}
+
 interface PlaygroundStore {
   activeTab: ActiveTab
   testValues: TestValues
@@ -61,6 +74,12 @@ interface PlaygroundStore {
   responseMeta: ResponseMeta | null
   abortController: AbortController | null
   runHistory: Record<string, PlaygroundRun[]>
+
+  // Multi-model comparison
+  compareModels: string[]
+  compareResponses: Record<string, CompareResponse>
+  isComparing: boolean
+  compareAbortControllers: AbortController[]
 
   setActiveTab: (tab: ActiveTab) => void
   setTestValue: (snippetId: string, key: string, value: string) => void
@@ -77,6 +96,18 @@ interface PlaygroundStore {
     systemPrompt?: string
   }) => Promise<void>
   stop: () => void
+
+  // Compare
+  toggleCompareModel: (model: string) => void
+  setCompareModels: (models: string[]) => void
+  clearCompareResponses: () => void
+  compareRun: (params: {
+    text: string
+    snippetId: string
+    ollamaUrl: string
+    systemPrompt?: string
+  }) => Promise<void>
+  stopCompare: () => void
 }
 
 function loadFromStorage(): Partial<{ activeTab: ActiveTab }> {
@@ -136,6 +167,133 @@ function saveRunHistory(history: Record<string, PlaygroundRun[]>): void {
   }
 }
 
+function loadCompareModels(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const stored = localStorage.getItem(COMPARE_MODELS_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
+
+function saveCompareModels(models: string[]): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(COMPARE_MODELS_KEY, JSON.stringify(models))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+/** Stream a single model's response, updating compareResponses in place */
+async function streamModelResponse(
+  model: string,
+  prompt: string,
+  ollamaUrl: string,
+  systemPrompt: string | undefined,
+  signal: AbortSignal,
+  set: (fn: (s: PlaygroundStore) => Partial<PlaygroundStore>) => void,
+): Promise<void> {
+  const startTime = Date.now()
+
+  // Init this model's response entry
+  set((s) => ({
+    compareResponses: {
+      ...s.compareResponses,
+      [model]: { model, response: '', tokenCount: 0, elapsedMs: 0, isRunning: true },
+    },
+  }))
+
+  try {
+    const res = await fetch('/api/playground/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, model, ollamaUrl, systemPrompt }),
+      signal,
+    })
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: 'Request failed' }))
+      set((s) => ({
+        compareResponses: {
+          ...s.compareResponses,
+          [model]: { ...s.compareResponses[model], isRunning: false, error: data.error ?? res.statusText },
+        },
+      }))
+      return
+    }
+
+    if (!res.body) {
+      set((s) => ({
+        compareResponses: {
+          ...s.compareResponses,
+          [model]: { ...s.compareResponses[model], isRunning: false, error: 'No response body' },
+        },
+      }))
+      return
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let accumulated = ''
+    let tokenCount = 0
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      const chunk = decoder.decode(value, { stream: true })
+      const lines = chunk.split('\n')
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const parsed = JSON.parse(line) as { response?: string; done?: boolean; eval_count?: number }
+          if (parsed.response) {
+            accumulated += parsed.response
+            set((s) => ({
+              compareResponses: {
+                ...s.compareResponses,
+                [model]: { ...s.compareResponses[model], response: accumulated },
+              },
+            }))
+          }
+          if (parsed.done && parsed.eval_count) {
+            tokenCount = parsed.eval_count
+          }
+        } catch {
+          // partial JSON line, skip
+        }
+      }
+    }
+
+    const elapsedMs = Date.now() - startTime
+    set((s) => ({
+      compareResponses: {
+        ...s.compareResponses,
+        [model]: { ...s.compareResponses[model], isRunning: false, tokenCount, elapsedMs },
+      },
+    }))
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      set((s) => ({
+        compareResponses: {
+          ...s.compareResponses,
+          [model]: { ...s.compareResponses[model], isRunning: false },
+        },
+      }))
+      return
+    }
+    const msg = err instanceof Error ? err.message : 'Run failed'
+    set((s) => ({
+      compareResponses: {
+        ...s.compareResponses,
+        [model]: { ...s.compareResponses[model], isRunning: false, error: msg },
+      },
+    }))
+  }
+}
+
 export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
   activeTab: 'preview',
   testValues: {},
@@ -144,6 +302,11 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
   responseMeta: null,
   abortController: null,
   runHistory: {},
+
+  compareModels: [],
+  compareResponses: {},
+  isComparing: false,
+  compareAbortControllers: [],
 
   setActiveTab: (tab) => {
     set({ activeTab: tab })
@@ -182,10 +345,12 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     const stored = loadFromStorage()
     const testValues = loadTestValues()
     const runHistory = loadRunHistory()
+    const compareModels = loadCompareModels()
     set({
       ...(stored.activeTab ? { activeTab: stored.activeTab } : {}),
       testValues,
       runHistory,
+      compareModels,
     })
   },
 
@@ -276,5 +441,81 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     const controller = get().abortController
     controller?.abort()
     set({ isRunning: false, abortController: null })
+  },
+
+  toggleCompareModel: (model) => {
+    const current = get().compareModels
+    let next: string[]
+    if (current.includes(model)) {
+      next = current.filter((m) => m !== model)
+    } else {
+      if (current.length >= MAX_COMPARE_MODELS) return
+      next = [...current, model]
+    }
+    set({ compareModels: next })
+    saveCompareModels(next)
+  },
+
+  setCompareModels: (models) => {
+    const clamped = models.slice(0, MAX_COMPARE_MODELS)
+    set({ compareModels: clamped })
+    saveCompareModels(clamped)
+  },
+
+  clearCompareResponses: () => {
+    set({ compareResponses: {} })
+  },
+
+  compareRun: async ({ text, snippetId, ollamaUrl, systemPrompt }) => {
+    const models = get().compareModels
+    if (models.length === 0) return
+
+    const values = get().getTestValues(snippetId)
+    const prompt = substitutePlaceholders(text, values)
+    const controllers = models.map(() => new AbortController())
+
+    set({
+      isComparing: true,
+      compareResponses: {},
+      compareAbortControllers: controllers,
+      // Clear single-run state
+      currentResponse: '',
+      responseMeta: null,
+    })
+
+    // Run all models in parallel
+    await Promise.allSettled(
+      models.map((model, i) =>
+        streamModelResponse(model, prompt, ollamaUrl, systemPrompt, controllers[i].signal, set)
+      )
+    )
+
+    set({ isComparing: false, compareAbortControllers: [] })
+
+    // Save each completed response as a grouped history entry
+    const responses = get().compareResponses
+    const timestamp = Date.now()
+    for (const model of models) {
+      const r = responses[model]
+      if (r && r.response && !r.error) {
+        get().addRun(snippetId, {
+          timestamp,
+          model,
+          testValues: values,
+          assembledPrompt: prompt,
+          response: r.response,
+          tokenCount: r.tokenCount,
+          durationMs: r.elapsedMs,
+          compareGroup: models,
+        })
+      }
+    }
+  },
+
+  stopCompare: () => {
+    for (const c of get().compareAbortControllers) {
+      c.abort()
+    }
+    set({ isComparing: false, compareAbortControllers: [] })
   },
 }))

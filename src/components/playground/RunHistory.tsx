@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Clock, RotateCcw } from 'lucide-react'
+import { ChevronDown, ChevronRight, Clock, RotateCcw, GitCompareArrows } from 'lucide-react'
 import { usePlaygroundStore } from '@/lib/playground-store'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
 import { cn } from '@/lib/utils'
@@ -36,6 +36,7 @@ function HistoryItem({
   const setTestValue = usePlaygroundStore((s) => s.setTestValue)
   const runAction = usePlaygroundStore((s) => s.run)
   const isRunning = usePlaygroundStore((s) => s.isRunning)
+  const isComparing = usePlaygroundStore((s) => s.isComparing)
   const ollamaUrl = useAISettingsStore((s) => s.ollamaUrl)
 
   const handleView = () => {
@@ -46,15 +47,14 @@ function HistoryItem({
         tokenCount: run.tokenCount,
         elapsedMs: run.durationMs,
       },
+      compareResponses: {},
     })
   }
 
   const handleRerun = () => {
-    // Restore test values
     for (const [key, value] of Object.entries(run.testValues)) {
       setTestValue(snippetId, key, value)
     }
-    // Re-execute with the same prompt text
     runAction({
       text: run.assembledPrompt,
       snippetId,
@@ -72,9 +72,22 @@ function HistoryItem({
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>{formatTime(run.timestamp)}</span>
           <span className="text-muted-foreground/60">·</span>
-          <span>{run.model}</span>
-          <span className="text-muted-foreground/60">·</span>
+          <span className="flex items-center gap-1">
+            {run.compareGroup && (
+              <GitCompareArrows className="w-3 h-3 text-violet-400" />
+            )}
+            {run.model}
+          </span>
+          <span className="text-muted-foreground/60">&middot;</span>
           <span>{formatDuration(run.durationMs)}</span>
+          {run.compareGroup && (
+            <>
+              <span className="text-muted-foreground/60">&middot;</span>
+              <span className="text-violet-400 text-[10px]">
+                vs {run.compareGroup.filter((m) => m !== run.model).join(', ')}
+              </span>
+            </>
+          )}
         </div>
         <p className="text-xs text-secondary-foreground mt-0.5 truncate">
           {truncate(run.response.replace(/\n/g, ' '), 100)}
@@ -82,7 +95,7 @@ function HistoryItem({
       </button>
       <button
         onClick={handleRerun}
-        disabled={isRunning}
+        disabled={isRunning || isComparing}
         className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-secondary-foreground hover:bg-accent transition-all disabled:opacity-30"
         title="Re-run with these values"
       >
@@ -119,7 +132,7 @@ export function RunHistory({ snippetId }: { snippetId: string }) {
           'bg-background',
         )}>
           {history.map((run) => (
-            <HistoryItem key={run.timestamp} run={run} snippetId={snippetId} />
+            <HistoryItem key={`${run.timestamp}-${run.model}`} run={run} snippetId={snippetId} />
           ))}
         </div>
       )}
