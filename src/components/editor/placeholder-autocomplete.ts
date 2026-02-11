@@ -1,6 +1,7 @@
 import { autocompletion, completionKeymap, CompletionContext, type Completion } from '@codemirror/autocomplete'
 import { EditorView, keymap } from '@codemirror/view'
 import { Prec } from '@codemirror/state'
+import { useSnippetStore } from '@/lib/store'
 
 const PLACEHOLDER_COMPLETIONS: Completion[] = [
   { label: '{clipboard}', detail: 'Clipboard content', type: 'keyword' },
@@ -18,7 +19,29 @@ const PLACEHOLDER_COMPLETIONS: Completion[] = [
   { label: '{snippet name=""}', detail: 'Reference another snippet', type: 'keyword' },
 ]
 
+function getSnippetNameCompletions(): Completion[] {
+  const { snippets } = useSnippetStore.getState()
+  return snippets.map((s) => ({
+    label: s.name,
+    detail: s.keyword ? `/${s.keyword}` : undefined,
+    type: 'variable',
+    apply: `{snippet name="${s.name}"}`,
+  }))
+}
+
 function completePlaceholder(context: CompletionContext) {
+  // Check for {snippet name=" context — offer snippet name completions
+  const snippetMatch = context.matchBefore(/\{snippet\s+name="[^"]*/)
+  if (snippetMatch) {
+    // Position "from" at the start of the name value (after the opening quote)
+    const quoteIdx = snippetMatch.text.lastIndexOf('"')
+    return {
+      from: snippetMatch.from + quoteIdx + 1,
+      options: getSnippetNameCompletions(),
+      filter: true,
+    }
+  }
+
   // Match from the opening { up to the cursor
   const match = context.matchBefore(/\{[^}\s]*/)
   if (!match) return null
