@@ -6,6 +6,7 @@ import { usePlaygroundStore } from '@/lib/playground-store'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
 import { TestValueInputs } from '@/components/playground/TestValueInputs'
 import { ResponseViewer } from '@/components/playground/ResponseViewer'
+import { RunHistory } from '@/components/playground/RunHistory'
 
 export function PlaygroundPanel() {
   const snippet = useSnippetStore((s) => s.getSelectedSnippet())
@@ -66,6 +67,7 @@ export function PlaygroundPanel() {
         </div>
 
         <ResponseViewer />
+        <RunHistory snippetId={snippet.id} />
       </div>
     </div>
   )

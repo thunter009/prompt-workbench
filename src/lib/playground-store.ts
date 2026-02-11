@@ -6,6 +6,18 @@ type ActiveTab = 'preview' | 'playground'
 
 const STORAGE_KEY = 'prompt-workbench-playground'
 const TEST_VALUES_KEY = 'prompt-workbench-test-values'
+const HISTORY_KEY = 'prompt-workbench-run-history'
+const MAX_RUNS = 5
+
+export interface PlaygroundRun {
+  timestamp: number
+  model: string
+  testValues: Record<string, string>
+  assembledPrompt: string
+  response: string
+  tokenCount: number
+  durationMs: number
+}
 
 // testValues keyed by snippetId, then by placeholder key (e.g. "clipboard", "argument:Name")
 type TestValues = Record<string, Record<string, string>>
@@ -48,11 +60,14 @@ interface PlaygroundStore {
   currentResponse: string
   responseMeta: ResponseMeta | null
   abortController: AbortController | null
+  runHistory: Record<string, PlaygroundRun[]>
 
   setActiveTab: (tab: ActiveTab) => void
   setTestValue: (snippetId: string, key: string, value: string) => void
   getTestValues: (snippetId: string) => Record<string, string>
   clearResponse: () => void
+  addRun: (snippetId: string, run: PlaygroundRun) => void
+  getHistory: (snippetId: string) => PlaygroundRun[]
   load: () => void
   run: (params: {
     text: string
@@ -102,6 +117,25 @@ function saveTestValues(testValues: TestValues): void {
   }
 }
 
+function loadRunHistory(): Record<string, PlaygroundRun[]> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const stored = localStorage.getItem(HISTORY_KEY)
+    return stored ? JSON.parse(stored) : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveRunHistory(history: Record<string, PlaygroundRun[]>): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
   activeTab: 'preview',
   testValues: {},
@@ -109,6 +143,7 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
   currentResponse: '',
   responseMeta: null,
   abortController: null,
+  runHistory: {},
 
   setActiveTab: (tab) => {
     set({ activeTab: tab })
@@ -131,12 +166,26 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     set({ currentResponse: '', responseMeta: null })
   },
 
+  addRun: (snippetId, run) => {
+    const history = { ...get().runHistory }
+    const existing = history[snippetId] ?? []
+    history[snippetId] = [run, ...existing].slice(0, MAX_RUNS)
+    set({ runHistory: history })
+    saveRunHistory(history)
+  },
+
+  getHistory: (snippetId) => {
+    return get().runHistory[snippetId] ?? []
+  },
+
   load: () => {
     const stored = loadFromStorage()
     const testValues = loadTestValues()
+    const runHistory = loadRunHistory()
     set({
       ...(stored.activeTab ? { activeTab: stored.activeTab } : {}),
       testValues,
+      runHistory,
     })
   },
 
@@ -195,11 +244,24 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
         }
       }
 
+      const elapsedMs = Date.now() - startTime
       set({
         isRunning: false,
         abortController: null,
-        responseMeta: { model, tokenCount, elapsedMs: Date.now() - startTime },
+        responseMeta: { model, tokenCount, elapsedMs },
       })
+
+      if (accumulated) {
+        get().addRun(snippetId, {
+          timestamp: Date.now(),
+          model,
+          testValues: values,
+          assembledPrompt: prompt,
+          response: accumulated,
+          tokenCount,
+          durationMs: elapsedMs,
+        })
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         set({ isRunning: false, abortController: null })
