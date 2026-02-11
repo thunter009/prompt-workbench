@@ -41,7 +41,9 @@ import {
 } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
 import { useImprovePrompt, ImprovePromptButton, ImprovePromptReview } from '@/components/ImprovePrompt'
-import { PanelRight, PanelRightClose, Download, Upload, Settings, Zap, AlertTriangle, History, Check, Loader2, RefreshCw, HelpCircle, ChevronDown, Menu, X } from 'lucide-react'
+import { PanelRight, PanelRightClose, Download, Upload, Settings, Zap, AlertTriangle, History, Check, Loader2, RefreshCw, HelpCircle, ChevronDown, Menu, X, Eye, EyeOff } from 'lucide-react'
+import type { EditorView } from '@codemirror/view'
+import { togglePreviewEffect, previewEnabledField } from '@/components/editor/raycast-placeholder-language'
 import type { Snippet } from '@/types'
 
 const AUTOSAVE_DEBOUNCE_MS = 500
@@ -59,6 +61,8 @@ export default function HomePage() {
   const [scrollProgress, setScrollProgress] = useState(0)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
 
+  const editorViewRef = useRef<EditorView | null>(null)
+  const [inlinePreviewsOn, setInlinePreviewsOn] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const keyboardHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {})
@@ -329,6 +333,21 @@ export default function HomePage() {
   }, [selectedId, updateSnippet])
 
   const improve = useImprovePrompt(content, handleAcceptImproved)
+
+  const handleEditorViewReady = useCallback((view: EditorView | null) => {
+    editorViewRef.current = view
+    if (view) {
+      setInlinePreviewsOn(view.state.field(previewEnabledField))
+    }
+  }, [])
+
+  const toggleInlinePreviews = useCallback(() => {
+    const view = editorViewRef.current
+    if (!view) return
+    const next = !view.state.field(previewEnabledField)
+    view.dispatch({ effects: togglePreviewEffect.of(next) })
+    setInlinePreviewsOn(next)
+  }, [])
 
   const handleEditorScroll = useCallback((progress: number) => {
     if (syncScroll) {
@@ -807,6 +826,16 @@ export default function HomePage() {
                     <div className="flex items-center border-b border-border">
                       <EditorPanelHeader />
                       <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
+                        <button
+                          onClick={toggleInlinePreviews}
+                          className={cn(
+                            'p-1.5 rounded hover:bg-accent transition-colors',
+                            inlinePreviewsOn ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+                          )}
+                          title={inlinePreviewsOn ? 'Hide placeholder previews' : 'Show placeholder previews'}
+                        >
+                          {inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        </button>
                         <ImprovePromptButton disabled={improve.disabled} loading={improve.status === 'loading'} onImprove={improve.handleImprove} />
                         {saveStatus === 'saving' && (
                           <>
@@ -823,7 +852,7 @@ export default function HomePage() {
                       </div>
                     </div>
                     <div className="flex-1 overflow-auto relative">
-                      <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} />
+                      <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} onViewReady={handleEditorViewReady} />
                       <ImprovePromptReview status={improve.status} improved={improve.improved} error={improve.error} onAccept={improve.accept} onReject={improve.reject} />
                     </div>
                   </div>
@@ -885,6 +914,16 @@ export default function HomePage() {
               <div className="flex items-center border-b border-border">
                 <EditorPanelHeader />
                 <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <button
+                    onClick={toggleInlinePreviews}
+                    className={cn(
+                      'p-1.5 rounded hover:bg-accent transition-colors',
+                      inlinePreviewsOn ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+                    )}
+                    title={inlinePreviewsOn ? 'Hide placeholder previews' : 'Show placeholder previews'}
+                  >
+                    {inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
                   <ImprovePromptButton disabled={improve.disabled} loading={improve.status === 'loading'} onImprove={improve.handleImprove} />
                   {saveStatus === 'saving' && (
                     <>
@@ -901,7 +940,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="flex-1 overflow-auto relative">
-                <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} />
+                <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} onViewReady={handleEditorViewReady} />
                 <ImprovePromptReview status={improve.status} improved={improve.improved} error={improve.error} onAccept={improve.accept} onReject={improve.reject} />
               </div>
             </div>

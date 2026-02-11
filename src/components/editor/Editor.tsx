@@ -14,13 +14,15 @@ export interface EditorProps {
   value?: string
   onChange?: (value: string) => void
   onScrollProgress?: (progress: number) => void
+  onViewReady?: (view: EditorView | null) => void
 }
 
-export function Editor({ value = '', onChange, onScrollProgress }: EditorProps) {
+export function Editor({ value = '', onChange, onScrollProgress, onViewReady }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
   const onScrollProgressRef = useRef(onScrollProgress)
+  const onViewReadyRef = useRef(onViewReady)
   const valueRef = useRef(value)
   const isExternalUpdateRef = useRef(false)
   const [mounted, setMounted] = useState(false)
@@ -28,6 +30,7 @@ export function Editor({ value = '', onChange, onScrollProgress }: EditorProps) 
   // Keep refs in sync
   onChangeRef.current = onChange
   onScrollProgressRef.current = onScrollProgress
+  onViewReadyRef.current = onViewReady
 
   useEffect(() => {
     setMounted(true)
@@ -143,6 +146,7 @@ export function Editor({ value = '', onChange, onScrollProgress }: EditorProps) 
     })
 
     viewRef.current = view
+    onViewReadyRef.current?.(view)
 
     // Add passive scroll listener for smoother scrolling
     view.scrollDOM.addEventListener('scroll', handleScroll, { passive: true })
@@ -151,6 +155,7 @@ export function Editor({ value = '', onChange, onScrollProgress }: EditorProps) 
       view.scrollDOM.removeEventListener('scroll', handleScroll)
       view.destroy()
       viewRef.current = null
+      onViewReadyRef.current?.(null)
     }
   }, [mounted])
 

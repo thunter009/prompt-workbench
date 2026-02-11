@@ -1,0 +1,86 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - heading "Prompt Workbench" [level=1] [ref=e6]
+        - generic [ref=e7]:
+          - button "Sync to Raycast" [ref=e8] [cursor=pointer]:
+            - img [ref=e9]
+          - button "Import from Raycast" [ref=e14] [cursor=pointer]:
+            - img [ref=e15]
+          - generic [ref=e19]:
+            - button "Quick export" [ref=e20] [cursor=pointer]:
+              - img [ref=e21]
+            - button "More export options" [ref=e24] [cursor=pointer]:
+              - img [ref=e25]
+          - button "Version history" [ref=e27] [cursor=pointer]:
+            - img [ref=e28]
+          - button "Settings" [ref=e32] [cursor=pointer]:
+            - img [ref=e33]
+          - button "Keyboard shortcuts" [ref=e36] [cursor=pointer]:
+            - img [ref=e37]
+          - button "Switch to dark mode" [ref=e161] [cursor=pointer]:
+            - img [ref=e162]
+          - button "Hide preview" [expanded] [ref=e41] [cursor=pointer]:
+            - img [ref=e42]
+      - generic [ref=e46]:
+        - complementary [ref=e49]:
+          - generic [ref=e50]:
+            - generic [ref=e51]: Snippets
+            - generic [ref=e52]:
+              - button "Filter by export status" [ref=e54] [cursor=pointer]:
+                - img [ref=e55]
+              - button "Batch reorganize" [ref=e57] [cursor=pointer]:
+                - img [ref=e58]
+              - button "New folder" [ref=e61] [cursor=pointer]:
+                - img [ref=e62]
+              - button "New snippet" [ref=e64] [cursor=pointer]:
+                - img [ref=e65]
+          - generic [ref=e67]:
+            - paragraph [ref=e68]: Create your first snippet to get started
+            - button "New Snippet" [ref=e69] [cursor=pointer]:
+              - img [ref=e70]
+              - text: New Snippet
+        - separator [ref=e71]
+        - generic [ref=e74]:
+          - generic [ref=e76]:
+            - button "Show placeholder previews" [ref=e77] [cursor=pointer]:
+              - img [ref=e78]
+            - button "Text too short (<20 chars)" [disabled] [ref=e83]:
+              - img [ref=e84]
+          - generic [ref=e166]:
+            - generic [ref=e169]: "1"
+            - textbox [ref=e170]
+        - separator [ref=e132]
+        - generic [ref=e135]:
+          - generic [ref=e136]:
+            - button "Preview" [ref=e137] [cursor=pointer]
+            - button "Playground" [ref=e138] [cursor=pointer]
+          - generic [ref=e172]:
+            - generic [ref=e173]:
+              - generic [ref=e174]:
+                - button "Preview" [ref=e175] [cursor=pointer]
+                - button "Playground" [ref=e176] [cursor=pointer]
+              - generic [ref=e177]:
+                - button "Hide resolved includes" [ref=e178] [cursor=pointer]:
+                  - img [ref=e179]
+                - button "Disable scroll sync" [ref=e183] [cursor=pointer]:
+                  - img [ref=e184]
+                - button "Show example values" [ref=e187] [cursor=pointer]:
+                  - img [ref=e188]
+            - generic [ref=e194]: Start typing to see preview...
+  - region "Notifications alt+T"
+  - generic [ref=e199] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e200]:
+      - img [ref=e201]
+    - generic [ref=e204]:
+      - button "Open issues overlay" [ref=e205]:
+        - generic [ref=e206]:
+          - generic [ref=e207]: "1"
+          - generic [ref=e208]: "2"
+        - generic [ref=e209]:
+          - text: Issue
+          - generic [ref=e210]: s
+      - button "Collapse issues badge" [ref=e211]:
+        - img [ref=e212]
+  - alert [ref=e214]
