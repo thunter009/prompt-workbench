@@ -30,13 +30,44 @@ import { useSnippetStore } from "@/lib/store";
 const PLACEHOLDER_REGEX =
   /\{(clipboard|cursor|date|time|datetime|day|uuid|selection|argument|snippet)(\s+[^}]*)?\}/g;
 
-// CSS class for placeholder styling
-const placeholderMark = Decoration.mark({ class: "cm-raycast-placeholder" });
+// Type-specific decoration marks
+const markCache: Record<string, Decoration> = {};
+function markForType(type: string): Decoration {
+  if (!markCache[type]) {
+    markCache[type] = Decoration.mark({
+      class: `cm-raycast-placeholder cm-raycast-placeholder-${type}`,
+    });
+  }
+  return markCache[type];
+}
+
+// Map placeholder names to color categories
+function placeholderCategory(name: string): string {
+  switch (name) {
+    case "clipboard":
+      return "clipboard";
+    case "argument":
+      return "argument";
+    case "snippet":
+      return "snippet";
+    case "date":
+    case "time":
+    case "datetime":
+    case "day":
+      return "date";
+    case "cursor":
+    case "uuid":
+    case "selection":
+      return "cursor";
+    default:
+      return "clipboard";
+  }
+}
 
 // Create a match decorator that finds all placeholders
 const placeholderMatcher = new MatchDecorator({
   regexp: PLACEHOLDER_REGEX,
-  decoration: () => placeholderMark,
+  decoration: (m) => markForType(placeholderCategory(m[1])),
 });
 
 // View plugin that applies the decorations
@@ -147,24 +178,40 @@ const snippetClickHandler = EditorView.domEventHandlers({
   },
 });
 
-// Theme for placeholder styling
+// Theme for placeholder styling — type-aware colors
 export const raycastPlaceholderTheme = EditorView.baseTheme({
   ".cm-raycast-placeholder": {
-    backgroundColor: "rgba(124, 58, 237, 0.15)",
     borderRadius: "3px",
     padding: "0 2px",
-    color: "rgb(124, 58, 237)",
     fontWeight: "500",
   },
-  ".cm-raycast-placeholder-name": {
+  // clipboard — purple (default/original)
+  ".cm-raycast-placeholder-clipboard": {
+    backgroundColor: "rgba(124, 58, 237, 0.15)",
     color: "rgb(124, 58, 237)",
-    fontWeight: "600",
   },
-  ".cm-raycast-placeholder-attr": {
-    color: "rgb(99, 102, 241)",
+  // argument — amber
+  ".cm-raycast-placeholder-argument": {
+    backgroundColor: "rgba(217, 119, 6, 0.15)",
+    color: "rgb(217, 119, 6)",
+  },
+  // snippet — teal
+  ".cm-raycast-placeholder-snippet": {
+    backgroundColor: "rgba(13, 148, 136, 0.15)",
+    color: "rgb(13, 148, 136)",
+  },
+  // date/time — blue
+  ".cm-raycast-placeholder-date": {
+    backgroundColor: "rgba(37, 99, 235, 0.15)",
+    color: "rgb(37, 99, 235)",
+  },
+  // cursor/uuid/selection — rose
+  ".cm-raycast-placeholder-cursor": {
+    backgroundColor: "rgba(225, 29, 72, 0.15)",
+    color: "rgb(225, 29, 72)",
   },
   "&.cm-focused .cm-raycast-placeholder": {
-    backgroundColor: "rgba(124, 58, 237, 0.2)",
+    filter: "brightness(1.1)",
   },
   // Snippet tooltip styles
   ".cm-snippet-tooltip": {
