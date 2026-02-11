@@ -11,7 +11,7 @@ import { TagFilter } from '@/components/TagFilter'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ExportFolderDialog } from '@/components/ExportFolderDialog'
 import { FolderReorgModal } from '@/components/FolderReorgModal'
-import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown, Pencil, Sparkles, Copy, Trash2, FolderInput } from 'lucide-react'
+import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown, Pencil, Sparkles, Copy, Trash2, FolderInput, Download, XCircle } from 'lucide-react'
 import type { Snippet, Folder } from '@/types'
 
 type DragItemType = 'snippet' | 'folder'
@@ -37,6 +37,102 @@ interface ContextMenuState {
   visible: boolean
   type: ContextMenuType
   folderId?: string
+}
+
+function BulkToolbar({
+  selectedIds,
+  folders,
+  onDelete,
+  onMove,
+  onExport,
+  onClear,
+  getFolderDepth,
+}: {
+  selectedIds: Set<string>
+  folders: Folder[]
+  onDelete: () => void
+  onMove: (folderId: string | null) => void
+  onExport: () => void
+  onClear: () => void
+  getFolderDepth: (id: string) => number
+}) {
+  const [moveOpen, setMoveOpen] = useState(false)
+  const moveRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!moveOpen) return
+    const handler = (e: MouseEvent) => {
+      if (moveRef.current && !moveRef.current.contains(e.target as Node)) {
+        setMoveOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [moveOpen])
+
+  return (
+    <div data-testid="bulk-toolbar" className="p-2 border-t border-border bg-muted/80 flex items-center gap-1">
+      <span className="text-xs text-muted-foreground mr-auto">{selectedIds.size} selected</span>
+      <button
+        data-testid="bulk-delete"
+        onClick={onDelete}
+        className="p-1.5 rounded hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
+        title="Delete selected"
+        aria-label="Delete selected"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+      <div className="relative" ref={moveRef}>
+        <button
+          data-testid="bulk-move"
+          onClick={() => setMoveOpen((v) => !v)}
+          className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+          title="Move to folder"
+          aria-label="Move to folder"
+        >
+          <FolderInput className="w-3.5 h-3.5" />
+        </button>
+        {moveOpen && (
+          <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[140px] max-h-[200px] overflow-y-auto z-50">
+            <button
+              onClick={() => { onMove(null); setMoveOpen(false) }}
+              className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors"
+            >
+              Root
+            </button>
+            {folders.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => { onMove(f.id); setMoveOpen(false) }}
+                className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors truncate"
+                style={{ paddingLeft: `${getFolderDepth(f.id) * 8 + 12}px` }}
+              >
+                {f.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <button
+        data-testid="bulk-export"
+        onClick={onExport}
+        className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+        title="Export selected"
+        aria-label="Export selected"
+      >
+        <Download className="w-3.5 h-3.5" />
+      </button>
+      <button
+        data-testid="bulk-clear"
+        onClick={onClear}
+        className="p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+        title="Clear selection"
+        aria-label="Clear selection"
+      >
+        <XCircle className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )
 }
 
 export function Sidebar() {
@@ -1296,9 +1392,21 @@ export function Sidebar() {
         )}
       </div>
 
-      {selectedIds.size > 0 && (
+      {selectedIds.size > 1 && (
+        <BulkToolbar
+          selectedIds={selectedIds}
+          folders={folders}
+          onDelete={handleDeleteSelectedSnippets}
+          onMove={handleMoveToFolder}
+          onExport={handleExportSelected}
+          onClear={clearSelection}
+          getFolderDepth={getFolderDepth}
+        />
+      )}
+
+      {selectedIds.size === 1 && (
         <div className="p-2 border-t border-border text-xs text-muted-foreground">
-          {selectedIds.size} selected
+          1 selected
         </div>
       )}
 

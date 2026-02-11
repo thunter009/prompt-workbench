@@ -85,6 +85,7 @@ export default function HomePage() {
     snippets, selectedId, selectedIds, getSelectedSnippet,
     createSnippet, updateSnippet, selectSnippet,
     deleteSnippets, duplicateSnippet, folders, createFolder,
+    selectAllSnippets, clearSelection,
   } = useSnippetStore(
     useShallow((s) => ({
       snippets: s.snippets,
@@ -98,6 +99,8 @@ export default function HomePage() {
       duplicateSnippet: s.duplicateSnippet,
       folders: s.folders,
       createFolder: s.createFolder,
+      selectAllSnippets: s.selectAllSnippets,
+      clearSelection: s.clearSelection,
     }))
   )
 
@@ -513,6 +516,18 @@ export default function HomePage() {
         e.preventDefault()
         const copy = duplicateSnippet(id)
         if (copy) toast.success(`Duplicated "${copy.name}"`)
+      }
+    }
+    // Cmd+A: select all visible snippets
+    if ((e.metaKey || e.ctrlKey) && e.key === 'a') { // select all
+      e.preventDefault()
+      selectAllSnippets()
+    }
+    // Escape: clear selection
+    if (e.key === 'Escape') {
+      if (selectedIds.size > 0) {
+        e.preventDefault()
+        clearSelection()
       }
     }
   }
