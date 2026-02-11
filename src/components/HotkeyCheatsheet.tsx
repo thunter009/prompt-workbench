@@ -19,7 +19,9 @@ const HOTKEYS = [
     { key: '⌘ K', description: 'Suggest keyword' },
   ]},
   { section: 'Snippets', keys: [
-    { key: '⌫', description: 'Delete selected snippets' },
+    { key: '⌘ N', description: 'New snippet' },
+    { key: '⌘ ⇧ N', description: 'New folder' },
+    { key: '⌫', description: 'Delete snippet' },
     { key: '⌘ D', description: 'Duplicate snippet' },
     { key: 'F2', description: 'Rename snippet' },
     { key: '⌘ Z', description: 'Undo last action' },

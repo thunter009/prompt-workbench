@@ -42,10 +42,10 @@ test.describe('Snippet CRUD & Context Menu', () => {
 
     // Confirmation dialog appears
     await expect(page.getByText('Delete Snippet?')).toBeVisible()
-    await expect(page.getByText('"Delete Me" will be permanently deleted.')).toBeVisible()
+    await expect(page.getByText(/Delete Me.*will be permanently deleted/)).toBeVisible()
 
     // Confirm
-    await page.locator('[data-testid="delete-snippet-confirm"]').click()
+    await page.locator('[data-testid="snippet-delete-confirm"]').click()
 
     // Snippet gone
     await expect(page.locator('[data-testid="snippet-row"]')).toHaveCount(0)
@@ -61,7 +61,7 @@ test.describe('Snippet CRUD & Context Menu', () => {
     const row = page.locator('[data-testid="snippet-row"]').first()
     await row.click({ button: 'right' })
     await page.locator('[data-testid="snippet-delete"]').click()
-    await page.locator('[data-testid="delete-snippet-cancel"]').click()
+    await page.locator('[data-testid="snippet-delete-cancel"]').click()
 
     // Snippet still there
     await expect(page.locator('[data-testid="snippet-row"]')).toHaveCount(1)
@@ -89,7 +89,7 @@ test.describe('Snippet CRUD & Context Menu', () => {
     // Delete
     await page.locator('[data-testid="snippet-delete"]').click()
     await expect(page.getByText('Delete 2 Snippets?')).toBeVisible()
-    await page.locator('[data-testid="delete-snippet-confirm"]').click()
+    await page.locator('[data-testid="snippet-delete-confirm"]').click()
 
     // Only one snippet left
     await expect(rows).toHaveCount(1)
@@ -191,9 +191,9 @@ test.describe('Snippet CRUD & Context Menu', () => {
     // Press Delete/Backspace
     await page.keyboard.press('Backspace')
 
-    // Confirmation should appear
+    // Confirmation should appear (keyboard shortcut uses page.tsx dialog)
     await expect(page.getByText('Delete Snippet?')).toBeVisible()
-    await page.locator('[data-testid="delete-snippet-confirm"]').click()
+    await page.locator('[data-testid="kbd-delete-confirm"]').click()
     await expect(page.locator('[data-testid="snippet-row"]')).toHaveCount(0)
   })
 
@@ -218,11 +218,11 @@ test.describe('Snippet CRUD & Context Menu', () => {
       store.getState().createSnippet({ name: 'Restore Me', text: 'content' })
     })
 
-    // Select and delete
+    // Select and delete (keyboard shortcut uses page.tsx dialog)
     const row = page.locator('[data-testid="snippet-row"]').first()
     await row.click()
     await page.keyboard.press('Backspace')
-    await page.locator('[data-testid="delete-snippet-confirm"]').click()
+    await page.locator('[data-testid="kbd-delete-confirm"]').click()
     await expect(page.locator('[data-testid="snippet-row"]')).toHaveCount(0)
 
     // Undo

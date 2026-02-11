@@ -801,25 +801,7 @@ export function Sidebar() {
         return
       }
 
-      // Delete/Backspace: delete selected snippets
-      if ((e.key === 'Delete' || e.key === 'Backspace') && !e.metaKey && !e.ctrlKey) {
-        if (selectedIds.size > 0) {
-          e.preventDefault()
-          setDeleteSnippetDialog({ open: true, snippetIds: Array.from(selectedIds) })
-        }
-        return
-      }
-
-      // Cmd+D: duplicate
-      if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
-        const id = selectedIds.size > 0 ? Array.from(selectedIds)[0] : selectedId
-        if (id) {
-          e.preventDefault()
-          const copy = duplicateSnippet(id)
-          if (copy) toast.success(`Duplicated "${copy.name}"`)
-        }
-        return
-      }
+      // Delete/Backspace and Cmd+D handled in page.tsx keyboard handler
 
       // ArrowDown/ArrowUp: navigate snippet list
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -888,7 +870,7 @@ export function Sidebar() {
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [undo, canUndo, selectedIds, selectedId, selectedFolderId, snippets, duplicateSnippet, navigableItems, selectSnippet, selectFolder, toggleFolder])
+  }, [undo, canUndo, selectedIds, selectedId, selectedFolderId, snippets, navigableItems, selectSnippet, selectFolder, toggleFolder])
 
   const handleNewSnippet = useCallback(() => {
     createSnippet({ name: 'New Snippet', text: '' })

@@ -22,6 +22,7 @@ import { HotkeyCheatsheet } from '@/components/HotkeyCheatsheet'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { loadPersistedState, updatePersistedField } from '@/lib/persistence'
 import { useSnippetStore } from '@/lib/store'
+import { useUndoStore } from '@/lib/undo-store'
 import { useConflictStore } from '@/lib/conflict-store'
 import { useSyncSettingsStore } from '@/lib/sync-settings-store'
 import { useSyncHistoryStore } from '@/lib/sync-history-store'
@@ -80,22 +81,37 @@ export default function HomePage() {
   )
 
   // Snippet CRUD
-  const { snippets, selectedId, getSelectedSnippet, createSnippet, updateSnippet, selectSnippet } = useSnippetStore(
+  const {
+    snippets, selectedId, selectedIds, getSelectedSnippet,
+    createSnippet, updateSnippet, selectSnippet,
+    deleteSnippets, duplicateSnippet, folders, createFolder,
+  } = useSnippetStore(
     useShallow((s) => ({
       snippets: s.snippets,
       selectedId: s.selectedId,
+      selectedIds: s.selectedIds,
       getSelectedSnippet: s.getSelectedSnippet,
       createSnippet: s.createSnippet,
       updateSnippet: s.updateSnippet,
       selectSnippet: s.selectSnippet,
+      deleteSnippets: s.deleteSnippets,
+      duplicateSnippet: s.duplicateSnippet,
+      folders: s.folders,
+      createFolder: s.createFolder,
     }))
   )
+
+  // Undo
+  const pushUndoAction = useUndoStore((s) => s.pushAction)
+  const undo = useUndoStore((s) => s.undo)
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [hotkeySheetOpen, setHotkeySheetOpen] = useState(false)
+  const [deleteDialogIds, setDeleteDialogIds] = useState<string[]>([])
+  const deleteDialogRef = useRef<HTMLDialogElement>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
@@ -255,6 +271,30 @@ export default function HomePage() {
       cancelInference()
     }
   }, [cancelInference])
+
+  // Manage delete snippet dialog
+  useEffect(() => {
+    const dialog = deleteDialogRef.current
+    if (!dialog) return
+    if (deleteDialogIds.length > 0) {
+      dialog.showModal()
+    } else {
+      dialog.close()
+    }
+  }, [deleteDialogIds])
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (deleteDialogIds.length === 0) return
+    const deleted = deleteSnippets(deleteDialogIds)
+    if (deleted.length > 0) {
+      pushUndoAction({ type: 'snippetDelete', deletedSnippets: deleted })
+      toast.success(`Deleted ${deleted.length} snippet${deleted.length > 1 ? 's' : ''}`, {
+        duration: 5000,
+        action: { label: 'Undo', onClick: () => undo() },
+      })
+    }
+    setDeleteDialogIds([])
+  }, [deleteDialogIds, deleteSnippets, pushUndoAction, undo])
 
   const handleEditorScroll = useCallback((progress: number) => {
     if (syncScroll) {
@@ -441,6 +481,39 @@ export default function HomePage() {
     if ((e.metaKey || e.ctrlKey) && (e.key === '?' || e.key === '/')) {
       e.preventDefault()
       setHotkeySheetOpen(true)
+    }
+
+    // Snippet CRUD shortcuts — skip when typing in inputs or editor
+    const inInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
+    const inEditor = (e.target as HTMLElement)?.closest?.('.cm-editor')
+    if (inInput || inEditor) return
+
+    // Cmd+N: new snippet
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'n') {
+      e.preventDefault()
+      createSnippet({ name: 'New Snippet', text: '' })
+    }
+    // Cmd+Shift+N: new folder
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'n') {
+      e.preventDefault()
+      const maxOrder = folders.reduce((max, f) => (!f.parentId ? Math.max(max, f.orderIndex) : max), -1)
+      createFolder({ name: 'New Folder', orderIndex: maxOrder + 1 })
+    }
+    // Delete/Backspace: delete selected snippet(s) with confirmation
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !e.metaKey && !e.ctrlKey) {
+      if (selectedIds.size > 0) {
+        e.preventDefault()
+        setDeleteDialogIds(Array.from(selectedIds))
+      }
+    }
+    // Cmd+D: duplicate selected snippet
+    if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+      const id = selectedIds.size > 0 ? Array.from(selectedIds)[0] : selectedId
+      if (id) {
+        e.preventDefault()
+        const copy = duplicateSnippet(id)
+        if (copy) toast.success(`Duplicated "${copy.name}"`)
+      }
     }
   }
 
@@ -759,6 +832,55 @@ export default function HomePage() {
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <ImportModal open={importOpen} onClose={() => setImportOpen(false)} />
       <HotkeyCheatsheet open={hotkeySheetOpen} onClose={() => setHotkeySheetOpen(false)} />
+
+      {/* Delete Snippet Confirmation (keyboard shortcut) */}
+      {deleteDialogIds.length > 0 && (
+        <dialog
+          ref={deleteDialogRef}
+          onClick={(e) => { if (e.target === deleteDialogRef.current) setDeleteDialogIds([]) }}
+          className="backdrop:bg-black/50 bg-transparent p-0 max-w-sm w-full"
+        >
+          <div className="bg-muted border border-border rounded-lg shadow-xl p-4 mx-4">
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              Delete {deleteDialogIds.length === 1 ? 'Snippet' : `${deleteDialogIds.length} Snippets`}?
+            </h3>
+            <div className="text-sm text-muted-foreground mb-4">
+              {deleteDialogIds.length === 1
+                ? <p>&ldquo;{snippets.find((s) => s.id === deleteDialogIds[0])?.name}&rdquo; will be permanently deleted.</p>
+                : (
+                  <>
+                    <p className="mb-2">{deleteDialogIds.length} snippets will be permanently deleted:</p>
+                    <ul className="list-disc pl-4 space-y-0.5">
+                      {deleteDialogIds.slice(0, 5).map((id) => (
+                        <li key={id} className="truncate">{snippets.find((s) => s.id === id)?.name}</li>
+                      ))}
+                      {deleteDialogIds.length > 5 && (
+                        <li className="text-muted-foreground/70">+ {deleteDialogIds.length - 5} more</li>
+                      )}
+                    </ul>
+                  </>
+                )}
+              <p className="mt-2">You can undo this with &#x2318;Z.</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteDialogIds([])}
+                data-testid="kbd-delete-cancel"
+                className="px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                data-testid="kbd-delete-confirm"
+                className="px-3 py-1.5 text-sm text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </dialog>
+      )}
     </main>
   )
 }
