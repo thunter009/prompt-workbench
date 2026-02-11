@@ -380,11 +380,11 @@ export default function HomePage() {
       let autoImportTriggered = false
 
       if (quick) {
-        const result = await quickExportSnippets(toExport, { autoImportToRaycast })
+        const result = await quickExportSnippets(toExport, { autoImportToRaycast }, snippets)
         path = result.path
         autoImportTriggered = result.autoImportTriggered ?? false
       } else {
-        path = await exportSnippets(toExport)
+        path = await exportSnippets(toExport, snippets)
       }
 
       markExported(toExport.map((s) => s.id))
@@ -410,7 +410,7 @@ export default function HomePage() {
       }
       toast.error('Export failed')
     }
-  }, [markExported, addSyncEvent])
+  }, [markExported, addSyncEvent, snippets])
 
   const handleExport = useCallback(() => {
     // Use store snippets if available, otherwise create one from current editor content
@@ -517,6 +517,7 @@ export default function HomePage() {
           snippetId: s.id,
           ollamaUrl: useAISettingsStore.getState().ollamaUrl,
           model: useAISettingsStore.getState().ollamaModel,
+          snippets,
         })
       }
     }

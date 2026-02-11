@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { Play, Square, MessageSquare, Loader2, GitCompareArrows, Check } from 'lucide-react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { Play, Square, MessageSquare, Loader2, GitCompareArrows, Check, AlertTriangle } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
 import { usePlaygroundStore } from '@/lib/playground-store'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
+import { resolveSnippetIncludes } from '@/lib/raycast/snippet-resolver'
 import { TestValueInputs } from '@/components/playground/TestValueInputs'
 import { ResponseViewer } from '@/components/playground/ResponseViewer'
 import { CompareViewer } from '@/components/playground/CompareViewer'
@@ -113,10 +114,12 @@ function ModelMultiSelect({
 
 export function PlaygroundPanel() {
   const snippet = useSnippetStore((s) => s.getSelectedSnippet())
+  const snippets = useSnippetStore((s) => s.snippets)
   const isRunning = usePlaygroundStore((s) => s.isRunning)
   const isComparing = usePlaygroundStore((s) => s.isComparing)
   const run = usePlaygroundStore((s) => s.run)
   const stop = usePlaygroundStore((s) => s.stop)
+  const snippetErrors = usePlaygroundStore((s) => s.snippetErrors)
   const compareModels = usePlaygroundStore((s) => s.compareModels)
   const toggleCompareModel = usePlaygroundStore((s) => s.toggleCompareModel)
   const compareRun = usePlaygroundStore((s) => s.compareRun)
@@ -127,6 +130,13 @@ export function PlaygroundPanel() {
 
   const busy = isRunning || isComparing
   const hasCompareResults = Object.keys(compareResponses).length > 0
+
+  // Check for snippet resolution errors reactively
+  const hasErrors = useMemo(() => {
+    if (!snippet) return false
+    const { errors } = resolveSnippetIncludes(snippet.text, snippets)
+    return errors.length > 0
+  }, [snippet, snippets])
 
   if (!snippet) {
     return (
@@ -147,6 +157,7 @@ export function PlaygroundPanel() {
       snippetId: snippet.id,
       ollamaUrl,
       model: ollamaModel,
+      snippets,
     })
   }
 
@@ -155,6 +166,7 @@ export function PlaygroundPanel() {
       text: snippet.text,
       snippetId: snippet.id,
       ollamaUrl,
+      snippets,
     })
   }
 
@@ -162,6 +174,23 @@ export function PlaygroundPanel() {
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="p-4 space-y-4 overflow-auto flex-1">
         <TestValueInputs snippetId={snippet.id} text={snippet.text} />
+
+        {/* Snippet resolution errors */}
+        {(hasErrors || snippetErrors.length > 0) && (
+          <div className="flex items-start gap-2 p-2 rounded bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium">Broken snippet references</p>
+              {snippetErrors.map((e, i) => (
+                <p key={i} className="text-xs text-red-400/80">
+                  {e.error === 'not_found' && `"${e.snippetName}" not found`}
+                  {e.error === 'circular' && `"${e.snippetName}" creates circular reference`}
+                  {e.error === 'max_depth' && `"${e.snippetName}" exceeds max nesting depth`}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Single-model run */}
@@ -176,8 +205,9 @@ export function PlaygroundPanel() {
           ) : (
             <button
               onClick={handleRun}
-              disabled={isComparing}
+              disabled={isComparing || hasErrors}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+              title={hasErrors ? 'Fix broken snippet references' : undefined}
             >
               <Play className="w-3.5 h-3.5" />
               Run
@@ -204,8 +234,9 @@ export function PlaygroundPanel() {
           ) : (
             <button
               onClick={handleCompare}
-              disabled={compareModels.length < 2 || isRunning}
+              disabled={compareModels.length < 2 || isRunning || hasErrors}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded bg-violet-600 text-white hover:bg-violet-700 transition-colors disabled:opacity-50"
+              title={hasErrors ? 'Fix broken snippet references' : undefined}
             >
               <GitCompareArrows className="w-3.5 h-3.5" />
               Compare

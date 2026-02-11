@@ -71,6 +71,7 @@ interface SnippetStore {
   editorDirty: boolean
   previewVisible: boolean
   previewValues: boolean
+  resolveIncludes: boolean
   syncScroll: boolean
   exportFilter: ExportFilter
   exportSettings: ExportSettings
@@ -100,6 +101,7 @@ interface SnippetStore {
   setPreviewVisible: (visible: boolean) => void
   togglePreviewValues: () => void
   setPreviewValues: (enabled: boolean) => void
+  toggleResolveIncludes: () => void
   toggleSyncScroll: () => void
   setSyncScroll: (enabled: boolean) => void
 
@@ -157,6 +159,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   editorDirty: false,
   previewVisible: true,
   previewValues: false,
+  resolveIncludes: true,
   syncScroll: true,
   exportFilter: 'all' as ExportFilter,
   exportSettings: { defaultPath: null, hasDirectoryHandle: false },
@@ -319,6 +322,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   setPreviewVisible: (visible) => set({ previewVisible: visible }),
   togglePreviewValues: () => set((state) => ({ previewValues: !state.previewValues })),
   setPreviewValues: (enabled) => set({ previewValues: enabled }),
+  toggleResolveIncludes: () => set((state) => ({ resolveIncludes: !state.resolveIncludes })),
   toggleSyncScroll: () => set((state) => ({ syncScroll: !state.syncScroll })),
   setSyncScroll: (enabled) => set({ syncScroll: enabled }),
 

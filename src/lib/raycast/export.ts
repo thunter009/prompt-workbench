@@ -1,4 +1,5 @@
 import type { Snippet, RaycastSnippet } from '@/types'
+import { resolveSnippetIncludes, type ResolutionError } from '@/lib/raycast/snippet-resolver'
 
 interface FilePickerOptions {
   suggestedName?: string
@@ -146,11 +147,69 @@ export async function pickDefaultExportDirectory(): Promise<string | null> {
   }
 }
 
-export function snippetsToRaycastJson(snippets: Snippet[]): RaycastSnippet[] {
+const RAYCAST_MAX_CHARS = 65536
+
+export interface ExportValidationError {
+  snippetName: string
+  errors: ResolutionError[]
+}
+
+export interface ExportValidationWarning {
+  snippetName: string
+  charCount: number
+  overBy: number
+}
+
+export interface ExportValidationResult {
+  errors: ExportValidationError[]
+  warnings: ExportValidationWarning[]
+  includeCount: number
+}
+
+/** Validate snippets before export - check for broken refs and size limits */
+export function validateExportIncludes(
+  snippets: Snippet[],
+  allSnippets: Snippet[],
+): ExportValidationResult {
+  const errors: ExportValidationError[] = []
+  const warnings: ExportValidationWarning[] = []
+  let includeCount = 0
+
+  for (const s of snippets) {
+    const { text, errors: resErrors } = resolveSnippetIncludes(s.text, allSnippets)
+
+    if (resErrors.length > 0) {
+      errors.push({ snippetName: s.name, errors: resErrors })
+    }
+
+    if (text !== s.text) {
+      includeCount++
+    }
+
+    if (text.length > RAYCAST_MAX_CHARS) {
+      warnings.push({
+        snippetName: s.name,
+        charCount: text.length,
+        overBy: text.length - RAYCAST_MAX_CHARS,
+      })
+    }
+  }
+
+  return { errors, warnings, includeCount }
+}
+
+export function snippetsToRaycastJson(snippets: Snippet[], allSnippets?: Snippet[]): RaycastSnippet[] {
   return snippets.map((s) => {
+    // Resolve snippet includes if all snippets provided
+    let text = s.text
+    if (allSnippets) {
+      const resolved = resolveSnippetIncludes(s.text, allSnippets)
+      text = resolved.text
+    }
+
     const raycast: RaycastSnippet = {
       name: s.name,
-      text: s.text,
+      text,
     }
     if (s.keyword) {
       raycast.keyword = s.keyword
@@ -159,8 +218,8 @@ export function snippetsToRaycastJson(snippets: Snippet[]): RaycastSnippet[] {
   })
 }
 
-export async function exportSnippets(snippets: Snippet[]): Promise<string> {
-  const raycastSnippets = snippetsToRaycastJson(snippets)
+export async function exportSnippets(snippets: Snippet[], allSnippets?: Snippet[]): Promise<string> {
+  const raycastSnippets = snippetsToRaycastJson(snippets, allSnippets)
   const json = JSON.stringify(raycastSnippets, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const defaultFilename = 'raycast-snippets.json'
@@ -224,9 +283,10 @@ export interface QuickExportOptions {
 // Quick export to default directory (no file picker)
 export async function quickExportSnippets(
   snippets: Snippet[],
-  options: QuickExportOptions = {}
+  options: QuickExportOptions = {},
+  allSnippets?: Snippet[],
 ): Promise<{ path: string; autoImportTriggered?: boolean }> {
-  const raycastSnippets = snippetsToRaycastJson(snippets)
+  const raycastSnippets = snippetsToRaycastJson(snippets, allSnippets)
   const filename = 'raycast-snippets.json'
   const { autoImportToRaycast = false } = options
 

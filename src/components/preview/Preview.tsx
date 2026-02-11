@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
-import { Eye, EyeOff, Link, Unlink } from 'lucide-react'
+import { Eye, EyeOff, Link, Unlink, Layers, Layers2 } from 'lucide-react'
 import { remarkRaycastPlaceholders } from '@/lib/remark-raycast-placeholders'
 import { PlaceholderPill } from './PlaceholderPill'
 import { PlaygroundPanel } from '@/components/playground/PlaygroundPanel'
 import { useSnippetStore } from '@/lib/store'
 import { usePlaygroundStore } from '@/lib/playground-store'
+import { resolveSnippetIncludes, type ResolutionError } from '@/lib/raycast/snippet-resolver'
+import { findPlaceholders } from '@/lib/raycast/placeholder-parser'
 import type { ParsedPlaceholder } from '@/lib/raycast/placeholder-parser'
 import type { Components } from 'react-markdown'
 
@@ -155,6 +157,114 @@ export interface PreviewProps {
 
 const DEBOUNCE_MS = 100
 
+function ErrorPill({ error }: { error: ResolutionError }) {
+  const isNotFound = error.error === 'not_found'
+  const label = isNotFound
+    ? `not found: ${error.snippetName}`
+    : error.error === 'circular'
+      ? `circular: ${error.snippetName}`
+      : `max depth: ${error.snippetName}`
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-medium border ${
+        isNotFound
+          ? 'bg-red-500/15 text-red-400 border-red-500/30'
+          : 'bg-orange-500/15 text-orange-400 border-orange-500/30'
+      }`}
+    >
+      <span className="text-[10px]">&#x26A0;</span>
+      <span>{label}</span>
+    </span>
+  )
+}
+
+/** Build preview content with resolved includes shown in visual containers */
+function ResolvedPreview({ content, snippets }: { content: string; snippets: { id: string; name: string; text: string }[] }) {
+  const result = useMemo(() => {
+    const matches = findPlaceholders(content)
+    const snippetMatches = matches.filter((m) => m.placeholder.type === 'snippet' && m.placeholder.snippetRef)
+
+    if (snippetMatches.length === 0) return { segments: [{ type: 'text' as const, content }], errors: [] }
+
+    const { errors } = resolveSnippetIncludes(content, snippets as import('@/types').Snippet[])
+    const errorsByName = new Map<string, ResolutionError>()
+    for (const e of errors) errorsByName.set(e.snippetName, e)
+
+    const segments: Array<
+      | { type: 'text'; content: string }
+      | { type: 'resolved'; name: string; content: string }
+      | { type: 'error'; error: ResolutionError }
+    > = []
+    let lastEnd = 0
+
+    for (const match of snippetMatches) {
+      if (match.start > lastEnd) {
+        segments.push({ type: 'text', content: content.slice(lastEnd, match.start) })
+      }
+
+      const name = match.placeholder.snippetRef!
+      const err = errorsByName.get(name)
+      if (err) {
+        segments.push({ type: 'error', error: err })
+      } else {
+        const target = snippets.find((s) => s.name === name)
+        if (target) {
+          // Recursively resolve the target's text
+          const resolved = resolveSnippetIncludes(target.text, snippets as import('@/types').Snippet[])
+          segments.push({ type: 'resolved', name, content: resolved.text })
+        }
+      }
+      lastEnd = match.end
+    }
+
+    if (lastEnd < content.length) {
+      segments.push({ type: 'text', content: content.slice(lastEnd) })
+    }
+
+    return { segments, errors }
+  }, [content, snippets])
+
+  return (
+    <>
+      {result.segments.map((seg, i) => {
+        if (seg.type === 'error') {
+          return <ErrorPill key={i} error={seg.error} />
+        }
+        if (seg.type === 'resolved') {
+          return (
+            <div key={i} className="my-2 border-l-2 border-violet-500/40 pl-3 bg-violet-500/5 rounded-r py-1">
+              <span className="text-[10px] font-medium text-violet-400/70 uppercase tracking-wider">
+                &#x2192; {seg.name}
+              </span>
+              <div className="prose prose-invert max-w-none">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
+                  rehypePlugins={[rehypeRaw]}
+                  components={markdownComponents}
+                >
+                  {seg.content}
+                </ReactMarkdown>
+              </div>
+            </div>
+          )
+        }
+        return (
+          <div key={i} className="prose prose-invert max-w-none">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
+              rehypePlugins={[rehypeRaw]}
+              components={markdownComponents}
+            >
+              {seg.content}
+            </ReactMarkdown>
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
 function TabBar() {
   const activeTab = usePlaygroundStore((s) => s.activeTab)
   const setActiveTab = usePlaygroundStore((s) => s.setActiveTab)
@@ -178,14 +288,53 @@ function TabBar() {
   )
 }
 
-export function Preview({ content, scrollProgress }: PreviewProps) {
-  const [debouncedContent, setDebouncedContent] = useState(content)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
+function PreviewToolbar() {
   const previewValues = useSnippetStore((s) => s.previewValues)
   const togglePreviewValues = useSnippetStore((s) => s.togglePreviewValues)
   const syncScroll = useSnippetStore((s) => s.syncScroll)
   const toggleSyncScroll = useSnippetStore((s) => s.toggleSyncScroll)
+  const resolveIncludes = useSnippetStore((s) => s.resolveIncludes)
+  const toggleResolveIncludes = useSnippetStore((s) => s.toggleResolveIncludes)
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={toggleResolveIncludes}
+        className={`p-1.5 rounded hover:bg-accent transition-colors ${
+          resolveIncludes ? 'text-violet-400' : 'text-muted-foreground hover:text-secondary-foreground'
+        }`}
+        title={resolveIncludes ? 'Hide resolved includes' : 'Resolve includes'}
+      >
+        {resolveIncludes ? <Layers className="w-4 h-4" /> : <Layers2 className="w-4 h-4" />}
+      </button>
+      <button
+        onClick={toggleSyncScroll}
+        className={`p-1.5 rounded hover:bg-accent transition-colors ${
+          syncScroll ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+        }`}
+        title={syncScroll ? 'Disable scroll sync' : 'Enable scroll sync'}
+      >
+        {syncScroll ? <Link className="w-4 h-4" /> : <Unlink className="w-4 h-4" />}
+      </button>
+      <button
+        onClick={togglePreviewValues}
+        className={`p-1.5 rounded hover:bg-accent transition-colors ${
+          previewValues ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+        }`}
+        title={previewValues ? 'Hide example values' : 'Show example values'}
+      >
+        {previewValues ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+      </button>
+    </div>
+  )
+}
+
+export function Preview({ content, scrollProgress }: PreviewProps) {
+  const [debouncedContent, setDebouncedContent] = useState(content)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const resolveIncludes = useSnippetStore((s) => s.resolveIncludes)
+  const snippets = useSnippetStore((s) => s.snippets)
   const activeTab = usePlaygroundStore((s) => s.activeTab)
 
   // Debounce content updates
@@ -212,6 +361,12 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
     container.scrollTop = scrollProgress * maxScroll
   }, [scrollProgress])
 
+  // Check if content has snippet includes
+  const hasIncludes = useMemo(() => {
+    const matches = findPlaceholders(debouncedContent)
+    return matches.some((m) => m.placeholder.type === 'snippet' && m.placeholder.snippetRef)
+  }, [debouncedContent])
+
   if (activeTab === 'playground') {
     return (
       <div className="h-full flex flex-col bg-muted">
@@ -228,26 +383,7 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
       <div className="h-full flex flex-col bg-muted">
         <div className="flex items-center justify-between px-3 py-2 border-b border-border">
           <TabBar />
-          <div className="flex items-center gap-1">
-            <button
-              onClick={toggleSyncScroll}
-              className={`p-1.5 rounded hover:bg-accent transition-colors ${
-                syncScroll ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
-              }`}
-              title={syncScroll ? 'Disable scroll sync' : 'Enable scroll sync'}
-            >
-              {syncScroll ? <Link className="w-4 h-4" /> : <Unlink className="w-4 h-4" />}
-            </button>
-            <button
-              onClick={togglePreviewValues}
-              className={`p-1.5 rounded hover:bg-accent transition-colors ${
-                previewValues ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
-              }`}
-              title={previewValues ? 'Hide example values' : 'Show example values'}
-            >
-              {previewValues ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-            </button>
-          </div>
+          <PreviewToolbar />
         </div>
         <div className="flex-1 flex items-center justify-center">
           <span className="text-muted-foreground text-sm">Start typing to see preview...</span>
@@ -260,37 +396,22 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
     <div className="h-full flex flex-col bg-muted">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border">
         <TabBar />
-        <div className="flex items-center gap-1">
-          <button
-            onClick={toggleSyncScroll}
-            className={`p-1.5 rounded hover:bg-accent transition-colors ${
-              syncScroll ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
-            }`}
-            title={syncScroll ? 'Disable scroll sync' : 'Enable scroll sync'}
-          >
-            {syncScroll ? <Link className="w-4 h-4" /> : <Unlink className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={togglePreviewValues}
-            className={`p-1.5 rounded hover:bg-accent transition-colors ${
-              previewValues ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
-            }`}
-            title={previewValues ? 'Hide example values' : 'Show example values'}
-          >
-            {previewValues ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-          </button>
-        </div>
+        <PreviewToolbar />
       </div>
       <div ref={scrollContainerRef} className="flex-1 overflow-auto p-4">
-        <div className="prose prose-invert max-w-none">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
-            rehypePlugins={[rehypeRaw]}
-            components={markdownComponents}
-          >
-            {debouncedContent}
-          </ReactMarkdown>
-        </div>
+        {resolveIncludes && hasIncludes ? (
+          <ResolvedPreview content={debouncedContent} snippets={snippets} />
+        ) : (
+          <div className="prose prose-invert max-w-none">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
+              rehypePlugins={[rehypeRaw]}
+              components={markdownComponents}
+            >
+              {debouncedContent}
+            </ReactMarkdown>
+          </div>
+        )}
       </div>
     </div>
   )

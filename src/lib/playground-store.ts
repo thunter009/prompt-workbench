@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { findPlaceholders } from '@/lib/raycast/placeholder-parser'
 import type { ParsedPlaceholder } from '@/lib/raycast/placeholder-parser'
+import { resolveSnippetIncludes, type ResolutionError } from '@/lib/raycast/snippet-resolver'
+import type { Snippet } from '@/types'
 
 type ActiveTab = 'preview' | 'playground'
 
@@ -88,11 +90,14 @@ interface PlaygroundStore {
   addRun: (snippetId: string, run: PlaygroundRun) => void
   getHistory: (snippetId: string) => PlaygroundRun[]
   load: () => void
+  snippetErrors: ResolutionError[]
+  checkSnippetErrors: (text: string, snippets: Snippet[]) => ResolutionError[]
   run: (params: {
     text: string
     snippetId: string
     ollamaUrl: string
     model: string
+    snippets?: Snippet[]
     systemPrompt?: string
   }) => Promise<void>
   stop: () => void
@@ -105,6 +110,7 @@ interface PlaygroundStore {
     text: string
     snippetId: string
     ollamaUrl: string
+    snippets?: Snippet[]
     systemPrompt?: string
   }) => Promise<void>
   stopCompare: () => void
@@ -303,6 +309,7 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
   abortController: null,
   runHistory: {},
 
+  snippetErrors: [],
   compareModels: [],
   compareResponses: {},
   isComparing: false,
@@ -354,10 +361,29 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     })
   },
 
-  run: async ({ text, snippetId, ollamaUrl, model, systemPrompt }) => {
+  checkSnippetErrors: (text, snippets) => {
+    const { errors } = resolveSnippetIncludes(text, snippets)
+    set({ snippetErrors: errors })
+    return errors
+  },
+
+  run: async ({ text, snippetId, ollamaUrl, model, snippets, systemPrompt }) => {
     const controller = new AbortController()
     const values = get().getTestValues(snippetId)
-    const prompt = substitutePlaceholders(text, values)
+
+    // Resolve snippet includes if snippets provided
+    let resolvedText = text
+    if (snippets && snippets.length > 0) {
+      const { text: resolved, errors } = resolveSnippetIncludes(text, snippets)
+      if (errors.length > 0) {
+        set({ snippetErrors: errors })
+        return
+      }
+      set({ snippetErrors: [] })
+      resolvedText = resolved
+    }
+
+    const prompt = substitutePlaceholders(resolvedText, values)
     const startTime = Date.now()
 
     set({ isRunning: true, currentResponse: '', responseMeta: null, abortController: controller })
@@ -466,12 +492,25 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     set({ compareResponses: {} })
   },
 
-  compareRun: async ({ text, snippetId, ollamaUrl, systemPrompt }) => {
+  compareRun: async ({ text, snippetId, ollamaUrl, snippets, systemPrompt }) => {
     const models = get().compareModels
     if (models.length === 0) return
 
     const values = get().getTestValues(snippetId)
-    const prompt = substitutePlaceholders(text, values)
+
+    // Resolve snippet includes if snippets provided
+    let resolvedText = text
+    if (snippets && snippets.length > 0) {
+      const { text: resolved, errors } = resolveSnippetIncludes(text, snippets)
+      if (errors.length > 0) {
+        set({ snippetErrors: errors })
+        return
+      }
+      set({ snippetErrors: [] })
+      resolvedText = resolved
+    }
+
+    const prompt = substitutePlaceholders(resolvedText, values)
     const controllers = models.map(() => new AbortController())
 
     set({

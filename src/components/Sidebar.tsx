@@ -339,7 +339,7 @@ export function Sidebar() {
 
   const doExport = useCallback(async (toExport: Snippet[]) => {
     try {
-      const filename = await exportSnippets(toExport)
+      const filename = await exportSnippets(toExport, snippets)
       markExported(toExport.map((s) => s.id))
       toast.success(`Exported ${toExport.length} snippet${toExport.length > 1 ? 's' : ''} to ${filename}`)
       clearSelection()
@@ -347,7 +347,7 @@ export function Sidebar() {
       if (err instanceof Error && err.name === 'AbortError') return
       toast.error('Export failed')
     }
-  }, [clearSelection, markExported])
+  }, [clearSelection, markExported, snippets])
 
   const handleExportSelected = useCallback(() => {
     closeContextMenu()
