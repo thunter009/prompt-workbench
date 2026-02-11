@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { search, searchKeymap } from '@codemirror/search'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language'
 import { placeholderAutocomplete } from '@/components/editor/placeholder-autocomplete'
@@ -103,6 +104,16 @@ export function Editor({ value = '', onChange, onScrollProgress }: EditorProps) 
       '&.cm-focused .cm-selectionBackground': {
         backgroundColor: 'hsl(var(--accent)) !important',
       },
+      '.cm-panels': {
+        backgroundColor: 'hsl(var(--muted))',
+        color: 'hsl(var(--foreground))',
+      },
+      '.cm-searchMatch': {
+        backgroundColor: 'hsl(var(--accent))',
+      },
+      '.cm-searchMatch-selected': {
+        backgroundColor: 'hsl(var(--primary) / 0.3)',
+      },
     })
 
     const state = EditorState.create({
@@ -115,7 +126,8 @@ export function Editor({ value = '', onChange, onScrollProgress }: EditorProps) 
         bracketMatching(),
         markdown({ base: markdownLanguage }),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        search(),
+        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         placeholderAutocomplete,
         raycastPlaceholderExtension,
         updateListener,
