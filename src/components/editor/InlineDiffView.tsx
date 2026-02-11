@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, lazy, Suspense } from 'react'
-import { GitCompare, Columns2, Rows2, X, RotateCcw } from 'lucide-react'
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
+import { GitCompare, Columns2, Rows2, X, RotateCcw, ChevronUp, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { computeLineDiff } from '@/lib/diff'
+import type { EditorView } from '@codemirror/view'
+import { getChunks, goToNextChunk, goToPreviousChunk } from '@/components/editor/DiffMergeView'
 
 const DiffMergeView = lazy(() =>
   import('@/components/editor/DiffMergeView').then((m) => ({ default: m.DiffMergeView }))
@@ -21,12 +23,63 @@ export interface DiffComparison {
   onClose: () => void
 }
 
+/** Restores a version from diff view by calling onRestore */
+export function restoreFromDiff(onRestore: (() => void) | undefined) {
+  onRestore?.()
+}
+
 type DiffLayout = 'unified' | 'split'
 
 export function InlineDiffView({ original, modified, originalLabel, modifiedLabel, onRestore, onClose }: DiffComparison) {
   const [layout, setLayout] = useState<DiffLayout>('unified')
+  const diffViewRef = useRef<EditorView | null>(null)
+  const [hunkCount, setHunkCount] = useState(0)
 
   const diff = computeLineDiff(original, modified)
+
+  const handleViewReady = useCallback((view: EditorView | null) => {
+    diffViewRef.current = view
+    if (view) {
+      const info = getChunks(view.state)
+      setHunkCount(info?.chunks.length ?? 0)
+    } else {
+      setHunkCount(0)
+    }
+  }, [])
+
+  const nextChange = useCallback(() => {
+    const view = diffViewRef.current
+    if (!view) return
+    goToNextChunk(view)
+  }, [])
+
+  const prevChange = useCallback(() => {
+    const view = diffViewRef.current
+    if (!view) return
+    goToPreviousChunk(view)
+  }, [])
+
+  // Keyboard shortcuts: ], [ for next/prev hunk; Escape to close
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't intercept if typing in an input
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+
+      if (e.key === ']' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        nextChange()
+      } else if (e.key === '[' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        prevChange()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [nextChange, prevChange, onClose])
 
   return (
     <div className="flex flex-col h-full">
@@ -47,6 +100,28 @@ export function InlineDiffView({ original, modified, originalLabel, modifiedLabe
           </span>
         </div>
         <div className="flex items-center gap-1">
+          {/* Hunk navigation */}
+          {hunkCount > 0 && (
+            <div className="flex items-center gap-0.5 mr-1">
+              <button
+                onClick={prevChange}
+                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title="Previous change ([)"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-[10px] text-muted-foreground tabular-nums min-w-[2ch] text-center">
+                {hunkCount}
+              </span>
+              <button
+                onClick={nextChange}
+                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title="Next change (])"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
           {/* Layout toggle */}
           <button
             onClick={() => setLayout('unified')}
@@ -74,7 +149,7 @@ export function InlineDiffView({ original, modified, originalLabel, modifiedLabe
           </button>
           {onRestore && (
             <button
-              onClick={onRestore}
+              onClick={() => restoreFromDiff(onRestore)}
               className="flex items-center gap-1 ml-2 px-2 py-0.5 text-xs text-green-400 hover:text-green-300 rounded hover:bg-accent transition-colors"
             >
               <RotateCcw className="w-3 h-3" />
@@ -84,7 +159,7 @@ export function InlineDiffView({ original, modified, originalLabel, modifiedLabe
           <button
             onClick={onClose}
             className="p-1 ml-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-            title="Close diff"
+            title="Close diff (Esc)"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -95,7 +170,7 @@ export function InlineDiffView({ original, modified, originalLabel, modifiedLabe
       <div className="flex-1 overflow-auto">
         <Suspense fallback={<div className="p-4 text-xs text-muted-foreground">Loading diff...</div>}>
           {layout === 'unified' ? (
-            <DiffMergeView original={original} modified={modified} />
+            <DiffMergeView original={original} modified={modified} onViewReady={handleViewReady} />
           ) : (
             <SideBySideMergeView original={original} modified={modified} />
           )}

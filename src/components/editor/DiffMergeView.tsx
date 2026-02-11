@@ -5,12 +5,15 @@ import { EditorState } from '@codemirror/state'
 import { EditorView, lineNumbers } from '@codemirror/view'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
-import { unifiedMergeView, MergeView } from '@codemirror/merge'
+import { unifiedMergeView, MergeView, getChunks, goToNextChunk, goToPreviousChunk } from '@codemirror/merge'
 import { raycastPlaceholderExtension } from '@/components/editor/raycast-placeholder-language'
+
+export { getChunks, goToNextChunk, goToPreviousChunk }
 
 export interface DiffMergeViewProps {
   original: string
   modified: string
+  onViewReady?: (view: EditorView | null) => void
 }
 
 const sharedExtensions = [
@@ -55,9 +58,11 @@ const diffTheme = EditorView.theme({
 })
 
 /** Unified inline diff - single editor showing changes between original and modified */
-export function DiffMergeView({ original, modified }: DiffMergeViewProps) {
+export function DiffMergeView({ original, modified, onViewReady }: DiffMergeViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
+  const onViewReadyRef = useRef(onViewReady)
+  onViewReadyRef.current = onViewReady
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -85,10 +90,12 @@ export function DiffMergeView({ original, modified }: DiffMergeViewProps) {
     })
 
     viewRef.current = view
+    onViewReadyRef.current?.(view)
 
     return () => {
       view.destroy()
       viewRef.current = null
+      onViewReadyRef.current?.(null)
     }
   }, [original, modified])
 
