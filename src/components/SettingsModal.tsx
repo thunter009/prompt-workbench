@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { X, RefreshCw, Loader2, CheckCircle, XCircle, Search, Plus } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
 import { useSyncSettingsStore, SYNC_INTERVALS, type SyncInterval } from '@/lib/sync-settings-store'
-import { useAISettingsStore, DEFAULT_OLLAMA_URL } from '@/lib/ai-settings-store'
+import { useAISettingsStore, DEFAULT_OLLAMA_URL, DEFAULT_META_SYSTEM_PROMPT } from '@/lib/ai-settings-store'
 import { useIntervalSync } from '@/hooks/useIntervalSync'
 import { SyncHistory } from '@/components/SyncHistory'
 import { KeywordAuditModal } from '@/components/KeywordAuditModal'
@@ -54,6 +54,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const ollamaModel = useAISettingsStore((s) => s.ollamaModel)
   const setOllamaUrl = useAISettingsStore((s) => s.setOllamaUrl)
   const setOllamaModel = useAISettingsStore((s) => s.setOllamaModel)
+  const metaSystemPrompt = useAISettingsStore((s) => s.metaSystemPrompt)
+  const setMetaSystemPrompt = useAISettingsStore((s) => s.setMetaSystemPrompt)
   const loadAISettings = useAISettingsStore((s) => s.load)
 
   const keywordPrefix = useKeywordStyleStore((s) => s.prefix)
@@ -403,6 +405,34 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   ))
                 )}
               </select>
+            </div>
+          </section>
+
+          {/* Prompt Improvement */}
+          <section className="border-t border-border pt-6">
+            <h3 className="text-sm font-medium text-secondary-foreground mb-4">Prompt Improvement</h3>
+            <div>
+              <label className="text-sm text-muted-foreground block mb-1.5">Meta System Prompt</label>
+              <textarea
+                value={metaSystemPrompt}
+                onChange={(e) => setMetaSystemPrompt(e.target.value)}
+                rows={4}
+                className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground placeholder:text-muted-foreground resize-y"
+                placeholder="Instructions for how the AI should improve prompts..."
+              />
+              <div className="flex items-center justify-between mt-1.5">
+                <p className="text-xs text-muted-foreground">
+                  Controls how the AI improves your prompts
+                </p>
+                {metaSystemPrompt !== DEFAULT_META_SYSTEM_PROMPT && (
+                  <button
+                    onClick={() => setMetaSystemPrompt(DEFAULT_META_SYSTEM_PROMPT)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Reset to default
+                  </button>
+                )}
+              </div>
             </div>
           </section>
 
