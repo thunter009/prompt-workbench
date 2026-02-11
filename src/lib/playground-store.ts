@@ -35,16 +35,24 @@ export function substitutePlaceholders(
   return result
 }
 
+interface ResponseMeta {
+  model: string
+  tokenCount: number
+  elapsedMs: number
+}
+
 interface PlaygroundStore {
   activeTab: ActiveTab
   testValues: TestValues
   isRunning: boolean
   currentResponse: string
+  responseMeta: ResponseMeta | null
   abortController: AbortController | null
 
   setActiveTab: (tab: ActiveTab) => void
   setTestValue: (snippetId: string, key: string, value: string) => void
   getTestValues: (snippetId: string) => Record<string, string>
+  clearResponse: () => void
   load: () => void
   run: (params: {
     text: string
@@ -99,6 +107,7 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
   testValues: {},
   isRunning: false,
   currentResponse: '',
+  responseMeta: null,
   abortController: null,
 
   setActiveTab: (tab) => {
@@ -118,6 +127,10 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     return get().testValues[snippetId] ?? {}
   },
 
+  clearResponse: () => {
+    set({ currentResponse: '', responseMeta: null })
+  },
+
   load: () => {
     const stored = loadFromStorage()
     const testValues = loadTestValues()
@@ -131,8 +144,9 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     const controller = new AbortController()
     const values = get().getTestValues(snippetId)
     const prompt = substitutePlaceholders(text, values)
+    const startTime = Date.now()
 
-    set({ isRunning: true, currentResponse: '', abortController: controller })
+    set({ isRunning: true, currentResponse: '', responseMeta: null, abortController: controller })
 
     try {
       const res = await fetch('/api/playground/run', {
@@ -156,21 +170,24 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let accumulated = ''
+      let tokenCount = 0
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
         const chunk = decoder.decode(value, { stream: true })
-        // Ollama streams NDJSON - each line is a JSON object with a "response" field
         const lines = chunk.split('\n')
         for (const line of lines) {
           if (!line.trim()) continue
           try {
-            const parsed = JSON.parse(line) as { response?: string }
+            const parsed = JSON.parse(line) as { response?: string; done?: boolean; eval_count?: number }
             if (parsed.response) {
               accumulated += parsed.response
               set({ currentResponse: accumulated })
+            }
+            if (parsed.done && parsed.eval_count) {
+              tokenCount = parsed.eval_count
             }
           } catch {
             // partial JSON line, skip
@@ -178,7 +195,11 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
         }
       }
 
-      set({ isRunning: false, abortController: null })
+      set({
+        isRunning: false,
+        abortController: null,
+        responseMeta: { model, tokenCount, elapsedMs: Date.now() - startTime },
+      })
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         set({ isRunning: false, abortController: null })

@@ -8,6 +8,8 @@ import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
 import { useTitleInference } from '@/hooks/useTitleInference'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
 import { usePlaygroundStore } from '@/lib/playground-store'
+import { cn } from '@/lib/utils'
+import { PlaygroundPanel } from '@/components/playground/PlaygroundPanel'
 import { EditorDynamic, preloadEditor } from '@/components/editor/EditorDynamic'
 import { EditorPanelHeader } from '@/components/editor/EditorPanel'
 import { PreviewDynamic, preloadPreview } from '@/components/preview/PreviewDynamic'
@@ -146,6 +148,8 @@ export default function HomePage() {
   // Playground
   const loadPlayground = usePlaygroundStore((s) => s.load)
   const activeTab = usePlaygroundStore((s) => s.activeTab)
+  const playgroundRun = usePlaygroundStore((s) => s.run)
+  const playgroundSetActiveTab = usePlaygroundStore((s) => s.setActiveTab)
 
   // Title inference handler
   const handleTitleInferred = useCallback((title: string) => {
@@ -502,6 +506,20 @@ export default function HomePage() {
       e.preventDefault()
       handleSyncToRaycast()
     }
+    // Cmd+Shift+R for run/re-run in playground
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'r') {
+      e.preventDefault()
+      const s = getSelectedSnippet()
+      if (s) {
+        playgroundSetActiveTab('playground')
+        playgroundRun({
+          text: s.text,
+          snippetId: s.id,
+          ollamaUrl: useAISettingsStore.getState().ollamaUrl,
+          model: useAISettingsStore.getState().ollamaModel,
+        })
+      }
+    }
     // Cmd+, for settings modal
     if ((e.metaKey || e.ctrlKey) && e.key === ',') {
       e.preventDefault()
@@ -821,8 +839,39 @@ export default function HomePage() {
                   collapsedSize="0%"
                   onResize={(size) => setPreviewVisible(size.asPercentage > 0)}
                 >
-                  <div className="h-full overflow-auto">
-                    <PreviewDynamic content={content} scrollProgress={syncScroll ? scrollProgress : undefined} />
+                  <div className="h-full flex flex-col overflow-hidden">
+                    {/* Tab bar: Preview | Playground */}
+                    <div className="flex border-b border-border shrink-0">
+                      <button
+                        onClick={() => playgroundSetActiveTab('preview')}
+                        className={cn(
+                          'px-4 py-2 text-sm font-medium transition-colors',
+                          activeTab === 'preview'
+                            ? 'text-foreground border-b-2 border-primary'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        Preview
+                      </button>
+                      <button
+                        onClick={() => playgroundSetActiveTab('playground')}
+                        className={cn(
+                          'px-4 py-2 text-sm font-medium transition-colors',
+                          activeTab === 'playground'
+                            ? 'text-foreground border-b-2 border-primary'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        Playground
+                      </button>
+                    </div>
+                    {activeTab === 'preview' ? (
+                      <div className="flex-1 overflow-auto">
+                        <PreviewDynamic content={content} scrollProgress={syncScroll ? scrollProgress : undefined} />
+                      </div>
+                    ) : (
+                      <PlaygroundPanel />
+                    )}
                   </div>
                 </Panel>
               </Group>

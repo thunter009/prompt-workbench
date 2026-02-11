@@ -5,11 +5,11 @@ import { useSnippetStore } from '@/lib/store'
 import { usePlaygroundStore } from '@/lib/playground-store'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
 import { TestValueInputs } from '@/components/playground/TestValueInputs'
+import { ResponseViewer } from '@/components/playground/ResponseViewer'
 
 export function PlaygroundPanel() {
   const snippet = useSnippetStore((s) => s.getSelectedSnippet())
   const isRunning = usePlaygroundStore((s) => s.isRunning)
-  const currentResponse = usePlaygroundStore((s) => s.currentResponse)
   const run = usePlaygroundStore((s) => s.run)
   const stop = usePlaygroundStore((s) => s.stop)
   const ollamaUrl = useAISettingsStore((s) => s.ollamaUrl)
@@ -65,16 +65,7 @@ export function PlaygroundPanel() {
           )}
         </div>
 
-        {currentResponse && (
-          <div className="space-y-1">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Response
-            </h3>
-            <div className="p-3 text-sm bg-background border border-border rounded whitespace-pre-wrap break-words">
-              {currentResponse}
-            </div>
-          </div>
-        )}
+        <ResponseViewer />
       </div>
     </div>
   )
