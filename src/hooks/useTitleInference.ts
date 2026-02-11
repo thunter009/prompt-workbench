@@ -20,6 +20,9 @@ export function useTitleInference({ onTitleInferred }: InferTitleOptions) {
       if (inferringRef.current) return
 
       inferringRef.current = true
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 10000)
+
       try {
         const res = await fetch('/api/infer-title', {
           method: 'POST',
@@ -29,6 +32,7 @@ export function useTitleInference({ onTitleInferred }: InferTitleOptions) {
             ollamaUrl,
             model: ollamaModel,
           }),
+          signal: controller.signal,
         })
 
         if (res.ok) {
@@ -38,8 +42,9 @@ export function useTitleInference({ onTitleInferred }: InferTitleOptions) {
           }
         }
       } catch {
-        // Silently fail - keep "Untitled" if Ollama unavailable
+        // Silently fail - keep "Untitled" if Ollama unavailable or timed out
       } finally {
+        clearTimeout(timeout)
         inferringRef.current = false
       }
     },

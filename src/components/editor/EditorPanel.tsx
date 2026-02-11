@@ -118,6 +118,9 @@ export function EditorPanelHeader() {
     setError(null)
     setPopoverOpen(true)
 
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+
     try {
       const styleGuide = deriveStyleGuide(snippets)
       const res = await fetch('/api/suggest-keyword', {
@@ -128,6 +131,7 @@ export function EditorPanelHeader() {
           text: snippet.text,
           styleGuide,
         }),
+        signal: controller.signal,
       })
 
       const data = await res.json()
@@ -137,10 +141,15 @@ export function EditorPanelHeader() {
         setSuggestions([])
         setError('No suggestions available')
       }
-    } catch {
-      setError('Could not fetch suggestions')
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Request timed out. Is Ollama running?')
+      } else {
+        setError(`Could not fetch suggestions: ${err instanceof Error ? err.message : 'unknown error'}`)
+      }
       setSuggestions([])
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }, [snippet, snippets])

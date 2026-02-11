@@ -200,6 +200,9 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
   // Fetch suggestions for a single snippet
   const fetchSuggestionsForSnippet = useCallback(
     async (snippet: Snippet): Promise<string[]> => {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 10000)
+
       try {
         const res = await fetch('/api/suggest-keyword', {
           method: 'POST',
@@ -211,11 +214,14 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
             ollamaUrl,
             model: ollamaModel,
           }),
+          signal: controller.signal,
         })
         const data = await res.json()
         return data.suggestions || []
       } catch {
         return []
+      } finally {
+        clearTimeout(timeout)
       }
     },
     [styleGuide, ollamaUrl, ollamaModel]

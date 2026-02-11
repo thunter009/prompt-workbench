@@ -137,13 +137,20 @@ export default function HomePage() {
     const paths = events.filter((e) => e.type !== 'unlink').map((e) => e.path)
     if (paths.length === 0) return
 
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+
     try {
       const res = await fetch('/api/read-files', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paths }),
+        signal: controller.signal,
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        toast.error(`Failed to read sync files: ${res.status} ${res.statusText}`)
+        return
+      }
 
       const { files } = await res.json()
       const fileContents = new Map<string, string>()
@@ -181,8 +188,14 @@ export default function HomePage() {
           duration: 3000,
         })
       }
-    } catch {
-      toast.error('Failed to check for conflicts')
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        toast.error('File sync timed out. Is Ollama running?')
+      } else {
+        toast.error(`Failed to check for conflicts: ${err instanceof Error ? err.message : 'unknown error'}`)
+      }
+    } finally {
+      clearTimeout(timeout)
     }
   }, [snippets, addConflicts, openConflictPanel, addSyncEvent])
 

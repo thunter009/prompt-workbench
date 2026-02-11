@@ -49,7 +49,7 @@ export function FolderSuggestions({
   const ollamaUrl = useAISettingsStore((s) => s.ollamaUrl)
   const ollamaModel = useAISettingsStore((s) => s.ollamaModel)
 
-  const doFetch = useCallback(async (): Promise<FolderSuggestion[]> => {
+  const doFetch = useCallback(async (signal?: AbortSignal): Promise<FolderSuggestion[]> => {
     const existingFolders = folders.map((f) => f.name)
     const res = await fetch('/api/suggest-folder', {
       method: 'POST',
@@ -60,6 +60,7 @@ export function FolderSuggestions({
         ollamaUrl,
         model: ollamaModel,
       }),
+      signal,
     })
     const data = await res.json()
     return data.suggestions ?? []
@@ -76,13 +77,21 @@ export function FolderSuggestions({
     setLoading(true)
     setError(null)
 
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+
     try {
-      const results = await doFetch()
+      const results = await doFetch(controller.signal)
       setSuggestions(results.length > 0 ? results : [])
-    } catch {
-      setError('Could not fetch folder suggestions')
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Request timed out. Is Ollama running?')
+      } else {
+        setError(`Could not fetch folder suggestions: ${err instanceof Error ? err.message : 'unknown error'}`)
+      }
       setSuggestions([])
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }, [snippetId, snippetName, snippetText, currentFolderId, dismissed, doFetch])
@@ -123,16 +132,24 @@ export function FolderSuggestions({
     setPopoverOpen(true)
     setPopoverSuggestions([])
 
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+
     try {
-      const results = await doFetch()
+      const results = await doFetch(controller.signal)
       if (results.length > 0) {
         setPopoverSuggestions(results)
       } else {
         setPopoverError('No suggestions available')
       }
-    } catch {
-      setPopoverError('Could not fetch suggestions')
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setPopoverError('Request timed out. Is Ollama running?')
+      } else {
+        setPopoverError(`Could not fetch suggestions: ${err instanceof Error ? err.message : 'unknown error'}`)
+      }
     } finally {
+      clearTimeout(timeout)
       setPopoverLoading(false)
     }
   }, [snippetText, doFetch])

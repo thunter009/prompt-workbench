@@ -126,6 +126,9 @@ export function KeywordSuggestions({
     setLoading(true)
     setError(null)
 
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+
     try {
       const userPrefs: UserStylePrefs = {
         prefix: keywordPrefix,
@@ -142,6 +145,7 @@ export function KeywordSuggestions({
           text: snippetText,
           styleGuide,
         }),
+        signal: controller.signal,
       })
 
       const data = await res.json()
@@ -150,10 +154,15 @@ export function KeywordSuggestions({
       } else {
         setSuggestions([])
       }
-    } catch {
-      setError('Could not fetch suggestions')
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Request timed out. Is Ollama running?')
+      } else {
+        setError(`Could not fetch suggestions: ${err instanceof Error ? err.message : 'unknown error'}`)
+      }
       setSuggestions([])
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }, [snippetName, snippetText, currentKeyword, dismissed, snippets, keywordPrefix, keywordMaxLength, keywordCase, hasUserPrefs])

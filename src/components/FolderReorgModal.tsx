@@ -37,6 +37,7 @@ interface FolderReorgModalProps {
 
 export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<SnippetSuggestion[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -67,7 +68,15 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort()
+  }, [])
+
   const analyze = useCallback(async () => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setLoading(true)
     setItems([])
     setSelected(new Set())
@@ -77,60 +86,79 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
 
     // Process snippets in parallel batches of 3
     const batchSize = 3
-    for (let i = 0; i < snippets.length; i += batchSize) {
-      const batch = snippets.slice(i, i + batchSize)
-      const batchResults = await Promise.all(
-        batch.map(async (snippet) => {
-          // Skip very short snippets
-          if (snippet.text.length < 30) {
-            if (snippet.folderId) {
-              return { snippet, suggestion: null, status: 'well-placed' as const }
-            }
-            return { snippet, suggestion: null, status: 'unfiled' as const }
-          }
+    try {
+      for (let i = 0; i < snippets.length; i += batchSize) {
+        if (controller.signal.aborted) break
 
-          try {
-            const res = await fetch('/api/suggest-folder', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                snippet: { name: snippet.name, text: snippet.text },
-                existingFolders,
-                ollamaUrl,
-                model: ollamaModel,
-              }),
-            })
-            const data = await res.json()
-            const suggestions: FolderSuggestion[] = data.suggestions ?? []
-            const top = suggestions[0] ?? null
-
-            if (!snippet.folderId && top) {
-              return { snippet, suggestion: top, status: 'suggested' as const }
-            }
-            if (snippet.folderId && top) {
-              const currentFolder = folders.find((f) => f.id === snippet.folderId)
-              if (
-                currentFolder &&
-                currentFolder.name.toLowerCase() !== top.folder.toLowerCase() &&
-                top.confidence >= 0.7
-              ) {
-                return { snippet, suggestion: top, status: 'suggested' as const }
+        const batch = snippets.slice(i, i + batchSize)
+        const batchResults = await Promise.all(
+          batch.map(async (snippet) => {
+            // Skip very short snippets
+            if (snippet.text.length < 30) {
+              if (snippet.folderId) {
+                return { snippet, suggestion: null, status: 'well-placed' as const }
               }
-              return { snippet, suggestion: null, status: 'well-placed' as const }
-            }
-            if (!snippet.folderId && !top) {
               return { snippet, suggestion: null, status: 'unfiled' as const }
             }
-            return { snippet, suggestion: null, status: 'well-placed' as const }
-          } catch {
-            if (snippet.folderId) {
-              return { snippet, suggestion: null, status: 'well-placed' as const }
+
+            try {
+              const perReqController = new AbortController()
+              const perReqTimeout = setTimeout(() => perReqController.abort(), 10000)
+
+              // Also abort per-request if global cancel fires
+              const onGlobalAbort = () => perReqController.abort()
+              controller.signal.addEventListener('abort', onGlobalAbort)
+
+              try {
+                const res = await fetch('/api/suggest-folder', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    snippet: { name: snippet.name, text: snippet.text },
+                    existingFolders,
+                    ollamaUrl,
+                    model: ollamaModel,
+                  }),
+                  signal: perReqController.signal,
+                })
+                const data = await res.json()
+                const suggestions: FolderSuggestion[] = data.suggestions ?? []
+                const top = suggestions[0] ?? null
+
+                if (!snippet.folderId && top) {
+                  return { snippet, suggestion: top, status: 'suggested' as const }
+                }
+                if (snippet.folderId && top) {
+                  const currentFolder = folders.find((f) => f.id === snippet.folderId)
+                  if (
+                    currentFolder &&
+                    currentFolder.name.toLowerCase() !== top.folder.toLowerCase() &&
+                    top.confidence >= 0.7
+                  ) {
+                    return { snippet, suggestion: top, status: 'suggested' as const }
+                  }
+                  return { snippet, suggestion: null, status: 'well-placed' as const }
+                }
+                if (!snippet.folderId && !top) {
+                  return { snippet, suggestion: null, status: 'unfiled' as const }
+                }
+                return { snippet, suggestion: null, status: 'well-placed' as const }
+              } finally {
+                clearTimeout(perReqTimeout)
+                controller.signal.removeEventListener('abort', onGlobalAbort)
+              }
+            } catch {
+              if (snippet.folderId) {
+                return { snippet, suggestion: null, status: 'well-placed' as const }
+              }
+              return { snippet, suggestion: null, status: 'unfiled' as const }
             }
-            return { snippet, suggestion: null, status: 'unfiled' as const }
-          }
-        })
-      )
-      results.push(...batchResults)
+          })
+        )
+        results.push(...batchResults)
+      }
+    } catch {
+      // Global abort — use whatever results we have so far
     }
 
     setItems(results)
@@ -368,6 +396,13 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
               <span className="text-sm text-muted-foreground">
                 Analyzing {snippets.length} snippets...
               </span>
+              <button
+                onClick={handleCancel}
+                data-testid="reorg-cancel"
+                className="px-3 py-1.5 text-sm rounded bg-accent text-secondary-foreground hover:bg-accent/80 transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           )}
 
