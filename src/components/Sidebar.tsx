@@ -94,7 +94,9 @@ export function Sidebar() {
   const [deleteSnippetDialog, setDeleteSnippetDialog] = useState<{ open: boolean; snippetIds: string[] }>({ open: false, snippetIds: [] })
   const [moveToFolderOpen, setMoveToFolderOpen] = useState(false)
   const [reorgOpen, setReorgOpen] = useState(false)
+  const [contextMenuIndex, setContextMenuIndex] = useState(-1)
   const menuRef = useRef<HTMLDivElement>(null)
+  const sidebarListRef = useRef<HTMLUListElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
   const snippetInputRef = useRef<HTMLInputElement>(null)
   const deleteSnippetDialogRef = useRef<HTMLDialogElement>(null)
@@ -175,6 +177,7 @@ export function Sidebar() {
     if (!selectedIds.has(snippetId)) {
       selectSnippet(snippetId)
     }
+    setContextMenuIndex(-1)
     setContextMenu({ x: e.clientX, y: e.clientY, visible: true, type: 'snippet' })
   }, [selectedIds, selectSnippet])
 
@@ -182,6 +185,7 @@ export function Sidebar() {
     e.preventDefault()
     e.stopPropagation()
     selectFolder(folderId)
+    setContextMenuIndex(-1)
     setContextMenu({ x: e.clientX, y: e.clientY, visible: true, type: 'folder', folderId })
   }, [selectFolder])
 
@@ -190,26 +194,49 @@ export function Sidebar() {
     setMoveToFolderOpen(false)
   }, [])
 
-  // Close context menu on click outside or escape
+  // Close context menu on click outside or escape; arrow key + enter nav
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         closeContextMenu()
       }
     }
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeContextMenu()
+    const handleMenuKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeContextMenu()
+        return
+      }
+      if (!menuRef.current) return
+      const items = Array.from(menuRef.current.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+      if (items.length === 0) return
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        const next = contextMenuIndex < items.length - 1 ? contextMenuIndex + 1 : 0
+        setContextMenuIndex(next)
+        items[next]?.focus()
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        const prev = contextMenuIndex > 0 ? contextMenuIndex - 1 : items.length - 1
+        setContextMenuIndex(prev)
+        items[prev]?.focus()
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        if (contextMenuIndex >= 0 && contextMenuIndex < items.length) {
+          items[contextMenuIndex]?.click()
+        }
+      }
     }
 
     if (contextMenu.visible) {
       document.addEventListener('mousedown', handleClickOutside)
-      document.addEventListener('keydown', handleEscape)
+      document.addEventListener('keydown', handleMenuKeyDown)
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('keydown', handleEscape)
+      document.removeEventListener('keydown', handleMenuKeyDown)
     }
-  }, [contextMenu.visible, closeContextMenu])
+  }, [contextMenu.visible, closeContextMenu, contextMenuIndex])
 
   const doExport = useCallback(async (toExport: Snippet[]) => {
     try {
@@ -407,8 +434,9 @@ export function Sidebar() {
 
   const handleFolderClick = useCallback((e: React.MouseEvent, folderId: string) => {
     e.stopPropagation()
+    selectFolder(folderId)
     toggleFolder(folderId)
-  }, [toggleFolder])
+  }, [selectFolder, toggleFolder])
 
   const handleSnippetDoubleClick = useCallback((e: React.MouseEvent, snippetId: string) => {
     e.stopPropagation()
@@ -695,6 +723,56 @@ export function Sidebar() {
     handleDragEnd()
   }, [dragState, snippets, folders, moveSnippetsToFolder, moveFolder, reorderFolderSiblings, pushUndoAction, canDropFolder, isDescendantOf, handleDragEnd])
 
+  // Filter snippets based on export status + tags
+  const filteredSnippets = useMemo(() => {
+    let result = snippets
+
+    // Export filter
+    if (exportFilter !== 'all') {
+      result = result.filter((s) => {
+        const notExported = !s.lastExportedAt
+        const modified = s.lastExportedAt && s.updatedAt > s.lastExportedAt
+        if (exportFilter === 'unexported') return notExported
+        if (exportFilter === 'modified') return modified
+        return true
+      })
+    }
+
+    // Tag filter
+    if (selectedTags.length > 0) {
+      result = result.filter((s) => {
+        if (tagFilterMode === 'and') {
+          return selectedTags.every((t) => s.tags.includes(t))
+        }
+        return selectedTags.some((t) => s.tags.includes(t))
+      })
+    }
+
+    return result
+  }, [snippets, exportFilter, selectedTags, tagFilterMode])
+
+  // Recalculate root snippets with filter
+  const filteredRootSnippets = useMemo(() => {
+    return filteredSnippets.filter((s) => !s.folderId)
+  }, [filteredSnippets])
+
+  // Build flat list of navigable items (matches render order) for arrow key nav
+  const navigableItems = useMemo(() => {
+    const items: Array<{ type: 'snippet'; id: string } | { type: 'folder'; id: string }> = []
+    const collectFolder = (folder: Folder) => {
+      items.push({ type: 'folder', id: folder.id })
+      if (expandedFolders.has(folder.id)) {
+        const children = folderMap.get(folder.id) || []
+        for (const child of children) collectFolder(child)
+        const folderSnips = filteredSnippets.filter((s) => s.folderId === folder.id)
+        for (const s of folderSnips) items.push({ type: 'snippet', id: s.id })
+      }
+    }
+    for (const folder of rootFolders) collectFolder(folder)
+    for (const snippet of filteredRootSnippets) items.push({ type: 'snippet', id: snippet.id })
+    return items
+  }, [rootFolders, folderMap, expandedFolders, filteredSnippets, filteredRootSnippets])
+
   // Keyboard shortcuts for sidebar operations
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -733,8 +811,59 @@ export function Sidebar() {
         return
       }
 
-      // F2 or Enter: rename selected snippet
-      if (e.key === 'F2' || (e.key === 'Enter' && !e.metaKey && !e.ctrlKey)) {
+      // ArrowDown/ArrowUp: navigate snippet list
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (navigableItems.length === 0) return
+        e.preventDefault()
+
+        // Find current position based on selection
+        const currentId = selectedId || (selectedIds.size > 0 ? Array.from(selectedIds)[0] : null) || selectedFolderId
+        const currentIndex = currentId ? navigableItems.findIndex((item) => item.id === currentId) : -1
+
+        let nextIndex: number
+        if (e.key === 'ArrowDown') {
+          nextIndex = currentIndex < navigableItems.length - 1 ? currentIndex + 1 : 0
+        } else {
+          nextIndex = currentIndex > 0 ? currentIndex - 1 : navigableItems.length - 1
+        }
+
+        const nextItem = navigableItems[nextIndex]
+        if (nextItem.type === 'snippet') {
+          selectSnippet(nextItem.id)
+        } else {
+          selectFolder(nextItem.id)
+        }
+
+        // Scroll into view
+        const selector = nextItem.type === 'snippet'
+          ? `[data-snippet-id="${nextItem.id}"]`
+          : `[data-folder-id="${nextItem.id}"]`
+        const el = sidebarListRef.current?.querySelector(selector)
+        el?.scrollIntoView({ block: 'nearest' })
+        return
+      }
+
+      // Enter: open focused snippet, toggle folder
+      if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) {
+        if (selectedFolderId) {
+          e.preventDefault()
+          toggleFolder(selectedFolderId)
+          return
+        }
+        // If snippet selected, start rename (existing behavior)
+        const id = selectedIds.size > 0 ? Array.from(selectedIds)[0] : selectedId
+        if (id) {
+          e.preventDefault()
+          const snippet = snippets.find((s) => s.id === id)
+          if (snippet) {
+            selectSnippet(id)
+          }
+        }
+        return
+      }
+
+      // F2: rename selected snippet
+      if (e.key === 'F2') {
         const id = selectedIds.size > 0 ? Array.from(selectedIds)[0] : selectedId
         if (id) {
           e.preventDefault()
@@ -749,7 +878,7 @@ export function Sidebar() {
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [undo, canUndo, selectedIds, selectedId, snippets, duplicateSnippet])
+  }, [undo, canUndo, selectedIds, selectedId, selectedFolderId, snippets, duplicateSnippet, navigableItems, selectSnippet, selectFolder, toggleFolder])
 
   const handleNewSnippet = useCallback(() => {
     createSnippet({ name: 'New Snippet', text: '' })
@@ -859,6 +988,7 @@ export function Sidebar() {
         key={snippet.id}
         data-testid="snippet-row"
         data-snippet-id={snippet.id}
+        tabIndex={0}
         draggable={!isEditing}
         onDragStart={(e) => handleSnippetDragStart(e, snippet.id)}
         onDragEnd={handleDragEnd}
@@ -867,7 +997,7 @@ export function Sidebar() {
         onContextMenu={(e) => handleSnippetContextMenu(e, snippet.id)}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         className={cn(
-          'group flex items-center gap-2 pr-2 py-1.5 rounded cursor-pointer text-sm transition-all duration-100',
+          'group flex items-center gap-2 pr-2 py-1.5 rounded cursor-pointer text-sm transition-all duration-100 outline-none focus-visible:ring-2 focus-visible:ring-ring',
           isBeingDragged && 'opacity-50',
           selectedIds.has(snippet.id)
             ? 'bg-blue-600/30 text-blue-200'
@@ -897,7 +1027,7 @@ export function Sidebar() {
                 setEditingSnippetId(snippet.id)
                 setEditingSnippetName(snippet.name)
               }}
-              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-secondary-foreground transition-opacity"
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-secondary-foreground transition-opacity outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:opacity-100"
               title="Edit name"
               aria-label={`Edit ${snippet.name}`}
             >
@@ -945,6 +1075,7 @@ export function Sidebar() {
         )}
         <div
           data-testid="folder-header"
+          tabIndex={0}
           draggable={!isEditing}
           onDragStart={(e) => handleFolderDragStart(e, folder.id)}
           onDragEnd={handleDragEnd}
@@ -956,7 +1087,7 @@ export function Sidebar() {
           onDrop={(e) => handleDrop(e, folder.id)}
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
           className={cn(
-            'flex items-center gap-1 pr-2 py-1.5 rounded cursor-pointer text-sm transition-all duration-100',
+            'flex items-center gap-1 pr-2 py-1.5 rounded cursor-pointer text-sm transition-all duration-100 outline-none focus-visible:ring-2 focus-visible:ring-ring',
             isBeingDragged && 'opacity-50',
             isDropTarget && dropPosition === 'inside' && canReceiveDrop && 'ring-2 ring-blue-500 bg-blue-500/20',
             isDropTarget && dropPosition === 'inside' && !canReceiveDrop && 'ring-2 ring-red-500 bg-red-500/20',
@@ -1043,39 +1174,6 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [filterMenuOpen])
 
-  // Filter snippets based on export status + tags
-  const filteredSnippets = useMemo(() => {
-    let result = snippets
-
-    // Export filter
-    if (exportFilter !== 'all') {
-      result = result.filter((s) => {
-        const notExported = !s.lastExportedAt
-        const modified = s.lastExportedAt && s.updatedAt > s.lastExportedAt
-        if (exportFilter === 'unexported') return notExported
-        if (exportFilter === 'modified') return modified
-        return true
-      })
-    }
-
-    // Tag filter
-    if (selectedTags.length > 0) {
-      result = result.filter((s) => {
-        if (tagFilterMode === 'and') {
-          return selectedTags.every((t) => s.tags.includes(t))
-        }
-        return selectedTags.some((t) => s.tags.includes(t))
-      })
-    }
-
-    return result
-  }, [snippets, exportFilter, selectedTags, tagFilterMode])
-
-  // Recalculate root snippets with filter
-  const filteredRootSnippets = useMemo(() => {
-    return filteredSnippets.filter((s) => !s.folderId)
-  }, [filteredSnippets])
-
   const getFilteredSnippetsForFolder = useCallback((folderId: string) => {
     return filteredSnippets.filter((s) => s.folderId === folderId)
   }, [filteredSnippets])
@@ -1097,7 +1195,7 @@ export function Sidebar() {
             <button
               onClick={() => setFilterMenuOpen((v) => !v)}
               className={cn(
-                'p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground',
+                'p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 exportFilter !== 'all' && 'text-blue-400'
               )}
               title="Filter by export status"
@@ -1130,7 +1228,7 @@ export function Sidebar() {
             <>
               <button
                 onClick={expandAllFolders}
-                className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 title="Expand all folders"
                 aria-label="Expand all folders"
               >
@@ -1138,7 +1236,7 @@ export function Sidebar() {
               </button>
               <button
                 onClick={collapseAllFolders}
-                className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 title="Collapse all folders"
                 aria-label="Collapse all folders"
               >
@@ -1149,7 +1247,7 @@ export function Sidebar() {
           <button
             onClick={() => setReorgOpen(true)}
             data-testid="reorg-trigger"
-            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-amber-400"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-amber-400 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             title="Batch reorganize"
             aria-label="Batch reorganize"
           >
@@ -1157,7 +1255,7 @@ export function Sidebar() {
           </button>
           <button
             onClick={() => handleNewFolder()}
-            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
             title="New folder"
             aria-label="New folder"
           >
@@ -1165,7 +1263,7 @@ export function Sidebar() {
           </button>
           <button
             onClick={handleNewSnippet}
-            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
             title="New snippet"
             aria-label="New snippet"
           >
@@ -1190,7 +1288,7 @@ export function Sidebar() {
         ) : filteredSnippets.length === 0 && exportFilter !== 'all' ? (
           <p className="text-sm text-muted-foreground p-2">No {exportFilter} snippets</p>
         ) : (
-          <ul className="space-y-0.5">
+          <ul ref={sidebarListRef} className="space-y-0.5" role="listbox" aria-label="Snippets and folders">
             {rootFolders.map((folder) => renderFolder(folder))}
             {filteredRootSnippets.map((snippet) => renderSnippet(snippet))}
           </ul>
@@ -1218,7 +1316,7 @@ export function Sidebar() {
                 role="menuitem"
                 onClick={handleRenameSnippet}
                 data-testid="ctx-rename"
-                className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
+                className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2 outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Pencil className="w-3.5 h-3.5" />
                 Rename
@@ -1228,7 +1326,7 @@ export function Sidebar() {
                 role="menuitem"
                 onClick={handleDuplicateSnippet}
                 data-testid="ctx-duplicate"
-                className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
+                className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2 outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Copy className="w-3.5 h-3.5" />
                 Duplicate
@@ -1240,7 +1338,7 @@ export function Sidebar() {
                   role="menuitem"
                   onClick={() => setMoveToFolderOpen((v) => !v)}
                   data-testid="ctx-move-to"
-                  className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
+                  className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2 outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <FolderInput className="w-3.5 h-3.5" />
                   Move to...
@@ -1250,7 +1348,7 @@ export function Sidebar() {
                   <div data-testid="move-to-folder" className="absolute left-full top-0 ml-1 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[140px] max-h-[200px] overflow-y-auto">
                     <button
                       onClick={() => handleMoveToFolder(null)}
-                      className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors"
+                      className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       Root
                     </button>
@@ -1272,7 +1370,7 @@ export function Sidebar() {
                 role="menuitem"
                 onClick={handleExportSelected}
                 data-testid="ctx-export"
-                className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
+                className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2 outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Export Selected ({selectedIds.size})
               </button>
@@ -1281,7 +1379,7 @@ export function Sidebar() {
                 role="menuitem"
                 onClick={handleDeleteSelectedSnippets}
                 data-testid="snippet-delete"
-                className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-accent transition-colors flex items-center gap-2"
+                className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-accent transition-colors flex items-center gap-2 outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Delete ({selectedIds.size})
@@ -1300,7 +1398,7 @@ export function Sidebar() {
                       handleNewFolder(contextMenu.folderId)
                     }
                   }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors"
+                  className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   New Subfolder
                 </button>
