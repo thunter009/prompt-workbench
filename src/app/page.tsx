@@ -37,6 +37,7 @@ import {
   getDefaultExportPath,
 } from '@/lib/raycast/export'
 import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
+import { useImprovePrompt, ImprovePromptButton, ImprovePromptReview } from '@/components/ImprovePrompt'
 import { PanelRight, PanelRightClose, Download, Upload, Settings, Zap, AlertTriangle, History, Check, Loader2, RefreshCw, HelpCircle, ChevronDown, Menu, X } from 'lucide-react'
 import type { Snippet } from '@/types'
 
@@ -298,6 +299,15 @@ export default function HomePage() {
     }
     setDeleteDialogIds([])
   }, [deleteDialogIds, deleteSnippets, pushUndoAction, undo])
+
+  const handleAcceptImproved = useCallback((improved: string) => {
+    setContent(improved)
+    if (selectedId) {
+      updateSnippet(selectedId, { text: improved })
+    }
+  }, [selectedId, updateSnippet])
+
+  const improve = useImprovePrompt(content, handleAcceptImproved)
 
   const handleEditorScroll = useCallback((progress: number) => {
     if (syncScroll) {
@@ -761,6 +771,7 @@ export default function HomePage() {
                     <div className="flex items-center border-b border-border">
                       <EditorPanelHeader />
                       <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
+                        <ImprovePromptButton disabled={improve.disabled} loading={improve.status === 'loading'} onImprove={improve.handleImprove} />
                         {saveStatus === 'saving' && (
                           <>
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -775,8 +786,9 @@ export default function HomePage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex-1 overflow-auto">
+                    <div className="flex-1 overflow-auto relative">
                       <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} />
+                      <ImprovePromptReview status={improve.status} improved={improve.improved} error={improve.error} onAccept={improve.accept} onReject={improve.reject} />
                     </div>
                   </div>
                 </Panel>
@@ -806,6 +818,7 @@ export default function HomePage() {
               <div className="flex items-center border-b border-border">
                 <EditorPanelHeader />
                 <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <ImprovePromptButton disabled={improve.disabled} loading={improve.status === 'loading'} onImprove={improve.handleImprove} />
                   {saveStatus === 'saving' && (
                     <>
                       <Loader2 className="w-3 h-3 animate-spin" />
@@ -820,8 +833,9 @@ export default function HomePage() {
                   )}
                 </div>
               </div>
-              <div className="flex-1 overflow-auto">
+              <div className="flex-1 overflow-auto relative">
                 <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} />
+                <ImprovePromptReview status={improve.status} improved={improve.improved} error={improve.error} onAccept={improve.accept} onReject={improve.reject} />
               </div>
             </div>
           )}
