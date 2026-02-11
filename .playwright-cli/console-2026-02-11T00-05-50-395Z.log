@@ -1,0 +1,75 @@
+[     255ms] [ERROR] React does not recognize the `%s` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `%s` instead. If you accidentally passed it from a parent component, remove it from the DOM element. suppressHydrationMismatch suppresshydrationmismatch @ http://localhost:3000/_next/static/chunks/3aca0_next_dist_1738bdce._.js:2359
+[     255ms] [ERROR] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <HotReload assetPrefix="" globalError={[...]}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html
+                          lang="en"
+                          suppressHydrationMismatch={true}
+-                         className="light"
+-                         style={{color-scheme:"light"}}
+                        >
+                  ...
+ @ http://localhost:3000/_next/static/chunks/3aca0_next_dist_1738bdce._.js:2359
+[   55221ms] [ERROR] In HTML, %s cannot be a descendant of <%s>.
+This will cause a hydration error.%s <div> p 
+
+  ...
+    <div className={undefined} data-group={true} data-testid="prompt-wor..." id="prompt-wor..." ref={function} ...>
+      <Panel>
+      <Separator>
+      <Panel>
+      <Separator>
+      <Panel id="preview" panelRef={{current:{...}}} defaultSize="30%" minSize="15%" collapsible={true} ...>
+        <div aria-disabled={undefined} data-panel={true} data-testid="preview" id="preview" ref={function} ...>
+          <div className={undefined} style={{...}}>
+            <div className="h-full ove...">
+              <LoadableComponent content="Hello {cli..." scrollProgress={0}>
+                <Suspense fallback={<loading>}>
+                  <BailoutToCSR reason="next/dynamic">
+                    <Preview content="Hello {cli..." scrollProgress={0}>
+                      <div className="h-full fle...">
+                        <div>
+                        <div ref={{current:null}} className="flex-1 ove...">
+                          <div className="prose pros...">
+                            <Markdown remarkPlugins={[...]} rehypePlugins={[...]} components={{h1:function h1, ...}}>
+                              <p node={{type:"element", ...}}>
+>                               <p className="my-2 text-secondary-foreground leading-relaxed">
+                                  <raycast-placeholder raw="{clipboard}" parsed={"{\"raw\"..."} ...>
+                                    <PlaceholderPill placeholder={{raw:"{clip...", ...}}>
+                                      <span className="group rela...">
+                                        <span>
+                                        <span className="absolute b...">
+                                          <span>
+                                          <span>
+>                                         <div className="flex flex-col gap-0.5">
+                                  ...
+ @ http://localhost:3000/_next/static/chunks/3aca0_next_dist_1738bdce._.js:2359
+[   55221ms] [ERROR] <%s> cannot contain a nested %s.
+See this log for the ancestor stack trace. p <div> @ http://localhost:3000/_next/static/chunks/3aca0_next_dist_1738bdce._.js:2359
