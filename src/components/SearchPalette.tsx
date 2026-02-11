@@ -216,7 +216,7 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
         </div>
 
         {/* Results */}
-        <Command.List ref={listRef} className="max-h-80 overflow-y-auto p-2">
+        <Command.List ref={listRef} role="listbox" className="max-h-80 overflow-y-auto p-2">
           {search.trim() === '' ? (
             recentSnippets.length > 0 ? (
               <Command.Group heading="Recent" className="text-xs font-medium text-muted-foreground px-2 py-1.5">
@@ -319,6 +319,8 @@ function SearchResultItem({
   return (
     <div
       data-search-item
+      role="option"
+      aria-selected={selected}
       onClick={onSelect}
       onMouseEnter={onMouseEnter}
       className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-secondary-foreground ${
@@ -401,6 +403,8 @@ function RecentSnippetItem({
   return (
     <div
       data-search-item
+      role="option"
+      aria-selected={selected}
       onClick={onSelect}
       onMouseEnter={onMouseEnter}
       className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-secondary-foreground ${

@@ -159,6 +159,26 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     [onClose]
   )
 
+  // focusTrap: keep Tab cycling within dialog
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== 'Tab') return
+    const dialog = dialogRef.current
+    if (!dialog) return
+    const focusable = dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }, [])
+
   const toggleSelected = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -309,6 +329,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     <dialog
       ref={dialogRef}
       onClick={handleBackdropClick}
+      onKeyDown={handleKeyDown}
       data-testid="reorg-modal"
       className="backdrop:bg-black/50 bg-transparent p-0 max-w-xl w-full"
     >

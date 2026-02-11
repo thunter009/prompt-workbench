@@ -480,6 +480,7 @@ export default function HomePage() {
                 onClick={openConflictPanel}
                 className="p-2 rounded hover:bg-accent transition-colors text-amber-400 hover:text-amber-300 relative"
                 title={`${conflictCount} conflict${conflictCount > 1 ? 's' : ''} - click to review`}
+                aria-label={`${conflictCount} conflict${conflictCount > 1 ? 's' : ''} - click to review`}
               >
                 <AlertTriangle className="w-5 h-5" />
                 <span className="absolute -top-0.5 -right-0.5 w-4 h-4 text-[10px] font-medium bg-amber-500 text-black rounded-full flex items-center justify-center">
@@ -491,6 +492,7 @@ export default function HomePage() {
               onClick={handleSyncToRaycast}
               className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
               title="Sync to Raycast - export & auto-import (⌘⇧S)"
+              aria-label="Sync to Raycast"
             >
               <RefreshCw className="w-5 h-5" />
             </button>
@@ -498,6 +500,7 @@ export default function HomePage() {
               onClick={() => setImportOpen(true)}
               className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
               title="Import from Raycast"
+              aria-label="Import from Raycast"
             >
               <Upload className="w-5 h-5" />
             </button>
@@ -507,6 +510,7 @@ export default function HomePage() {
                   onClick={() => handleQuickExport(false)}
                   className="p-2 rounded-l hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
                   title={`Export to ${exportSettings.defaultPath || '~/.prompt-workbench'} (⌘⇧E)`}
+                  aria-label="Quick export"
                 >
                   <Download className="w-5 h-5" />
                 </button>
@@ -514,6 +518,8 @@ export default function HomePage() {
                   onClick={() => setExportMenuOpen((v) => !v)}
                   className="p-2 -ml-1 rounded-r hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
                   title="More export options"
+                  aria-label="More export options"
+                  aria-expanded={exportMenuOpen}
                 >
                   <ChevronDown className="w-3 h-3" />
                 </button>
@@ -543,6 +549,8 @@ export default function HomePage() {
               onClick={() => setHistoryOpen((v) => !v)}
               className={`p-2 rounded hover:bg-accent transition-colors ${historyOpen ? 'text-blue-400' : 'text-muted-foreground hover:text-foreground'}`}
               title="Version history"
+              aria-label="Version history"
+              aria-expanded={historyOpen}
             >
               <History className="w-5 h-5" />
             </button>
@@ -550,6 +558,7 @@ export default function HomePage() {
               onClick={() => setSettingsOpen(true)}
               className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
               title="Settings (⌘,)"
+              aria-label="Settings"
             >
               <Settings className="w-5 h-5" />
             </button>
@@ -557,6 +566,7 @@ export default function HomePage() {
               onClick={() => setHotkeySheetOpen(true)}
               className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
               title="Keyboard shortcuts (⌘?)"
+              aria-label="Keyboard shortcuts"
             >
               <HelpCircle className="w-5 h-5" />
             </button>
@@ -566,6 +576,8 @@ export default function HomePage() {
               onMouseEnter={previewVisible ? preloadEditor : preloadPreview}
               className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
               title={previewVisible ? 'Hide preview (⌘\\)' : 'Show preview (⌘\\)'}
+              aria-label={previewVisible ? 'Hide preview' : 'Show preview'}
+              aria-expanded={previewVisible}
             >
               {previewVisible ? (
                 <PanelRightClose className="w-5 h-5" />

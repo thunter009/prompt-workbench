@@ -45,6 +45,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null)
   const [folderDropdownOpen, setFolderDropdownOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
 
   const createSnippet = useSnippetStore((s) => s.createSnippet)
   const snippets = useSnippetStore((s) => s.snippets)
@@ -284,13 +285,37 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
     setTargetFolderId(null)
   }, [onClose])
 
+  // Focus trap: keep Tab cycling within modal
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      handleClose()
+      return
+    }
+    if (e.key !== 'Tab') return
+    const modal = modalRef.current
+    if (!modal) return
+    const focusable = modal.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }, [handleClose])
+
   if (!open) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-overlay-in" onClick={handleClose} />
 
-      <div className="relative bg-muted border border-border rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col animate-modal-in">
+      <div ref={modalRef} onKeyDown={handleKeyDown} className="relative bg-muted border border-border rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col animate-modal-in">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-lg font-medium">Import from Raycast</h2>

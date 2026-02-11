@@ -208,9 +208,10 @@ export function EditorPanelHeader() {
   return (
     <div className="px-4 py-2 flex flex-col gap-2">
       <div className="flex items-center gap-3">
-        <label className="text-sm text-muted-foreground shrink-0">Keyword</label>
+        <label htmlFor="keyword-input" className="text-sm text-muted-foreground shrink-0">Keyword</label>
         <div className="relative flex-1 max-w-xs">
           <input
+            id="keyword-input"
             type="text"
             value={keywordValue}
             onChange={handleKeywordChange}

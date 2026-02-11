@@ -97,6 +97,8 @@ export function Sidebar() {
   const menuRef = useRef<HTMLDivElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
   const snippetInputRef = useRef<HTMLInputElement>(null)
+  const deleteSnippetDialogRef = useRef<HTMLDialogElement>(null)
+  const deleteFolderDialogRef = useRef<HTMLDialogElement>(null)
 
   const EXPANDED_FOLDERS_KEY = 'prompt-workbench-expanded-folders'
 
@@ -823,6 +825,28 @@ export function Sidebar() {
     }
   }, [editingSnippetId])
 
+  // Manage delete snippet dialog
+  useEffect(() => {
+    const dialog = deleteSnippetDialogRef.current
+    if (!dialog) return
+    if (deleteSnippetDialog.open) {
+      dialog.showModal()
+    } else {
+      dialog.close()
+    }
+  }, [deleteSnippetDialog.open])
+
+  // Manage delete folder dialog
+  useEffect(() => {
+    const dialog = deleteFolderDialogRef.current
+    if (!dialog) return
+    if (deleteFolderDialog.open) {
+      dialog.showModal()
+    } else {
+      dialog.close()
+    }
+  }, [deleteFolderDialog.open])
+
   const needsExport = (snippet: Snippet) =>
     !snippet.lastExportedAt || snippet.updatedAt > snippet.lastExportedAt
 
@@ -875,6 +899,7 @@ export function Sidebar() {
               }}
               className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-secondary-foreground transition-opacity"
               title="Edit name"
+              aria-label={`Edit ${snippet.name}`}
             >
               <Pencil className="w-3 h-3" />
             </button>
@@ -940,10 +965,17 @@ export function Sidebar() {
               : 'text-muted-foreground hover:bg-accent/50 hover:text-secondary-foreground active:scale-[0.98]'
           )}
         >
-          <ChevronRight
+          <button
             data-testid="folder-chevron"
-            className={cn('w-4 h-4 shrink-0 transition-transform duration-150 ease-out', isExpanded && 'rotate-90')}
-          />
+            aria-expanded={isExpanded}
+            aria-label={`Toggle ${folder.name}`}
+            className="shrink-0 p-0 bg-transparent border-none cursor-pointer"
+            tabIndex={-1}
+          >
+            <ChevronRight
+              className={cn('w-4 h-4 transition-transform duration-150 ease-out', isExpanded && 'rotate-90')}
+            />
+          </button>
           <FolderIcon className="w-4 h-4 shrink-0" />
           {isEditing ? (
             <input
@@ -1069,6 +1101,8 @@ export function Sidebar() {
                 exportFilter !== 'all' && 'text-blue-400'
               )}
               title="Filter by export status"
+              aria-label="Filter by export status"
+              aria-expanded={filterMenuOpen}
             >
               <Filter className="w-4 h-4" />
             </button>
@@ -1098,6 +1132,7 @@ export function Sidebar() {
                 onClick={expandAllFolders}
                 className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
                 title="Expand all folders"
+                aria-label="Expand all folders"
               >
                 <ChevronsUpDown className="w-4 h-4" />
               </button>
@@ -1105,6 +1140,7 @@ export function Sidebar() {
                 onClick={collapseAllFolders}
                 className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
                 title="Collapse all folders"
+                aria-label="Collapse all folders"
               >
                 <ChevronsDownUp className="w-4 h-4" />
               </button>
@@ -1115,6 +1151,7 @@ export function Sidebar() {
             data-testid="reorg-trigger"
             className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-amber-400"
             title="Batch reorganize"
+            aria-label="Batch reorganize"
           >
             <Sparkles className="w-4 h-4" />
           </button>
@@ -1122,6 +1159,7 @@ export function Sidebar() {
             onClick={() => handleNewFolder()}
             className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
             title="New folder"
+            aria-label="New folder"
           >
             <FolderPlus className="w-4 h-4" />
           </button>
@@ -1129,6 +1167,7 @@ export function Sidebar() {
             onClick={handleNewSnippet}
             className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
             title="New snippet"
+            aria-label="New snippet"
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -1168,6 +1207,7 @@ export function Sidebar() {
       {contextMenu.visible && (
         <div
           ref={menuRef}
+          role="menu"
           data-testid={contextMenu.type === 'snippet' ? 'snippet-context-menu' : undefined}
           style={{ top: contextMenu.y, left: contextMenu.x }}
           className="fixed z-50 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[180px] animate-dropdown-in"
@@ -1175,6 +1215,7 @@ export function Sidebar() {
           {contextMenu.type === 'snippet' && (
             <>
               <button
+                role="menuitem"
                 onClick={handleRenameSnippet}
                 data-testid="ctx-rename"
                 className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
@@ -1184,6 +1225,7 @@ export function Sidebar() {
                 <span className="ml-auto text-xs text-muted-foreground">F2</span>
               </button>
               <button
+                role="menuitem"
                 onClick={handleDuplicateSnippet}
                 data-testid="ctx-duplicate"
                 className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
@@ -1195,6 +1237,7 @@ export function Sidebar() {
               {/* Move to folder submenu */}
               <div className="relative">
                 <button
+                  role="menuitem"
                   onClick={() => setMoveToFolderOpen((v) => !v)}
                   data-testid="ctx-move-to"
                   className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
@@ -1226,6 +1269,7 @@ export function Sidebar() {
               </div>
               <div className="h-px bg-border my-1" />
               <button
+                role="menuitem"
                 onClick={handleExportSelected}
                 data-testid="ctx-export"
                 className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
@@ -1234,6 +1278,7 @@ export function Sidebar() {
               </button>
               <div className="h-px bg-border my-1" />
               <button
+                role="menuitem"
                 onClick={handleDeleteSelectedSnippets}
                 data-testid="snippet-delete"
                 className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-accent transition-colors flex items-center gap-2"
@@ -1248,6 +1293,7 @@ export function Sidebar() {
             <>
               {contextMenu.folderId && getFolderDepth(contextMenu.folderId) < MAX_DEPTH - 1 && (
                 <button
+                  role="menuitem"
                   onClick={() => {
                     closeContextMenu()
                     if (contextMenu.folderId) {
@@ -1260,12 +1306,14 @@ export function Sidebar() {
                 </button>
               )}
               <button
+                role="menuitem"
                 onClick={handleExportFolder}
                 className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors"
               >
                 Export Folder
               </button>
               <button
+                role="menuitem"
                 onClick={handleDeleteFolder}
                 className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-accent transition-colors"
               >
@@ -1298,75 +1346,79 @@ export function Sidebar() {
       <FolderReorgModal open={reorgOpen} onClose={() => setReorgOpen(false)} />
 
       {/* Delete Snippet Confirmation Dialog */}
-      {deleteSnippetDialog.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-overlay-in">
-          <div className="bg-muted border border-border rounded-lg shadow-xl p-4 max-w-sm mx-4 animate-modal-in">
-            <h3 className="text-lg font-medium text-foreground mb-2">
-              Delete {deleteSnippetDialog.snippetIds.length === 1 ? 'Snippet' : `${deleteSnippetDialog.snippetIds.length} Snippets`}?
-            </h3>
-            <div className="text-sm text-muted-foreground mb-4">
-              {deleteSnippetDialog.snippetIds.length === 1
-                ? <p>&ldquo;{snippets.find((s) => s.id === deleteSnippetDialog.snippetIds[0])?.name}&rdquo; will be permanently deleted.</p>
-                : (
-                  <>
-                    <p className="mb-2">{deleteSnippetDialog.snippetIds.length} snippets will be permanently deleted:</p>
-                    <ul className="list-disc pl-4 space-y-0.5">
-                      {deleteSnippetDialog.snippetIds.slice(0, 5).map((id) => (
-                        <li key={id} className="truncate">{snippets.find((s) => s.id === id)?.name}</li>
-                      ))}
-                      {deleteSnippetDialog.snippetIds.length > 5 && (
-                        <li className="text-muted-foreground/70">+ {deleteSnippetDialog.snippetIds.length - 5} more</li>
-                      )}
-                    </ul>
-                  </>
-                )}
-              <p className="mt-2">You can undo this with &#x2318;Z.</p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setDeleteSnippetDialog({ open: false, snippetIds: [] })}
-                data-testid="snippet-delete-cancel"
-                className="px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteSnippetConfirm}
-                data-testid="snippet-delete-confirm"
-                className="px-3 py-1.5 text-sm text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
-              >
-                Delete
-              </button>
-            </div>
+      <dialog
+        ref={deleteSnippetDialogRef}
+        onClick={(e) => { if (e.target === deleteSnippetDialogRef.current) setDeleteSnippetDialog({ open: false, snippetIds: [] }) }}
+        className="backdrop:bg-black/50 bg-transparent p-0 max-w-sm w-full"
+      >
+        <div className="bg-muted border border-border rounded-lg shadow-xl p-4 mx-4">
+          <h3 className="text-lg font-medium text-foreground mb-2">
+            Delete {deleteSnippetDialog.snippetIds.length === 1 ? 'Snippet' : `${deleteSnippetDialog.snippetIds.length} Snippets`}?
+          </h3>
+          <div className="text-sm text-muted-foreground mb-4">
+            {deleteSnippetDialog.snippetIds.length === 1
+              ? <p>&ldquo;{snippets.find((s) => s.id === deleteSnippetDialog.snippetIds[0])?.name}&rdquo; will be permanently deleted.</p>
+              : (
+                <>
+                  <p className="mb-2">{deleteSnippetDialog.snippetIds.length} snippets will be permanently deleted:</p>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    {deleteSnippetDialog.snippetIds.slice(0, 5).map((id) => (
+                      <li key={id} className="truncate">{snippets.find((s) => s.id === id)?.name}</li>
+                    ))}
+                    {deleteSnippetDialog.snippetIds.length > 5 && (
+                      <li className="text-muted-foreground/70">+ {deleteSnippetDialog.snippetIds.length - 5} more</li>
+                    )}
+                  </ul>
+                </>
+              )}
+            <p className="mt-2">You can undo this with &#x2318;Z.</p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setDeleteSnippetDialog({ open: false, snippetIds: [] })}
+              data-testid="snippet-delete-cancel"
+              className="px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteSnippetConfirm}
+              data-testid="snippet-delete-confirm"
+              className="px-3 py-1.5 text-sm text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+            >
+              Delete
+            </button>
           </div>
         </div>
-      )}
+      </dialog>
 
       {/* Delete Folder Confirmation Dialog */}
-      {deleteFolderDialog.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-overlay-in">
-          <div className="bg-muted border border-border rounded-lg shadow-xl p-4 max-w-sm mx-4 animate-modal-in">
-            <h3 className="text-lg font-medium text-foreground mb-2">Delete Folder?</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              This folder contains items. Deleting it will move all snippets to the root level and remove all subfolders.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setDeleteFolderDialog({ open: false, folderId: null, hasContents: false })}
-                className="px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteFolderConfirm}
-                className="px-3 py-1.5 text-sm text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
-              >
-                Delete
-              </button>
-            </div>
+      <dialog
+        ref={deleteFolderDialogRef}
+        onClick={(e) => { if (e.target === deleteFolderDialogRef.current) setDeleteFolderDialog({ open: false, folderId: null, hasContents: false }) }}
+        className="backdrop:bg-black/50 bg-transparent p-0 max-w-sm w-full"
+      >
+        <div className="bg-muted border border-border rounded-lg shadow-xl p-4 mx-4">
+          <h3 className="text-lg font-medium text-foreground mb-2">Delete Folder?</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            This folder contains items. Deleting it will move all snippets to the root level and remove all subfolders.
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setDeleteFolderDialog({ open: false, folderId: null, hasContents: false })}
+              className="px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeleteFolderConfirm}
+              className="px-3 py-1.5 text-sm text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+            >
+              Delete
+            </button>
           </div>
         </div>
-      )}
+      </dialog>
     </aside>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { X, RefreshCw, Loader2, CheckCircle, XCircle, Search } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
@@ -35,6 +35,7 @@ const CASE_OPTIONS: { value: CasePreference; label: string }[] = [
 ]
 
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null)
   const [ollamaModels, setOllamaModels] = useState<string[]>([])
   const [modelsLoading, setModelsLoading] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'connected' | 'failed'>('idle')
@@ -131,14 +132,29 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     }
   }, [open, ollamaUrl, fetchOllamaModels])
 
-  // Close on escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open) onClose()
+  // Focus trap: keep Tab cycling within modal, close on Escape
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onClose()
+      return
     }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [open, onClose])
+    if (e.key !== 'Tab') return
+    const modal = modalRef.current
+    if (!modal) return
+    const focusable = modal.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }, [onClose])
 
   const handlePickExportDir = async () => {
     if (!supportsFileSystemAccess()) {
@@ -192,7 +208,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-overlay-in" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-muted border border-border rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col animate-modal-in">
+      <div ref={modalRef} onKeyDown={handleKeyDown} className="relative bg-muted border border-border rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col animate-modal-in">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-lg font-medium">Settings</h2>
