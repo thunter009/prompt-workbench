@@ -237,7 +237,7 @@ function ResolvedPreview({ content, snippets }: { content: string; snippets: { i
               <span className="text-[10px] font-medium text-violet-400/70 uppercase tracking-wider">
                 &#x2192; {seg.name}
               </span>
-              <div className="prose prose-invert max-w-none">
+              <div className="prose dark:prose-invert max-w-none">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
                   rehypePlugins={[rehypeRaw]}
@@ -250,7 +250,7 @@ function ResolvedPreview({ content, snippets }: { content: string; snippets: { i
           )
         }
         return (
-          <div key={i} className="prose prose-invert max-w-none">
+          <div key={i} className="prose dark:prose-invert max-w-none">
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
               rehypePlugins={[rehypeRaw]}
@@ -402,7 +402,7 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
         {resolveIncludes && hasIncludes ? (
           <ResolvedPreview content={debouncedContent} snippets={snippets} />
         ) : (
-          <div className="prose prose-invert max-w-none">
+          <div className="prose dark:prose-invert max-w-none">
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
               rehypePlugins={[rehypeRaw]}

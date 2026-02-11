@@ -24,6 +24,7 @@ import { SettingsModal } from '@/components/SettingsModal'
 import { ImportModal } from '@/components/ImportModal'
 import { HotkeyCheatsheet } from '@/components/HotkeyCheatsheet'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { PaneThemeProvider, PaneThemeToggle } from '@/components/PaneTheme'
 import { loadPersistedState, updatePersistedField } from '@/lib/persistence'
 import { useSnippetStore } from '@/lib/store'
 import { useUndoStore } from '@/lib/undo-store'
@@ -832,7 +833,7 @@ export default function HomePage() {
 
                 {/* Editor panel */}
                 <Panel id="editor" defaultSize="50%" minSize="20%">
-                  <div className="flex flex-col h-full overflow-hidden">
+                  <PaneThemeProvider pane="editor" className="flex flex-col h-full overflow-hidden">
                     {!activeDiff && (
                       <div className="flex items-center border-b border-border">
                         <EditorPanelHeader />
@@ -847,6 +848,7 @@ export default function HomePage() {
                           >
                             {inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                           </button>
+                          <PaneThemeToggle />
                           <ImprovePromptButton disabled={improve.disabled} loading={improve.status === 'loading'} onImprove={improve.handleImprove} />
                           {saveStatus === 'saving' && (
                             <>
@@ -873,7 +875,7 @@ export default function HomePage() {
                         </>
                       )}
                     </div>
-                  </div>
+                  </PaneThemeProvider>
                 </Panel>
                 <Separator className="w-1 bg-border hover:bg-blue-500 transition-colors data-[active]:bg-blue-500" />
 
@@ -887,7 +889,7 @@ export default function HomePage() {
                   collapsedSize="0%"
                   onResize={(size) => setPreviewVisible(size.asPercentage > 0)}
                 >
-                  <div className="h-full flex flex-col overflow-hidden">
+                  <PaneThemeProvider pane="preview" className="h-full flex flex-col overflow-hidden">
                     {/* Tab bar: Preview | Playground */}
                     <div className="flex border-b border-border shrink-0">
                       <button
@@ -912,6 +914,9 @@ export default function HomePage() {
                       >
                         Playground
                       </button>
+                      <div className="ml-auto flex items-center pr-2">
+                        <PaneThemeToggle />
+                      </div>
                     </div>
                     {activeTab === 'preview' ? (
                       <div className="flex-1 overflow-auto">
@@ -920,7 +925,7 @@ export default function HomePage() {
                     ) : (
                       <PlaygroundPanel />
                     )}
-                  </div>
+                  </PaneThemeProvider>
                 </Panel>
               </Group>
             </>
