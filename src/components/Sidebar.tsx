@@ -11,7 +11,8 @@ import { TagFilter } from '@/components/TagFilter'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ExportFolderDialog } from '@/components/ExportFolderDialog'
 import { FolderReorgModal } from '@/components/FolderReorgModal'
-import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown, Pencil, Sparkles, Copy, Trash2, FolderInput, Download, XCircle } from 'lucide-react'
+import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown, Pencil, Sparkles, Copy, Trash2, FolderInput, Download, XCircle, AlertTriangle } from 'lucide-react'
+import { useMethodologyStore, validateFolderName } from '@/lib/folder-methodology'
 import type { Snippet, Folder } from '@/types'
 
 type DragItemType = 'snippet' | 'folder'
@@ -165,6 +166,8 @@ export function Sidebar() {
   const duplicateSnippet = useSnippetStore((s) => s.duplicateSnippet)
   const selectedTags = useSnippetStore((s) => s.selectedTags)
   const tagFilterMode = useSnippetStore((s) => s.tagFilterMode)
+
+  const methodologyConfig = useMethodologyStore((s) => s.config)
 
   const pushUndoAction = useUndoStore((s) => s.pushAction)
   const undo = useUndoStore((s) => s.undo)
@@ -1146,6 +1149,10 @@ export function Sidebar() {
     const isBeingDragged = dragState.isDragging && dragState.dragType === 'folder' && dragState.draggedFolderId === folder.id
     const isDropTarget = dragState.isDragging && dragState.dropTarget?.targetId === folder.id
     const dropPosition = isDropTarget ? dragState.dropTarget?.position : null
+    // Validate top-level folder names against methodology
+    const methodologyWarning = !folder.parentId && methodologyConfig.preset !== 'flat'
+      ? validateFolderName(folder.name, methodologyConfig)
+      : null
 
     // Check if this folder can receive the dragged folder
     const canReceiveDrop = dragState.dragType === 'folder' && dragState.draggedFolderId
@@ -1212,6 +1219,11 @@ export function Sidebar() {
           )}
           {!isEditing && snippetCount > 0 && (
             <span data-testid="snippet-count" className="text-xs text-muted-foreground tabular-nums">({snippetCount})</span>
+          )}
+          {!isEditing && methodologyWarning && !methodologyWarning.valid && (
+            <span data-testid="methodology-warning" title={methodologyWarning.warning}>
+              <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
+            </span>
           )}
         </div>
         <div className={cn(

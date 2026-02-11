@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-import { X, RefreshCw, Loader2, CheckCircle, XCircle, Search } from 'lucide-react'
+import { X, RefreshCw, Loader2, CheckCircle, XCircle, Search, Plus } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
 import { useSyncSettingsStore, SYNC_INTERVALS, type SyncInterval } from '@/lib/sync-settings-store'
 import { useAISettingsStore, DEFAULT_OLLAMA_URL } from '@/lib/ai-settings-store'
@@ -14,6 +14,11 @@ import {
   analyzeKeywordPatterns,
   type CasePreference,
 } from '@/lib/keyword-style-store'
+import {
+  useMethodologyStore,
+  PARA_FOLDERS,
+  type MethodologyPreset,
+} from '@/lib/folder-methodology'
 import {
   pickDefaultExportDirectory,
   clearDefaultExportPath,
@@ -60,6 +65,13 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const setKeywordAll = useKeywordStyleStore((s) => s.setAll)
   const loadKeywordPrefs = useKeywordStyleStore((s) => s.load)
   const snippets = useSnippetStore((s) => s.snippets)
+
+  const methodologyPreset = useMethodologyStore((s) => s.config.preset)
+  const customTopLevel = useMethodologyStore((s) => s.config.customTopLevel)
+  const setMethodologyPreset = useMethodologyStore((s) => s.setPreset)
+  const addCustomFolder = useMethodologyStore((s) => s.addCustomFolder)
+  const removeCustomFolder = useMethodologyStore((s) => s.removeCustomFolder)
+  const [newCustomFolder, setNewCustomFolder] = useState('')
 
   const fileWatcherEnabled = useSyncSettingsStore((s) => s.fileWatcherEnabled)
   const setFileWatcherEnabled = useSyncSettingsStore((s) => s.setFileWatcherEnabled)
@@ -392,6 +404,104 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                 )}
               </select>
             </div>
+          </section>
+
+          {/* Folder Organization Methodology */}
+          <section className="border-t border-border pt-6">
+            <h3 className="text-sm font-medium text-secondary-foreground mb-4">Folder Organization</h3>
+
+            {/* Preset selector */}
+            <div className="mb-4">
+              <label className="text-sm text-muted-foreground block mb-1.5">Methodology</label>
+              <select
+                value={methodologyPreset}
+                onChange={(e) => setMethodologyPreset(e.target.value as MethodologyPreset)}
+                className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground"
+              >
+                <option value="flat">Flat (no constraints)</option>
+                <option value="para">PARA</option>
+                <option value="johnny-decimal">Johnny Decimal</option>
+                <option value="custom">Custom</option>
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Constrains AI folder suggestions to match your system
+              </p>
+            </div>
+
+            {/* PARA preview */}
+            {methodologyPreset === 'para' && (
+              <div className="mb-4 px-3 py-2 bg-accent/50 rounded border border-border">
+                <p className="text-xs text-muted-foreground mb-1.5">Top-level folders:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {PARA_FOLDERS.map((f) => (
+                    <span key={f} className="px-2 py-0.5 bg-accent rounded text-xs text-secondary-foreground">{f}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Johnny Decimal info */}
+            {methodologyPreset === 'johnny-decimal' && (
+              <div className="mb-4 px-3 py-2 bg-accent/50 rounded border border-border">
+                <p className="text-xs text-muted-foreground">
+                  Areas: X0-X9 (e.g. 10-19, 20-29) &middot; Categories: XX (e.g. 11, 23) &middot; IDs: XX.XX (e.g. 11.01)
+                </p>
+              </div>
+            )}
+
+            {/* Custom folder list */}
+            {methodologyPreset === 'custom' && (
+              <div className="mb-4">
+                <label className="text-sm text-muted-foreground block mb-1.5">Allowed top-level folders</label>
+                {customTopLevel.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {customTopLevel.map((f) => (
+                      <span
+                        key={f}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-accent rounded text-xs text-secondary-foreground"
+                      >
+                        {f}
+                        <button
+                          onClick={() => removeCustomFolder(f)}
+                          className="p-0.5 rounded hover:bg-accent-foreground/10 text-muted-foreground hover:text-foreground transition-colors"
+                          aria-label={`Remove ${f}`}
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newCustomFolder}
+                    onChange={(e) => setNewCustomFolder(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newCustomFolder.trim()) {
+                        e.preventDefault()
+                        addCustomFolder(newCustomFolder.trim())
+                        setNewCustomFolder('')
+                      }
+                    }}
+                    placeholder="Add folder name..."
+                    className="flex-1 bg-accent border border-border rounded px-3 py-1.5 text-sm text-secondary-foreground placeholder:text-muted-foreground"
+                  />
+                  <button
+                    onClick={() => {
+                      if (newCustomFolder.trim()) {
+                        addCustomFolder(newCustomFolder.trim())
+                        setNewCustomFolder('')
+                      }
+                    }}
+                    disabled={!newCustomFolder.trim()}
+                    className="px-2 py-1.5 bg-accent hover:bg-accent-foreground/10 disabled:opacity-50 rounded text-sm transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Keyword Style Preferences */}

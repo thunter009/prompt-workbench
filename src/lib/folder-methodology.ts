@@ -8,8 +8,6 @@ export interface MethodologyConfig {
   customTopLevel: string[]
 }
 
-const PARA_FOLDERS = ['Projects', 'Areas', 'Resources', 'Archive'] as const
-
 interface MethodologyStore {
   config: MethodologyConfig
   setPreset: (preset: MethodologyPreset) => void
@@ -55,6 +53,70 @@ export const useMethodologyStore = create<MethodologyStore>()(
     }
   )
 )
+
+export const PARA_FOLDERS = ['Projects', 'Areas', 'Resources', 'Archive'] as const
+
+const JD_AREA_PATTERN = /^\d0-\d9$/       // e.g. 10-19, 20-29
+const JD_CATEGORY_PATTERN = /^\d{2}$/      // e.g. 11, 23
+const JD_ID_PATTERN = /^\d{2}\.\d{2}$/     // e.g. 11.01
+
+export interface FolderValidationResult {
+  valid: boolean
+  warning?: string
+}
+
+export function validateFolderName(
+  name: string,
+  config?: MethodologyConfig
+): FolderValidationResult {
+  const c = config ?? useMethodologyStore.getState().config
+
+  switch (c.preset) {
+    case 'flat':
+      return { valid: true }
+
+    case 'para': {
+      const isParaFolder = PARA_FOLDERS.some(
+        (p) => p.toLowerCase() === name.toLowerCase()
+      )
+      if (!isParaFolder) {
+        return {
+          valid: false,
+          warning: `Not a PARA folder. Expected: ${PARA_FOLDERS.join(', ')}`,
+        }
+      }
+      return { valid: true }
+    }
+
+    case 'johnny-decimal': {
+      if (
+        JD_AREA_PATTERN.test(name) ||
+        JD_CATEGORY_PATTERN.test(name) ||
+        JD_ID_PATTERN.test(name)
+      ) {
+        return { valid: true }
+      }
+      return {
+        valid: false,
+        warning: 'Not a Johnny Decimal name. Expected: X0-X9, XX, or XX.XX',
+      }
+    }
+
+    case 'custom': {
+      if (c.customTopLevel.length === 0) return { valid: true }
+      const allowed = c.customTopLevel.some(
+        (f) => f.toLowerCase() === name.toLowerCase()
+      )
+      if (!allowed) {
+        return {
+          valid: false,
+          warning: `Not in allowed folders: ${c.customTopLevel.join(', ')}`,
+        }
+      }
+      return { valid: true }
+    }
+  }
+}
 
 export function getMethodologyPromptContext(config?: MethodologyConfig): string {
   const c = config ?? useMethodologyStore.getState().config
