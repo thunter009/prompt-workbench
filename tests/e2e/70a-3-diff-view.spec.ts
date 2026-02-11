@@ -41,39 +41,15 @@ test.describe('US-3: Diff View', () => {
     await expect(entries).toHaveCount(3)
   })
 
-  test('selecting version shows preview, then switching to diff shows changes', async ({ page }) => {
+  test('selecting version shows inline diff in editor pane', async ({ page }) => {
     await page.locator('[data-testid="history-toggle-btn"]').click()
 
     // Click the oldest version (last in list = index 2)
     const entries = page.locator('[data-testid="version-entry"]')
     await entries.nth(2).click()
 
-    // Preview mode is default - should see version text
-    await expect(page.locator('[data-testid="view-mode-preview"]')).toBeVisible()
-
-    // Switch to diff mode
-    await page.locator('[data-testid="view-mode-diff"]').click()
-
-    // Diff stats should appear showing additions/removals
-    await expect(page.locator('[data-testid="diff-stats"]')).toBeVisible()
-  })
-
-  test('diff highlights additions in green and removals in red', async ({ page }) => {
-    await page.locator('[data-testid="history-toggle-btn"]').click()
-
-    // Select oldest version
-    const entries = page.locator('[data-testid="version-entry"]')
-    await entries.nth(2).click()
-
-    // Switch to diff
-    await page.locator('[data-testid="view-mode-diff"]').click()
-
-    // Should have green (added) and red (removed) spans
-    const added = page.locator('.bg-green-900\\/50')
-    const removed = page.locator('.bg-red-900\\/50')
-
-    await expect(added.first()).toBeVisible()
-    await expect(removed.first()).toBeVisible()
+    // Inline diff should appear in editor area with CodeMirror merge view
+    await expect(page.locator('.cm-mergeView, .cm-merge-revert')).toBeVisible({ timeout: 5000 })
   })
 
   test('compare button lets you diff any two versions', async ({ page }) => {
@@ -88,10 +64,26 @@ test.describe('US-3: Diff View', () => {
     await entries.nth(1).hover()
     await entries.nth(1).locator('[data-testid="version-compare-btn"]').click()
 
-    // Should auto-switch to diff mode and show stats
-    await expect(page.locator('[data-testid="diff-stats"]')).toBeVisible()
+    // Should show inline diff in editor pane
+    await expect(page.locator('.cm-mergeView, .cm-merge-revert')).toBeVisible({ timeout: 5000 })
 
-    // Should show "(comparing)" text on the compare target
-    await expect(entries.nth(1)).toContainText('comparing')
+    // Should show "(compare)" text on the compare target
+    await expect(entries.nth(1)).toContainText('compare')
+  })
+
+  test('unified/split toggle switches diff layout', async ({ page }) => {
+    await page.locator('[data-testid="history-toggle-btn"]').click()
+
+    const entries = page.locator('[data-testid="version-entry"]')
+    await entries.nth(2).click()
+
+    // Wait for diff to load
+    await expect(page.locator('.cm-mergeView, .cm-merge-revert')).toBeVisible({ timeout: 5000 })
+
+    // Click split view button (Columns2 icon)
+    await page.locator('button[title="Split view"]').click()
+
+    // Should show side-by-side merge view
+    await expect(page.locator('.cm-mergeView')).toBeVisible({ timeout: 5000 })
   })
 })

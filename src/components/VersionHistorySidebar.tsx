@@ -1,17 +1,14 @@
 'use client'
 
-import { useState, useCallback, useMemo, lazy, Suspense } from 'react'
-import { History, X, Clock, GitCompare, Eye, RotateCcw, Trash2, ChevronDown } from 'lucide-react'
+import { useState, useCallback, useMemo } from 'react'
+import { History, X, Clock, GitCompare, RotateCcw, Trash2, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useVersionStore } from '@/lib/version-store'
 import { useSnippetStore } from '@/lib/store'
 import { computeLineDiff } from '@/lib/diff'
 import type { SnippetVersion } from '@/types'
-
-const DiffMergeView = lazy(() =>
-  import('@/components/editor/DiffMergeView').then((m) => ({ default: m.DiffMergeView }))
-)
+import type { DiffComparison } from '@/components/editor/InlineDiffView'
 
 function formatRelativeTime(timestamp: number): string {
   const now = Date.now()
@@ -47,14 +44,101 @@ function DiffStats({ added, removed }: { added: number; removed: number }) {
   )
 }
 
-type ViewMode = 'preview' | 'diff'
+interface VersionEntryProps {
+  version: SnippetVersion
+  isCurrent: boolean
+  isSelected: boolean
+  isCompare: boolean
+  showCompare: boolean
+  currentText: string
+  onClick: (v: SnippetVersion) => void
+  onCompare: (v: SnippetVersion, e: React.MouseEvent) => void
+  onRestore: (v: SnippetVersion, e: React.MouseEvent) => void
+  onDelete: (id: string, e: React.MouseEvent) => void
+}
+
+function VersionEntry({ version, isCurrent, isSelected, isCompare, showCompare, currentText, onClick, onCompare, onRestore, onDelete }: VersionEntryProps) {
+  const diffStats = useMemo(() => {
+    if (version.text === currentText) return null
+    return computeLineDiff(version.text, currentText)
+  }, [version.text, currentText])
+
+  return (
+    <button
+      data-testid="version-entry"
+      onClick={() => onClick(version)}
+      className={cn(
+        'w-full text-left p-2 rounded transition-colors group',
+        isSelected
+          ? 'bg-blue-600/30 text-blue-200'
+          : isCompare
+          ? 'bg-purple-600/30 text-purple-200'
+          : 'hover:bg-accent/50 text-muted-foreground hover:text-secondary-foreground'
+      )}
+    >
+      <div className="flex items-center justify-between mb-0.5">
+        <span className="text-xs font-medium flex items-center gap-1">
+          {formatRelativeTime(version.createdAt)}
+          {isCurrent && <span className="text-[10px] text-blue-400">(current)</span>}
+          {isCompare && <span className="text-[10px] text-purple-400">(compare)</span>}
+        </span>
+        <div className="flex items-center gap-0.5">
+          <button
+            data-testid="version-restore-btn"
+            onClick={(e) => onRestore(version, e)}
+            className="p-0.5 rounded transition-colors text-muted-foreground hover:text-green-400 opacity-0 group-hover:opacity-100"
+            title="Restore this version"
+          >
+            <RotateCcw className="w-3 h-3" />
+          </button>
+          {showCompare && !isSelected && (
+            <button
+              onClick={(e) => onCompare(version, e)}
+              data-testid="version-compare-btn"
+              className={cn(
+                'p-0.5 rounded transition-colors',
+                isCompare
+                  ? 'text-purple-400'
+                  : 'text-muted-foreground hover:text-secondary-foreground opacity-0 group-hover:opacity-100'
+              )}
+              title="Compare with selected"
+            >
+              <GitCompare className="w-3 h-3" />
+            </button>
+          )}
+          {!isCurrent && (
+            <button
+              onClick={(e) => onDelete(version.id, e)}
+              className="p-0.5 rounded transition-colors text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100"
+              title="Delete this version"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] text-muted-foreground line-clamp-1 flex-1 mr-2">
+          {truncatePreview(version.text, 50)}
+        </p>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {diffStats && <DiffStats added={diffStats.addedLines} removed={diffStats.removedLines} />}
+          <span className="text-[10px] text-muted-foreground">
+            {version.text.length}c
+          </span>
+        </div>
+      </div>
+    </button>
+  )
+}
 
 interface VersionHistorySidebarProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onDiffChange: (diff: DiffComparison | null) => void
 }
 
-export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySidebarProps) {
+export function VersionHistorySidebar({ open, onOpenChange, onDiffChange }: VersionHistorySidebarProps) {
   const selectedId = useSnippetStore((s) => s.selectedId)
   const selectedSnippet = useSnippetStore((s) => s.getSelectedSnippet())
   const updateSnippet = useSnippetStore((s) => s.updateSnippet)
@@ -64,7 +148,6 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
 
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
   const [compareVersionId, setCompareVersionId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('preview')
   const [restoreConfirmVersion, setRestoreConfirmVersion] = useState<SnippetVersion | null>(null)
   const [cleanupMenuOpen, setCleanupMenuOpen] = useState(false)
 
@@ -73,46 +156,54 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
     [selectedId, getVersionsForSnippet]
   )
 
-  const selectedVersion = useMemo(
-    () => versions.find((v) => v.id === selectedVersionId) ?? null,
-    [versions, selectedVersionId]
-  )
+  // Emit diff comparison to parent when selection changes
+  const emitDiff = useCallback((version: SnippetVersion | null, compare: SnippetVersion | null) => {
+    if (!version) {
+      onDiffChange(null)
+      return
+    }
 
-  const compareVersion = useMemo(
-    () => versions.find((v) => v.id === compareVersionId) ?? null,
-    [versions, compareVersionId]
-  )
+    const modifiedText = compare?.text ?? selectedSnippet?.text ?? ''
+    const modifiedLabel = compare
+      ? formatRelativeTime(compare.createdAt)
+      : 'Current'
 
-  // Compute diff when in diff mode
-  const diffResult = useMemo(() => {
-    if (viewMode !== 'diff' || !selectedVersion) return null
-
-    // Compare selected version vs compare version (or current content)
-    return computeLineDiff(selectedVersion.text, compareVersion?.text ?? selectedSnippet?.text ?? '')
-  }, [viewMode, selectedVersion, compareVersion, selectedSnippet])
+    onDiffChange({
+      original: version.text,
+      modified: modifiedText,
+      originalLabel: formatRelativeTime(version.createdAt),
+      modifiedLabel,
+      onRestore: () => setRestoreConfirmVersion(version),
+      onClose: () => {
+        setSelectedVersionId(null)
+        setCompareVersionId(null)
+        onDiffChange(null)
+      },
+    })
+  }, [selectedSnippet, onDiffChange])
 
   const handleVersionClick = useCallback((version: SnippetVersion) => {
     setSelectedVersionId(version.id)
     setCompareVersionId(null)
-  }, [])
+    emitDiff(version, null)
+  }, [emitDiff])
 
   const handleCompareClick = useCallback((version: SnippetVersion, e: React.MouseEvent) => {
     e.stopPropagation()
     setCompareVersionId(version.id)
-    setViewMode('diff')
-  }, [])
+    // Find the selected version to pass to emitDiff
+    const selVersion = versions.find((v) => v.id === selectedVersionId) ?? null
+    if (selVersion) {
+      emitDiff(selVersion, version)
+    }
+  }, [versions, selectedVersionId, emitDiff])
 
   const handleClose = useCallback(() => {
     onOpenChange(false)
     setSelectedVersionId(null)
     setCompareVersionId(null)
-    setViewMode('preview')
-  }, [onOpenChange])
-
-  const clearComparison = useCallback(() => {
-    setCompareVersionId(null)
-    setViewMode('preview')
-  }, [])
+    onDiffChange(null)
+  }, [onOpenChange, onDiffChange])
 
   const handleRestoreClick = useCallback((version: SnippetVersion, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -121,12 +212,13 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
 
   const handleRestoreConfirm = useCallback(() => {
     if (!restoreConfirmVersion || !selectedId) return
-    // Update snippet text - this will auto-save a new version via the debounced save
     updateSnippet(selectedId, { text: restoreConfirmVersion.text })
     toast.success('Version restored')
     setRestoreConfirmVersion(null)
     setSelectedVersionId(null)
-  }, [restoreConfirmVersion, selectedId, updateSnippet])
+    setCompareVersionId(null)
+    onDiffChange(null)
+  }, [restoreConfirmVersion, selectedId, updateSnippet, onDiffChange])
 
   const handleRestoreCancel = useCallback(() => {
     setRestoreConfirmVersion(null)
@@ -134,45 +226,42 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
 
   const handleDeleteVersion = useCallback((versionId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    // Clear selection if we're deleting the selected version
     if (selectedVersionId === versionId) {
       setSelectedVersionId(null)
-      setViewMode('preview')
+      onDiffChange(null)
     }
     if (compareVersionId === versionId) {
       setCompareVersionId(null)
     }
     deleteVersion(versionId)
     toast.success('Version deleted')
-  }, [selectedVersionId, compareVersionId, deleteVersion])
+  }, [selectedVersionId, compareVersionId, deleteVersion, onDiffChange])
 
   const handleKeepLastN = useCallback((n: number) => {
     if (!selectedId) return
     const deletedCount = keepLastN(selectedId, n)
     setCleanupMenuOpen(false)
-    // Clear selections that may have been deleted
     setSelectedVersionId(null)
     setCompareVersionId(null)
-    setViewMode('preview')
+    onDiffChange(null)
     if (deletedCount > 0) {
       toast.success(`Deleted ${deletedCount} old version${deletedCount !== 1 ? 's' : ''}`)
     } else {
       toast.info('No versions to delete')
     }
-  }, [selectedId, keepLastN])
+  }, [selectedId, keepLastN, onDiffChange])
 
   if (!open) return null
 
   return (
-    <div data-testid="version-history-sidebar" className="w-80 border-l border-border flex flex-col bg-muted/50 h-full relative animate-in slide-in-from-right-2 duration-150">
+    <div data-testid="version-history-sidebar" className="w-64 border-l border-border flex flex-col bg-muted/50 h-full relative animate-in slide-in-from-right-2 duration-150">
       {/* Header */}
       <div className="p-3 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <History className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-secondary-foreground">Version History</span>
+          <span className="text-sm font-medium text-secondary-foreground">Versions</span>
         </div>
         <div className="flex items-center gap-1">
-          {/* Cleanup dropdown */}
           {versions.length > 1 && (
             <div className="relative">
               <button
@@ -236,194 +325,34 @@ export function VersionHistorySidebar({ open, onOpenChange }: VersionHistorySide
           </p>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Version list */}
-          <div className={cn(
-            'overflow-y-auto',
-            selectedVersion ? 'h-1/2 border-b border-border' : 'flex-1'
-          )}>
-            <div className="p-2 space-y-1">
-              <div className="flex items-center justify-between px-2 py-1">
-                <p className="text-xs text-muted-foreground">
-                  {versions.length} version{versions.length !== 1 ? 's' : ''}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-2 space-y-1">
+            <div className="flex items-center justify-between px-2 py-1">
+              <p className="text-xs text-muted-foreground">
+                {versions.length} version{versions.length !== 1 ? 's' : ''}
+              </p>
+              {selectedVersionId && (
+                <p className="text-[10px] text-muted-foreground">
+                  <GitCompare className="w-3 h-3 inline" /> compare
                 </p>
-                {selectedVersionId && (
-                  <p className="text-xs text-muted-foreground">
-                    Click <GitCompare className="w-3 h-3 inline" /> to compare
-                  </p>
-                )}
-              </div>
-              {versions.map((version, index) => {
-                const isSelected = selectedVersionId === version.id
-                const isCompare = compareVersionId === version.id
-                const isCurrent = index === 0
-
-                return (
-                  <button
-                    key={version.id}
-                    data-testid="version-entry"
-                    onClick={() => handleVersionClick(version)}
-                    className={cn(
-                      'w-full text-left p-2 rounded transition-colors group',
-                      isSelected
-                        ? 'bg-blue-600/30 text-blue-200'
-                        : isCompare
-                        ? 'bg-purple-600/30 text-purple-200'
-                        : 'hover:bg-accent/50 text-muted-foreground hover:text-secondary-foreground'
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium flex items-center gap-1">
-                        {formatRelativeTime(version.createdAt)}
-                        {isCurrent && <span className="text-[10px] text-blue-400">(current)</span>}
-                        {isCompare && <span className="text-[10px] text-purple-400">(comparing)</span>}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          data-testid="version-restore-btn"
-                          onClick={(e) => handleRestoreClick(version, e)}
-                          className="p-0.5 rounded transition-colors text-muted-foreground hover:text-green-400 opacity-0 group-hover:opacity-100"
-                          title="Restore this version"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                        </button>
-                        {selectedVersionId && !isSelected && (
-                          <button
-                            onClick={(e) => handleCompareClick(version, e)}
-                            data-testid="version-compare-btn"
-                            className={cn(
-                              'p-0.5 rounded transition-colors',
-                              isCompare
-                                ? 'text-purple-400'
-                                : 'text-muted-foreground hover:text-secondary-foreground opacity-0 group-hover:opacity-100'
-                            )}
-                            title="Compare with selected"
-                          >
-                            <GitCompare className="w-3 h-3" />
-                          </button>
-                        )}
-                        {!isCurrent && (
-                          <button
-                            onClick={(e) => handleDeleteVersion(version.id, e)}
-                            className="p-0.5 rounded transition-colors text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100"
-                            title="Delete this version"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
-                        <span className="text-[10px] text-muted-foreground">
-                          {version.text.length} chars
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {truncatePreview(version.text)}
-                    </p>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Preview/Diff panel */}
-          {selectedVersion && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Panel header with view mode toggle */}
-              <div className="px-3 py-2 border-b border-border flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <button
-                    data-testid="view-mode-preview"
-                    onClick={() => setViewMode('preview')}
-                    className={cn(
-                      'p-1 rounded transition-colors',
-                      viewMode === 'preview'
-                        ? 'bg-accent text-foreground'
-                        : 'text-muted-foreground hover:text-secondary-foreground'
-                    )}
-                    title="Preview"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    data-testid="view-mode-diff"
-                    onClick={() => setViewMode('diff')}
-                    className={cn(
-                      'p-1 rounded transition-colors',
-                      viewMode === 'diff'
-                        ? 'bg-accent text-foreground'
-                        : 'text-muted-foreground hover:text-secondary-foreground'
-                    )}
-                    title="Diff view"
-                  >
-                    <GitCompare className="w-3.5 h-3.5" />
-                  </button>
-                  {viewMode === 'diff' && diffResult && (
-                    <DiffStats added={diffResult.addedLines} removed={diffResult.removedLines} />
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {compareVersionId && (
-                    <button
-                      onClick={clearComparison}
-                      className="text-[10px] text-purple-400 hover:text-purple-300"
-                    >
-                      Clear compare
-                    </button>
-                  )}
-                  <button
-                    onClick={(e) => handleRestoreClick(selectedVersion, e)}
-                    className="flex items-center gap-1 text-xs text-green-400 hover:text-green-300"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    Restore
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedVersionId(null)
-                      setCompareVersionId(null)
-                      setViewMode('preview')
-                    }}
-                    className="text-xs text-muted-foreground hover:text-secondary-foreground"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-
-              {/* Comparison info */}
-              {viewMode === 'diff' && (
-                <div className="px-3 py-1.5 bg-accent/50 text-[10px] text-muted-foreground flex items-center justify-between">
-                  <span>
-                    {formatRelativeTime(selectedVersion.createdAt)}
-                  </span>
-                  <span className="text-muted-foreground">→</span>
-                  <span>
-                    {compareVersion
-                      ? formatRelativeTime(compareVersion.createdAt)
-                      : 'Current'}
-                  </span>
-                </div>
               )}
-
-              {/* Content */}
-              <div className="flex-1 overflow-auto p-3">
-                {viewMode === 'preview' ? (
-                  <pre className="text-xs text-secondary-foreground whitespace-pre-wrap font-mono leading-relaxed">
-                    {selectedVersion.text}
-                  </pre>
-                ) : diffResult ? (
-                  <Suspense fallback={<p className="text-xs text-muted-foreground">Loading diff...</p>}>
-                    <DiffMergeView
-                      original={selectedVersion.text}
-                      modified={compareVersion?.text ?? selectedSnippet?.text ?? ''}
-                    />
-                  </Suspense>
-                ) : (
-                  <p className="text-xs text-muted-foreground">No changes</p>
-                )}
-              </div>
             </div>
-          )}
+            {versions.map((version, index) => (
+              <VersionEntry
+                key={version.id}
+                version={version}
+                isCurrent={index === 0}
+                isSelected={selectedVersionId === version.id}
+                isCompare={compareVersionId === version.id}
+                showCompare={!!selectedVersionId}
+                currentText={selectedSnippet?.text ?? ''}
+                onClick={handleVersionClick}
+                onCompare={handleCompareClick}
+                onRestore={handleRestoreClick}
+                onDelete={handleDeleteVersion}
+              />
+            ))}
+          </div>
         </div>
       )}
 

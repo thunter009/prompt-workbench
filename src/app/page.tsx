@@ -45,6 +45,7 @@ import { useImprovePrompt, ImprovePromptButton, ImprovePromptReview } from '@/co
 import { PanelRight, PanelRightClose, Download, Upload, Settings, Zap, AlertTriangle, History, Check, Loader2, RefreshCw, HelpCircle, ChevronDown, Menu, X, Eye, EyeOff } from 'lucide-react'
 import type { EditorView } from '@codemirror/view'
 import { togglePreviewEffect, previewEnabledField } from '@/components/editor/raycast-placeholder-language'
+import { InlineDiffView, type DiffComparison } from '@/components/editor/InlineDiffView'
 import type { Snippet } from '@/types'
 
 const AUTOSAVE_DEBOUNCE_MS = 500
@@ -123,6 +124,7 @@ export default function HomePage() {
   const [importOpen, setImportOpen] = useState(false)
   const [hotkeySheetOpen, setHotkeySheetOpen] = useState(false)
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
+  const [activeDiff, setActiveDiff] = useState<DiffComparison | null>(null)
   const [deleteDialogIds, setDeleteDialogIds] = useState<string[]>([])
   const deleteDialogRef = useRef<HTMLDialogElement>(null)
   const [isMobile, setIsMobile] = useState(false)
@@ -283,6 +285,7 @@ export default function HomePage() {
   useEffect(() => {
     const snippet = getSelectedSnippet()
     setContent(snippet?.text ?? '')
+    setActiveDiff(null) // clear diff on snippet switch
   }, [selectedId, getSelectedSnippet])
 
   // Cleanup timers on unmount
@@ -830,37 +833,45 @@ export default function HomePage() {
                 {/* Editor panel */}
                 <Panel id="editor" defaultSize="50%" minSize="20%">
                   <div className="flex flex-col h-full overflow-hidden">
-                    <div className="flex items-center border-b border-border">
-                      <EditorPanelHeader />
-                      <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
-                        <button
-                          onClick={toggleInlinePreviews}
-                          className={cn(
-                            'p-1.5 rounded hover:bg-accent transition-colors',
-                            inlinePreviewsOn ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+                    {!activeDiff && (
+                      <div className="flex items-center border-b border-border">
+                        <EditorPanelHeader />
+                        <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
+                          <button
+                            onClick={toggleInlinePreviews}
+                            className={cn(
+                              'p-1.5 rounded hover:bg-accent transition-colors',
+                              inlinePreviewsOn ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+                            )}
+                            title={inlinePreviewsOn ? 'Hide placeholder previews' : 'Show placeholder previews'}
+                          >
+                            {inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                          </button>
+                          <ImprovePromptButton disabled={improve.disabled} loading={improve.status === 'loading'} onImprove={improve.handleImprove} />
+                          {saveStatus === 'saving' && (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span>Saving...</span>
+                            </>
                           )}
-                          title={inlinePreviewsOn ? 'Hide placeholder previews' : 'Show placeholder previews'}
-                        >
-                          {inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                        </button>
-                        <ImprovePromptButton disabled={improve.disabled} loading={improve.status === 'loading'} onImprove={improve.handleImprove} />
-                        {saveStatus === 'saving' && (
-                          <>
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            <span>Saving...</span>
-                          </>
-                        )}
-                        {saveStatus === 'saved' && (
-                          <>
-                            <Check className="w-3 h-3 text-green-500" />
-                            <span className="text-green-500">Saved</span>
-                          </>
-                        )}
+                          {saveStatus === 'saved' && (
+                            <>
+                              <Check className="w-3 h-3 text-green-500" />
+                              <span className="text-green-500">Saved</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <div className="flex-1 overflow-auto relative">
-                      <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} onViewReady={handleEditorViewReady} />
-                      <ImprovePromptReview status={improve.status} improved={improve.improved} error={improve.error} onAccept={improve.accept} onReject={improve.reject} />
+                      {activeDiff ? (
+                        <InlineDiffView {...activeDiff} />
+                      ) : (
+                        <>
+                          <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} onViewReady={handleEditorViewReady} />
+                          <ImprovePromptReview status={improve.status} improved={improve.improved} error={improve.error} onAccept={improve.accept} onReject={improve.reject} />
+                        </>
+                      )}
                     </div>
                   </div>
                 </Panel>
@@ -918,42 +929,50 @@ export default function HomePage() {
           {/* Mobile editor (full-width, no preview) */}
           {isMobile && (
             <div className="flex-1 flex flex-col h-full overflow-hidden">
-              <div className="flex items-center border-b border-border">
-                <EditorPanelHeader />
-                <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <button
-                    onClick={toggleInlinePreviews}
-                    className={cn(
-                      'p-1.5 rounded hover:bg-accent transition-colors',
-                      inlinePreviewsOn ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+              {!activeDiff && (
+                <div className="flex items-center border-b border-border">
+                  <EditorPanelHeader />
+                  <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <button
+                      onClick={toggleInlinePreviews}
+                      className={cn(
+                        'p-1.5 rounded hover:bg-accent transition-colors',
+                        inlinePreviewsOn ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+                      )}
+                      title={inlinePreviewsOn ? 'Hide placeholder previews' : 'Show placeholder previews'}
+                    >
+                      {inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </button>
+                    <ImprovePromptButton disabled={improve.disabled} loading={improve.status === 'loading'} onImprove={improve.handleImprove} />
+                    {saveStatus === 'saving' && (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Saving...</span>
+                      </>
                     )}
-                    title={inlinePreviewsOn ? 'Hide placeholder previews' : 'Show placeholder previews'}
-                  >
-                    {inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  </button>
-                  <ImprovePromptButton disabled={improve.disabled} loading={improve.status === 'loading'} onImprove={improve.handleImprove} />
-                  {saveStatus === 'saving' && (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      <span>Saving...</span>
-                    </>
-                  )}
-                  {saveStatus === 'saved' && (
-                    <>
-                      <Check className="w-3 h-3 text-green-500" />
-                      <span className="text-green-500">Saved</span>
-                    </>
-                  )}
+                    {saveStatus === 'saved' && (
+                      <>
+                        <Check className="w-3 h-3 text-green-500" />
+                        <span className="text-green-500">Saved</span>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="flex-1 overflow-auto relative">
-                <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} onViewReady={handleEditorViewReady} />
-                <ImprovePromptReview status={improve.status} improved={improve.improved} error={improve.error} onAccept={improve.accept} onReject={improve.reject} />
+                {activeDiff ? (
+                  <InlineDiffView {...activeDiff} />
+                ) : (
+                  <>
+                    <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} onViewReady={handleEditorViewReady} />
+                    <ImprovePromptReview status={improve.status} improved={improve.improved} error={improve.error} onAccept={improve.accept} onReject={improve.reject} />
+                  </>
+                )}
               </div>
             </div>
           )}
 
-          <VersionHistorySidebar open={historyOpen} onOpenChange={setHistoryOpen} />
+          <VersionHistorySidebar open={historyOpen} onOpenChange={setHistoryOpen} onDiffChange={setActiveDiff} />
         </div>
       </div>
 
