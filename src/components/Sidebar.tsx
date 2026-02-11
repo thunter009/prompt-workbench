@@ -1161,6 +1161,7 @@ export function Sidebar() {
       {contextMenu.visible && (
         <div
           ref={menuRef}
+          data-testid={contextMenu.type === 'snippet' ? 'snippet-context-menu' : undefined}
           style={{ top: contextMenu.y, left: contextMenu.x }}
           className="fixed z-50 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[180px] animate-dropdown-in"
         >
@@ -1196,7 +1197,7 @@ export function Sidebar() {
                   <ChevronRight className="w-3.5 h-3.5 ml-auto" />
                 </button>
                 {moveToFolderOpen && (
-                  <div className="absolute left-full top-0 ml-1 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[140px] max-h-[200px] overflow-y-auto">
+                  <div data-testid="move-to-folder" className="absolute left-full top-0 ml-1 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[140px] max-h-[200px] overflow-y-auto">
                     <button
                       onClick={() => handleMoveToFolder(null)}
                       className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors"
@@ -1227,7 +1228,7 @@ export function Sidebar() {
               <div className="h-px bg-border my-1" />
               <button
                 onClick={handleDeleteSelectedSnippets}
-                data-testid="ctx-delete"
+                data-testid="snippet-delete"
                 className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-accent transition-colors flex items-center gap-2"
               >
                 <Trash2 className="w-3.5 h-3.5" />

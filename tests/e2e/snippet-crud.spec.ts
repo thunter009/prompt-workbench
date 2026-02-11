@@ -26,7 +26,7 @@ test.describe('Snippet CRUD & Context Menu', () => {
     await expect(page.locator('[data-testid="ctx-duplicate"]')).toBeVisible()
     await expect(page.locator('[data-testid="ctx-move-to"]')).toBeVisible()
     await expect(page.locator('[data-testid="ctx-export"]')).toBeVisible()
-    await expect(page.locator('[data-testid="ctx-delete"]')).toBeVisible()
+    await expect(page.locator('[data-testid="snippet-delete"]')).toBeVisible()
   })
 
   test('delete snippet via context menu with confirmation', async ({ page }) => {
@@ -38,7 +38,7 @@ test.describe('Snippet CRUD & Context Menu', () => {
 
     const row = page.locator('[data-testid="snippet-row"]').first()
     await row.click({ button: 'right' })
-    await page.locator('[data-testid="ctx-delete"]').click()
+    await page.locator('[data-testid="snippet-delete"]').click()
 
     // Confirmation dialog appears
     await expect(page.getByText('Delete Snippet?')).toBeVisible()
@@ -60,7 +60,7 @@ test.describe('Snippet CRUD & Context Menu', () => {
 
     const row = page.locator('[data-testid="snippet-row"]').first()
     await row.click({ button: 'right' })
-    await page.locator('[data-testid="ctx-delete"]').click()
+    await page.locator('[data-testid="snippet-delete"]').click()
     await page.locator('[data-testid="delete-snippet-cancel"]').click()
 
     // Snippet still there
@@ -84,10 +84,10 @@ test.describe('Snippet CRUD & Context Menu', () => {
 
     // Right-click for context menu
     await rows.nth(1).click({ button: 'right' })
-    await expect(page.locator('[data-testid="ctx-delete"]')).toContainText('Delete (2)')
+    await expect(page.locator('[data-testid="snippet-delete"]')).toContainText('Delete (2)')
 
     // Delete
-    await page.locator('[data-testid="ctx-delete"]').click()
+    await page.locator('[data-testid="snippet-delete"]').click()
     await expect(page.getByText('Delete 2 Snippets?')).toBeVisible()
     await page.locator('[data-testid="delete-snippet-confirm"]').click()
 
