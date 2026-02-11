@@ -11,7 +11,7 @@ import { TagFilter } from '@/components/TagFilter'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ExportFolderDialog } from '@/components/ExportFolderDialog'
 import { FolderReorgModal } from '@/components/FolderReorgModal'
-import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown, Pencil, Sparkles } from 'lucide-react'
+import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown, Pencil, Sparkles, Copy, Trash2, FolderInput } from 'lucide-react'
 import type { Snippet, Folder } from '@/types'
 
 type DragItemType = 'snippet' | 'folder'
@@ -65,6 +65,8 @@ export function Sidebar() {
   const reorderFolderSiblings = useSnippetStore((s) => s.reorderFolderSiblings)
   const deleteFolder = useSnippetStore((s) => s.deleteFolder)
   const getSubfolderIds = useSnippetStore((s) => s.getSubfolderIds)
+  const deleteSnippets = useSnippetStore((s) => s.deleteSnippets)
+  const duplicateSnippet = useSnippetStore((s) => s.duplicateSnippet)
   const selectedTags = useSnippetStore((s) => s.selectedTags)
   const tagFilterMode = useSnippetStore((s) => s.tagFilterMode)
 
@@ -89,6 +91,8 @@ export function Sidebar() {
   const [editingSnippetId, setEditingSnippetId] = useState<string | null>(null)
   const [editingSnippetName, setEditingSnippetName] = useState('')
   const [deleteFolderDialog, setDeleteFolderDialog] = useState<{ open: boolean; folderId: string | null; hasContents: boolean }>({ open: false, folderId: null, hasContents: false })
+  const [deleteSnippetDialog, setDeleteSnippetDialog] = useState<{ open: boolean; snippetIds: string[] }>({ open: false, snippetIds: [] })
+  const [moveToFolderOpen, setMoveToFolderOpen] = useState(false)
   const [reorgOpen, setReorgOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
@@ -181,6 +185,7 @@ export function Sidebar() {
 
   const closeContextMenu = useCallback(() => {
     setContextMenu((prev) => ({ ...prev, visible: false }))
+    setMoveToFolderOpen(false)
   }, [])
 
   // Close context menu on click outside or escape
@@ -276,6 +281,70 @@ export function Sidebar() {
     toast.success('Folder deleted')
     setDeleteFolderDialog({ open: false, folderId: null, hasContents: false })
   }, [deleteFolderDialog.folderId, getSubfolderIds, deleteFolder])
+
+  // Snippet CRUD handlers
+  const handleDeleteSelectedSnippets = useCallback(() => {
+    closeContextMenu()
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    setDeleteSnippetDialog({ open: true, snippetIds: ids })
+  }, [selectedIds, closeContextMenu])
+
+  const handleDeleteSnippetConfirm = useCallback(() => {
+    const { snippetIds } = deleteSnippetDialog
+    if (snippetIds.length === 0) return
+    const deleted = deleteSnippets(snippetIds)
+    if (deleted.length > 0) {
+      pushUndoAction({ type: 'deleteSnippets', deletedSnippets: deleted })
+      toast.success(`Deleted ${deleted.length} snippet${deleted.length > 1 ? 's' : ''}`)
+    }
+    setDeleteSnippetDialog({ open: false, snippetIds: [] })
+  }, [deleteSnippetDialog, deleteSnippets, pushUndoAction])
+
+  const handleDuplicateSnippet = useCallback(() => {
+    closeContextMenu()
+    // Duplicate the first selected snippet
+    const id = selectedIds.size > 0 ? Array.from(selectedIds)[0] : selectedId
+    if (!id) return
+    const copy = duplicateSnippet(id)
+    if (copy) {
+      toast.success(`Duplicated "${copy.name}"`)
+    }
+  }, [selectedIds, selectedId, duplicateSnippet, closeContextMenu])
+
+  const handleRenameSnippet = useCallback(() => {
+    closeContextMenu()
+    const id = selectedIds.size > 0 ? Array.from(selectedIds)[0] : selectedId
+    if (!id) return
+    const snippet = snippets.find((s) => s.id === id)
+    if (snippet) {
+      setEditingSnippetId(id)
+      setEditingSnippetName(snippet.name)
+    }
+  }, [selectedIds, selectedId, snippets, closeContextMenu])
+
+  const handleMoveToFolder = useCallback((targetFolderId: string | null) => {
+    closeContextMenu()
+    setMoveToFolderOpen(false)
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+
+    const snippetsToMove = ids.filter((id) => {
+      const snippet = snippets.find((s) => s.id === id)
+      return snippet && (snippet.folderId ?? null) !== targetFolderId
+    })
+    if (snippetsToMove.length === 0) return
+
+    const previousFolders = moveSnippetsToFolder(snippetsToMove, targetFolderId)
+    pushUndoAction({ type: 'move', snippetIds: snippetsToMove, previousFolders, targetFolderId })
+
+    if (targetFolderId) {
+      setExpandedFolders((prev) => new Set([...prev, targetFolderId]))
+    }
+
+    const folderName = targetFolderId ? folders.find((f) => f.id === targetFolderId)?.name : 'Root'
+    toast.success(`Moved ${snippetsToMove.length} snippet${snippetsToMove.length > 1 ? 's' : ''} to ${folderName || 'Root'}`)
+  }, [selectedIds, snippets, folders, moveSnippetsToFolder, pushUndoAction, closeContextMenu])
 
   const handleExportFolderConfirm = useCallback((includeSubfolders: boolean) => {
     if (!exportFolderDialog.folderId) return
@@ -617,22 +686,61 @@ export function Sidebar() {
     handleDragEnd()
   }, [dragState, snippets, folders, moveSnippetsToFolder, moveFolder, reorderFolderSiblings, pushUndoAction, canDropFolder, isDescendantOf, handleDragEnd])
 
-  // Cmd+Z undo handler
+  // Keyboard shortcuts for sidebar operations
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't interfere with input fields or editor
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      const isCodeMirror = (e.target as HTMLElement)?.closest?.('.cm-editor')
+      if (isCodeMirror) return
+
+      // Cmd+Z: undo
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-        // Don't interfere with input fields
-        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
         if (canUndo()) {
           e.preventDefault()
           undo()
-          toast('Undid move')
+          toast('Action undone')
         }
+        return
+      }
+
+      // Delete/Backspace: delete selected snippets
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !e.metaKey && !e.ctrlKey) {
+        if (selectedIds.size > 0) {
+          e.preventDefault()
+          setDeleteSnippetDialog({ open: true, snippetIds: Array.from(selectedIds) })
+        }
+        return
+      }
+
+      // Cmd+D: duplicate
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+        const id = selectedIds.size > 0 ? Array.from(selectedIds)[0] : selectedId
+        if (id) {
+          e.preventDefault()
+          const copy = duplicateSnippet(id)
+          if (copy) toast.success(`Duplicated "${copy.name}"`)
+        }
+        return
+      }
+
+      // F2 or Enter: rename selected snippet
+      if (e.key === 'F2' || (e.key === 'Enter' && !e.metaKey && !e.ctrlKey)) {
+        const id = selectedIds.size > 0 ? Array.from(selectedIds)[0] : selectedId
+        if (id) {
+          e.preventDefault()
+          const snippet = snippets.find((s) => s.id === id)
+          if (snippet) {
+            setEditingSnippetId(id)
+            setEditingSnippetName(snippet.name)
+          }
+        }
+        return
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [undo, canUndo])
+  }, [undo, canUndo, selectedIds, selectedId, snippets, duplicateSnippet])
 
   const handleNewSnippet = useCallback(() => {
     createSnippet({ name: 'New Snippet', text: '' })
@@ -1054,15 +1162,79 @@ export function Sidebar() {
         <div
           ref={menuRef}
           style={{ top: contextMenu.y, left: contextMenu.x }}
-          className="fixed z-50 bg-accent border border-border rounded-md shadow-lg py-1 min-w-[160px] animate-dropdown-in"
+          className="fixed z-50 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[180px] animate-dropdown-in"
         >
           {contextMenu.type === 'snippet' && (
-            <button
-              onClick={handleExportSelected}
-              className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors"
-            >
-              Export Selected ({selectedIds.size})
-            </button>
+            <>
+              <button
+                onClick={handleRenameSnippet}
+                data-testid="ctx-rename"
+                className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Rename
+                <span className="ml-auto text-xs text-muted-foreground">F2</span>
+              </button>
+              <button
+                onClick={handleDuplicateSnippet}
+                data-testid="ctx-duplicate"
+                className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Duplicate
+                <span className="ml-auto text-xs text-muted-foreground">⌘D</span>
+              </button>
+              {/* Move to folder submenu */}
+              <div className="relative">
+                <button
+                  onClick={() => setMoveToFolderOpen((v) => !v)}
+                  data-testid="ctx-move-to"
+                  className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
+                >
+                  <FolderInput className="w-3.5 h-3.5" />
+                  Move to...
+                  <ChevronRight className="w-3.5 h-3.5 ml-auto" />
+                </button>
+                {moveToFolderOpen && (
+                  <div className="absolute left-full top-0 ml-1 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[140px] max-h-[200px] overflow-y-auto">
+                    <button
+                      onClick={() => handleMoveToFolder(null)}
+                      className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors"
+                    >
+                      Root
+                    </button>
+                    {folders.map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={() => handleMoveToFolder(f.id)}
+                        className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors truncate"
+                        style={{ paddingLeft: `${(getFolderDepth(f.id)) * 8 + 12}px` }}
+                      >
+                        {f.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="h-px bg-border my-1" />
+              <button
+                onClick={handleExportSelected}
+                data-testid="ctx-export"
+                className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
+              >
+                Export Selected ({selectedIds.size})
+              </button>
+              <div className="h-px bg-border my-1" />
+              <button
+                onClick={handleDeleteSelectedSnippets}
+                data-testid="ctx-delete"
+                className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-accent transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete ({selectedIds.size})
+                <span className="ml-auto text-xs text-muted-foreground">⌫</span>
+              </button>
+            </>
           )}
           {contextMenu.type === 'folder' && (
             <>
@@ -1116,6 +1288,39 @@ export function Sidebar() {
       )}
 
       <FolderReorgModal open={reorgOpen} onClose={() => setReorgOpen(false)} />
+
+      {/* Delete Snippet Confirmation Dialog */}
+      {deleteSnippetDialog.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-overlay-in">
+          <div className="bg-muted border border-border rounded-lg shadow-xl p-4 max-w-sm mx-4 animate-modal-in">
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              Delete {deleteSnippetDialog.snippetIds.length === 1 ? 'Snippet' : `${deleteSnippetDialog.snippetIds.length} Snippets`}?
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {deleteSnippetDialog.snippetIds.length === 1
+                ? `"${snippets.find((s) => s.id === deleteSnippetDialog.snippetIds[0])?.name}" will be permanently deleted.`
+                : `${deleteSnippetDialog.snippetIds.length} snippets will be permanently deleted.`}
+              {' '}You can undo this with ⌘Z.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteSnippetDialog({ open: false, snippetIds: [] })}
+                data-testid="delete-snippet-cancel"
+                className="px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteSnippetConfirm}
+                data-testid="delete-snippet-confirm"
+                className="px-3 py-1.5 text-sm text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Folder Confirmation Dialog */}
       {deleteFolderDialog.open && (

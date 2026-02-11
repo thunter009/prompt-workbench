@@ -88,6 +88,8 @@ interface SnippetStore {
   createSnippet: (data: Partial<Snippet>) => Snippet
   updateSnippet: (id: string, data: Partial<Snippet>) => void
   deleteSnippet: (id: string) => void
+  deleteSnippets: (ids: string[]) => Snippet[]
+  duplicateSnippet: (id: string) => Snippet | undefined
   markExported: (ids: string[]) => void
   search: (query: string) => void
   setEditorDirty: (dirty: boolean) => void
@@ -261,6 +263,40 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       snippets: state.snippets.filter((s) => s.id !== id),
       selectedId: state.selectedId === id ? null : state.selectedId,
     }))
+  },
+
+  deleteSnippets: (ids) => {
+    const { snippets } = get()
+    const deleted = snippets.filter((s) => ids.includes(s.id))
+    set((state) => ({
+      snippets: state.snippets.filter((s) => !ids.includes(s.id)),
+      selectedId: state.selectedId && ids.includes(state.selectedId) ? null : state.selectedId,
+      selectedIds: new Set(),
+    }))
+    return deleted
+  },
+
+  duplicateSnippet: (id) => {
+    const { snippets } = get()
+    const source = snippets.find((s) => s.id === id)
+    if (!source) return undefined
+    const now = Date.now()
+    const copy: Snippet = {
+      ...source,
+      id: generateId(),
+      name: `${source.name} (copy)`,
+      createdAt: now,
+      updatedAt: now,
+      version: 1,
+      lastExportedAt: undefined,
+      raycastSyncedAt: undefined,
+    }
+    set((state) => ({
+      snippets: [...state.snippets, copy],
+      selectedId: copy.id,
+      selectedIds: new Set([copy.id]),
+    }))
+    return copy
   },
 
   search: (query) => set({ searchQuery: query }),

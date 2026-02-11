@@ -18,6 +18,12 @@ const HOTKEYS = [
     { key: '⌘ \\', description: 'Toggle preview panel' },
     { key: '⌘ K', description: 'Suggest keyword' },
   ]},
+  { section: 'Snippets', keys: [
+    { key: '⌫', description: 'Delete selected snippets' },
+    { key: '⌘ D', description: 'Duplicate snippet' },
+    { key: 'F2', description: 'Rename snippet' },
+    { key: '⌘ Z', description: 'Undo last action' },
+  ]},
   { section: 'Sync', keys: [
     { key: '⌘ ⇧ S', description: 'Sync to Raycast (export + auto-import)' },
     { key: '⌘ ⇧ E', description: 'Quick export to ~/.prompt-workbench' },

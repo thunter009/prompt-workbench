@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { useSnippetStore } from './store'
+import type { Snippet } from '@/types'
 
 interface MoveAction {
   type: 'move'
@@ -22,7 +23,12 @@ interface ReorderFoldersAction {
   changes: { folderId: string; previousOrderIndex: number }[]
 }
 
-type UndoAction = MoveAction | MoveFolderAction | ReorderFoldersAction
+interface DeleteSnippetsAction {
+  type: 'deleteSnippets'
+  deletedSnippets: Snippet[]
+}
+
+type UndoAction = MoveAction | MoveFolderAction | ReorderFoldersAction | DeleteSnippetsAction
 
 interface UndoStore {
   history: UndoAction[]
@@ -68,6 +74,11 @@ export const useUndoStore = create<UndoStore>((set, get) => ({
           const change = action.changes.find((c) => c.folderId === f.id)
           return change ? { ...f, orderIndex: change.previousOrderIndex } : f
         }),
+      })
+    } else if (action.type === 'deleteSnippets') {
+      const { snippets } = useSnippetStore.getState()
+      useSnippetStore.setState({
+        snippets: [...snippets, ...action.deletedSnippets],
       })
     }
   },
