@@ -24,7 +24,7 @@ interface ReorderFoldersAction {
 }
 
 interface DeleteSnippetsAction {
-  type: 'deleteSnippets'
+  type: 'snippetDelete'
   deletedSnippets: Snippet[]
 }
 
@@ -75,7 +75,7 @@ export const useUndoStore = create<UndoStore>((set, get) => ({
           return change ? { ...f, orderIndex: change.previousOrderIndex } : f
         }),
       })
-    } else if (action.type === 'deleteSnippets') {
+    } else if (action.type === 'snippetDelete') {
       const { snippets } = useSnippetStore.getState()
       useSnippetStore.setState({
         snippets: [...snippets, ...action.deletedSnippets],

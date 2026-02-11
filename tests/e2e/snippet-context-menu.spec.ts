@@ -59,7 +59,7 @@ test.describe('Snippet Context Menu', () => {
     await page.locator('[data-testid="snippet-delete"]').click()
 
     await expect(page.getByText('Delete Snippet?')).toBeVisible()
-    await page.locator('[data-testid="delete-snippet-confirm"]').click()
+    await page.locator('[data-testid="snippet-delete-confirm"]').click()
 
     await expect(page.locator('[data-testid="snippet-row"]')).toHaveCount(0)
   })

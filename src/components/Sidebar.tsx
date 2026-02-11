@@ -295,11 +295,18 @@ export function Sidebar() {
     if (snippetIds.length === 0) return
     const deleted = deleteSnippets(snippetIds)
     if (deleted.length > 0) {
-      pushUndoAction({ type: 'deleteSnippets', deletedSnippets: deleted })
-      toast.success(`Deleted ${deleted.length} snippet${deleted.length > 1 ? 's' : ''}`)
+      pushUndoAction({ type: 'snippetDelete', deletedSnippets: deleted })
+      // Undo delete snippet toast with action button
+      toast.success(`Deleted ${deleted.length} snippet${deleted.length > 1 ? 's' : ''}`, {
+        duration: 5000,
+        action: {
+          label: 'Undo',
+          onClick: () => undo(),
+        },
+      })
     }
     setDeleteSnippetDialog({ open: false, snippetIds: [] })
-  }, [deleteSnippetDialog, deleteSnippets, pushUndoAction])
+  }, [deleteSnippetDialog, deleteSnippets, pushUndoAction, undo])
 
   const handleDuplicateSnippet = useCallback(() => {
     closeContextMenu()
@@ -1297,23 +1304,35 @@ export function Sidebar() {
             <h3 className="text-lg font-medium text-foreground mb-2">
               Delete {deleteSnippetDialog.snippetIds.length === 1 ? 'Snippet' : `${deleteSnippetDialog.snippetIds.length} Snippets`}?
             </h3>
-            <p className="text-sm text-muted-foreground mb-4">
+            <div className="text-sm text-muted-foreground mb-4">
               {deleteSnippetDialog.snippetIds.length === 1
-                ? `"${snippets.find((s) => s.id === deleteSnippetDialog.snippetIds[0])?.name}" will be permanently deleted.`
-                : `${deleteSnippetDialog.snippetIds.length} snippets will be permanently deleted.`}
-              {' '}You can undo this with ⌘Z.
-            </p>
+                ? <p>&ldquo;{snippets.find((s) => s.id === deleteSnippetDialog.snippetIds[0])?.name}&rdquo; will be permanently deleted.</p>
+                : (
+                  <>
+                    <p className="mb-2">{deleteSnippetDialog.snippetIds.length} snippets will be permanently deleted:</p>
+                    <ul className="list-disc pl-4 space-y-0.5">
+                      {deleteSnippetDialog.snippetIds.slice(0, 5).map((id) => (
+                        <li key={id} className="truncate">{snippets.find((s) => s.id === id)?.name}</li>
+                      ))}
+                      {deleteSnippetDialog.snippetIds.length > 5 && (
+                        <li className="text-muted-foreground/70">+ {deleteSnippetDialog.snippetIds.length - 5} more</li>
+                      )}
+                    </ul>
+                  </>
+                )}
+              <p className="mt-2">You can undo this with &#x2318;Z.</p>
+            </div>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setDeleteSnippetDialog({ open: false, snippetIds: [] })}
-                data-testid="delete-snippet-cancel"
+                data-testid="snippet-delete-cancel"
                 className="px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteSnippetConfirm}
-                data-testid="delete-snippet-confirm"
+                data-testid="snippet-delete-confirm"
                 className="px-3 py-1.5 text-sm text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
               >
                 Delete
