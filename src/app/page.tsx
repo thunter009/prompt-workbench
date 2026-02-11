@@ -7,6 +7,7 @@ import { Group, Panel, Separator, useDefaultLayout, usePanelRef } from 'react-re
 import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
 import { useTitleInference } from '@/hooks/useTitleInference'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
+import { usePlaygroundStore } from '@/lib/playground-store'
 import { EditorDynamic, preloadEditor } from '@/components/editor/EditorDynamic'
 import { EditorPanelHeader } from '@/components/editor/EditorPanel'
 import { PreviewDynamic, preloadPreview } from '@/components/preview/PreviewDynamic'
@@ -142,6 +143,10 @@ export default function HomePage() {
   // AI settings
   const loadAISettings = useAISettingsStore((s) => s.load)
 
+  // Playground
+  const loadPlayground = usePlaygroundStore((s) => s.load)
+  const activeTab = usePlaygroundStore((s) => s.activeTab)
+
   // Title inference handler
   const handleTitleInferred = useCallback((title: string) => {
     if (selectedId) {
@@ -249,8 +254,11 @@ export default function HomePage() {
     // Load AI settings
     loadAISettings()
 
+    // Load playground tab
+    loadPlayground()
+
     setMounted(true)
-  }, [setPreviewVisible, setExportSettings, loadSyncHistory, loadVersionHistory, loadAISettings])
+  }, [setPreviewVisible, setExportSettings, loadSyncHistory, loadVersionHistory, loadAISettings, loadPlayground])
 
   // Persist state to localStorage
   useEffect(() => {
@@ -275,6 +283,15 @@ export default function HomePage() {
       cancelInference()
     }
   }, [cancelInference])
+
+  // Auto-expand preview panel when switching to Playground tab while collapsed
+  useEffect(() => {
+    if (!mounted) return
+    const panel = previewPanelRef.current
+    if (activeTab === 'playground' && panel?.isCollapsed()) {
+      panel.expand()
+    }
+  }, [activeTab, mounted, previewPanelRef])
 
   // Manage delete snippet dialog
   useEffect(() => {

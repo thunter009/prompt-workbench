@@ -7,7 +7,9 @@ import rehypeRaw from 'rehype-raw'
 import { Eye, EyeOff, Link, Unlink } from 'lucide-react'
 import { remarkRaycastPlaceholders } from '@/lib/remark-raycast-placeholders'
 import { PlaceholderPill } from './PlaceholderPill'
+import { PlaygroundPanel } from '@/components/playground/PlaygroundPanel'
 import { useSnippetStore } from '@/lib/store'
+import { usePlaygroundStore } from '@/lib/playground-store'
 import type { ParsedPlaceholder } from '@/lib/raycast/placeholder-parser'
 import type { Components } from 'react-markdown'
 
@@ -153,6 +155,29 @@ export interface PreviewProps {
 
 const DEBOUNCE_MS = 100
 
+function TabBar() {
+  const activeTab = usePlaygroundStore((s) => s.activeTab)
+  const setActiveTab = usePlaygroundStore((s) => s.setActiveTab)
+
+  return (
+    <div className="flex gap-0.5">
+      {(['preview', 'playground'] as const).map((tab) => (
+        <button
+          key={tab}
+          onClick={() => setActiveTab(tab)}
+          className={`px-2 py-0.5 text-xs font-medium rounded transition-colors ${
+            activeTab === tab
+              ? 'text-foreground bg-accent'
+              : 'text-muted-foreground hover:text-secondary-foreground'
+          }`}
+        >
+          {tab === 'preview' ? 'Preview' : 'Playground'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function Preview({ content, scrollProgress }: PreviewProps) {
   const [debouncedContent, setDebouncedContent] = useState(content)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -161,6 +186,7 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
   const togglePreviewValues = useSnippetStore((s) => s.togglePreviewValues)
   const syncScroll = useSnippetStore((s) => s.syncScroll)
   const toggleSyncScroll = useSnippetStore((s) => s.toggleSyncScroll)
+  const activeTab = usePlaygroundStore((s) => s.activeTab)
 
   // Debounce content updates
   useEffect(() => {
@@ -186,11 +212,22 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
     container.scrollTop = scrollProgress * maxScroll
   }, [scrollProgress])
 
+  if (activeTab === 'playground') {
+    return (
+      <div className="h-full flex flex-col bg-muted">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+          <TabBar />
+        </div>
+        <PlaygroundPanel />
+      </div>
+    )
+  }
+
   if (!debouncedContent) {
     return (
       <div className="h-full flex flex-col bg-muted">
         <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preview</span>
+          <TabBar />
           <div className="flex items-center gap-1">
             <button
               onClick={toggleSyncScroll}
@@ -222,7 +259,7 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
   return (
     <div className="h-full flex flex-col bg-muted">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preview</span>
+        <TabBar />
         <div className="flex items-center gap-1">
           <button
             onClick={toggleSyncScroll}
