@@ -160,7 +160,7 @@ test.describe('Import Rayconfig', () => {
     expect(result).toHaveLength(3)
   })
 
-  test('full import flow: select subset, import to folder, verify store', async ({ page }) => {
+  test('full import flow: skip conflict, import to folder, verify store', async ({ page }) => {
     // Create a folder and existing snippet
     const folderId = await page.evaluate(() => {
       const store = window.__snippetStore
@@ -176,20 +176,15 @@ test.describe('Import Rayconfig', () => {
     // Conflict badge should show
     await expect(page.getByTestId('import-conflict-badge')).toHaveCount(1)
 
-    // Deselect the conflicting "Hello World" snippet (click its checkbox row in the import modal)
-    // The modal's snippet list contains rows with checkboxes; target the import modal content
-    const modal = page.locator('.fixed.inset-0.z-50')
-    const snippetRows = modal.locator('.space-y-2 > div')
-    // First row is "Hello World"
-    await snippetRows.first().click()
-    await expect(page.getByText('Select all (2/3)')).toBeVisible()
+    // Conflict defaults to Skip — import button should show 2 (non-conflicts only)
+    await expect(page.getByText('Import 2 snippets')).toBeVisible()
 
     // Select target folder
     const folderSelect = page.getByTestId('folder-select')
     await folderSelect.locator('button').first().click()
     await folderSelect.getByText('Imports').click()
 
-    // Import 2 snippets
+    // Import 2 snippets (conflict skipped by default)
     await page.getByText('Import 2 snippets').click()
 
     // Modal should close

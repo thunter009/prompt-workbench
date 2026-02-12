@@ -34,6 +34,8 @@ interface ExistingExport {
   availableFiles?: AvailableFile[]
 }
 
+type ConflictResolutionChoice = 'skip' | 'replace' | 'keep-both'
+
 export function ImportModal({ open, onClose }: ImportModalProps) {
   const [dragActive, setDragActive] = useState(false)
   const [preview, setPreview] = useState<ImportPreview | null>(null)
@@ -44,10 +46,12 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
   const [existingExport, setExistingExport] = useState<ExistingExport | null>(null)
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null)
   const [folderDropdownOpen, setFolderDropdownOpen] = useState(false)
+  const [conflictResolutions, setConflictResolutions] = useState<Map<number, ConflictResolutionChoice>>(new Map())
   const fileInputRef = useRef<HTMLInputElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
 
   const createSnippet = useSnippetStore((s) => s.createSnippet)
+  const updateSnippet = useSnippetStore((s) => s.updateSnippet)
   const snippets = useSnippetStore((s) => s.snippets)
   const folders = useSnippetStore((s) => s.folders)
 
@@ -69,6 +73,21 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
     }
     return set
   }, [preview, existingNames])
+
+  // Count how many snippets will actually be imported
+  const importCount = useMemo(() => {
+    if (!preview) return 0
+    let count = 0
+    for (let i = 0; i < preview.snippets.length; i++) {
+      if (conflicts.has(i)) {
+        const resolution = conflictResolutions.get(i) ?? 'skip'
+        if (resolution !== 'skip') count++
+      } else if (selected.has(i)) {
+        count++
+      }
+    }
+    return count
+  }, [preview, conflicts, conflictResolutions, selected])
 
   // Check for existing export on open
   useEffect(() => {
@@ -248,25 +267,61 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
   }, [preview, selected.size])
 
   const handleImport = useCallback(async () => {
-    if (!preview || selected.size === 0) return
+    if (!preview) return
 
     setImporting(true)
     try {
-      const toImport = preview.snippets.filter((_, i) => selected.has(i))
+      let importedCount = 0
 
-      for (const snippet of toImport) {
-        createSnippet({
-          name: snippet.name,
-          text: snippet.text,
-          keyword: snippet.keyword,
-          folderId: targetFolderId ?? undefined,
-        })
+      for (let i = 0; i < preview.snippets.length; i++) {
+        const snippet = preview.snippets[i]
+        const isConflict = conflicts.has(i)
+
+        if (isConflict) {
+          const resolution = conflictResolutions.get(i) ?? 'skip'
+          if (resolution === 'skip') continue
+
+          if (resolution === 'replace') {
+            const existing = snippets.find(
+              (s) => s.name.toLowerCase() === snippet.name.toLowerCase()
+            )
+            if (existing) {
+              updateSnippet(existing.id, {
+                text: snippet.text,
+                keyword: snippet.keyword,
+                folderId: targetFolderId ?? existing.folderId,
+              })
+              importedCount++
+            }
+          } else if (resolution === 'keep-both') {
+            createSnippet({
+              name: `${snippet.name} (imported)`,
+              text: snippet.text,
+              keyword: snippet.keyword,
+              folderId: targetFolderId ?? undefined,
+            })
+            importedCount++
+          }
+        } else if (selected.has(i)) {
+          createSnippet({
+            name: snippet.name,
+            text: snippet.text,
+            keyword: snippet.keyword,
+            folderId: targetFolderId ?? undefined,
+          })
+          importedCount++
+        }
       }
 
-      toast.success(`Imported ${toImport.length} snippet${toImport.length > 1 ? 's' : ''}`)
+      if (importedCount > 0) {
+        toast.success(`Imported ${importedCount} snippet${importedCount > 1 ? 's' : ''}`)
+      } else {
+        toast.info('No snippets imported')
+      }
       onClose()
       setPreview(null)
       setSelected(new Set())
+      setConflictResolutions(new Map())
       setExistingExport(null)
       setTargetFolderId(null)
     } catch (err) {
@@ -275,12 +330,13 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
     } finally {
       setImporting(false)
     }
-  }, [preview, selected, createSnippet, onClose, targetFolderId])
+  }, [preview, selected, conflicts, conflictResolutions, snippets, createSnippet, updateSnippet, onClose, targetFolderId])
 
   const handleClose = useCallback(() => {
     onClose()
     setPreview(null)
     setSelected(new Set())
+    setConflictResolutions(new Map())
     setExistingExport(null)
     setTargetFolderId(null)
   }, [onClose])
@@ -456,7 +512,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                   </span>
                 </div>
                 <button
-                  onClick={() => { setPreview(null); setSelected(new Set()) }}
+                  onClick={() => { setPreview(null); setSelected(new Set()); setConflictResolutions(new Map()) }}
                   className="text-sm text-muted-foreground hover:text-foreground"
                 >
                   Choose different file
@@ -491,7 +547,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                     </span>
                   </div>
                   <p className="text-xs text-amber-300/70 mt-1">
-                    Duplicates will be imported as separate snippets. Deselect to skip them.
+                    Choose how to handle each duplicate: Skip, Replace, or Keep Both.
                   </p>
                 </div>
               )}
@@ -548,45 +604,81 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
 
               {/* Snippet list */}
               <div className="space-y-2 max-h-[40vh] overflow-auto">
-                {preview.snippets.map((snippet, i) => (
-                  <div
-                    key={i}
-                    onClick={() => toggleSelect(i)}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      conflicts.has(i)
-                        ? selected.has(i)
-                          ? 'bg-yellow-500/10 border-yellow-500/30'
-                          : 'bg-yellow-500/5 border-yellow-500/20 hover:border-yellow-500/30'
-                        : selected.has(i)
-                          ? 'bg-accent border-border'
-                          : 'bg-accent/30 border-border hover:border-border'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`w-4 h-4 mt-0.5 rounded border flex-shrink-0 flex items-center justify-center ${
-                        selected.has(i) ? 'bg-blue-600 border-blue-600' : 'border-border'
-                      }`}>
-                        {selected.has(i) && <Check className="w-3 h-3" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground truncate">{snippet.name}</span>
-                          {conflicts.has(i) && (
-                            <span className="px-1.5 py-0.5 text-xs bg-yellow-500/20 border border-yellow-500/30 rounded text-yellow-400" data-testid="import-conflict-badge">
-                              conflict
-                            </span>
-                          )}
-                          {snippet.keyword && (
-                            <span className="px-1.5 py-0.5 text-xs bg-accent rounded text-muted-foreground">
-                              {snippet.keyword}
-                            </span>
-                          )}
+                {preview.snippets.map((snippet, i) => {
+                  const isConflict = conflicts.has(i)
+                  const resolution = conflictResolutions.get(i) ?? 'skip'
+                  const isSkipped = isConflict && resolution === 'skip'
+
+                  return (
+                    <div
+                      key={i}
+                      className={`p-3 rounded-lg border transition-colors ${
+                        isSkipped
+                          ? 'bg-muted/30 border-border opacity-60'
+                          : isConflict
+                            ? 'bg-yellow-500/10 border-yellow-500/30'
+                            : selected.has(i)
+                              ? 'bg-accent border-border'
+                              : 'bg-accent/30 border-border hover:border-border'
+                      }`}
+                    >
+                      <div className={`flex items-start gap-3 ${!isConflict ? 'cursor-pointer' : ''}`} onClick={() => { if (!isConflict) toggleSelect(i) }}>
+                        {!isConflict && (
+                          <div className={`w-4 h-4 mt-0.5 rounded border flex-shrink-0 flex items-center justify-center ${
+                            selected.has(i) ? 'bg-blue-600 border-blue-600' : 'border-border'
+                          }`}>
+                            {selected.has(i) && <Check className="w-3 h-3" />}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-medium truncate ${isSkipped ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{snippet.name}</span>
+                            {isConflict && (
+                              <span className="px-1.5 py-0.5 text-xs bg-yellow-500/20 border border-yellow-500/30 rounded text-yellow-400" data-testid="import-conflict-badge">
+                                conflict
+                              </span>
+                            )}
+                            {snippet.keyword && (
+                              <span className="px-1.5 py-0.5 text-xs bg-accent rounded text-muted-foreground">
+                                {snippet.keyword}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{snippet.text}</p>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{snippet.text}</p>
                       </div>
+                      {isConflict && (
+                        <div className="mt-2 flex items-center gap-1" data-testid={`conflict-resolution-${i}`}>
+                          {(['skip', 'replace', 'keep-both'] as const).map((option) => (
+                            <button
+                              key={option}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setConflictResolutions((prev) => {
+                                  const next = new Map(prev)
+                                  next.set(i, option)
+                                  return next
+                                })
+                              }}
+                              className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                                resolution === option
+                                  ? option === 'skip'
+                                    ? 'bg-zinc-600 text-white'
+                                    : option === 'replace'
+                                      ? 'bg-blue-600 text-white'
+                                      : 'bg-green-600 text-white'
+                                  : 'bg-accent text-muted-foreground hover:text-foreground'
+                              }`}
+                              data-testid={`conflict-${option}-${i}`}
+                            >
+                              {option === 'keep-both' ? 'Keep Both' : option.charAt(0).toUpperCase() + option.slice(1)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </>
           )}
@@ -603,10 +695,10 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
             </button>
             <button
               onClick={handleImport}
-              disabled={selected.size === 0 || importing}
+              disabled={importCount === 0 || importing}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm font-medium transition-colors"
             >
-              {importing ? 'Importing...' : `Import ${selected.size} snippet${selected.size !== 1 ? 's' : ''}`}
+              {importing ? 'Importing...' : `Import ${importCount} snippet${importCount !== 1 ? 's' : ''}`}
             </button>
           </div>
         )}
