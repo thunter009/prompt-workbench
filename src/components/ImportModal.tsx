@@ -487,7 +487,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                   <div className="flex items-center gap-2 text-amber-400">
                     <AlertCircle className="w-4 h-4" />
                     <span className="text-sm font-medium">
-                      {conflicts.size} snippet{conflicts.size !== 1 ? 's' : ''} already exists with the same name
+                      {conflicts.size} conflict{conflicts.size !== 1 ? 's' : ''} detected
                     </span>
                   </div>
                   <p className="text-xs text-amber-300/70 mt-1">
@@ -553,9 +553,13 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                     key={i}
                     onClick={() => toggleSelect(i)}
                     className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selected.has(i)
-                        ? 'bg-accent border-border'
-                        : 'bg-accent/30 border-border hover:border-border'
+                      conflicts.has(i)
+                        ? selected.has(i)
+                          ? 'bg-yellow-500/10 border-yellow-500/30'
+                          : 'bg-yellow-500/5 border-yellow-500/20 hover:border-yellow-500/30'
+                        : selected.has(i)
+                          ? 'bg-accent border-border'
+                          : 'bg-accent/30 border-border hover:border-border'
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -568,8 +572,8 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-foreground truncate">{snippet.name}</span>
                           {conflicts.has(i) && (
-                            <span className="px-1.5 py-0.5 text-xs bg-amber-500/20 border border-amber-500/30 rounded text-amber-400" data-testid="duplicate-badge">
-                              duplicate
+                            <span className="px-1.5 py-0.5 text-xs bg-yellow-500/20 border border-yellow-500/30 rounded text-yellow-400" data-testid="import-conflict-badge">
+                              conflict
                             </span>
                           )}
                           {snippet.keyword && (

@@ -85,12 +85,12 @@ test.describe('Import Rayconfig', () => {
 
     // Should show conflict warning banner
     await expect(page.getByTestId('conflict-warning')).toBeVisible()
-    await expect(page.getByTestId('conflict-warning')).toContainText('already exists')
+    await expect(page.getByTestId('conflict-warning')).toContainText('conflict')
 
     // Should show duplicate badge on the conflicting snippet
-    const badges = page.getByTestId('duplicate-badge')
+    const badges = page.getByTestId('import-conflict-badge')
     await expect(badges).toHaveCount(1)
-    await expect(badges.first()).toContainText('duplicate')
+    await expect(badges.first()).toContainText('conflict')
   })
 
   test('conflict detection: no banner when no duplicates', async ({ page }) => {
@@ -99,7 +99,7 @@ test.describe('Import Rayconfig', () => {
 
     // No conflict warning should appear
     await expect(page.getByTestId('conflict-warning')).toHaveCount(0)
-    await expect(page.getByTestId('duplicate-badge')).toHaveCount(0)
+    await expect(page.getByTestId('import-conflict-badge')).toHaveCount(0)
   })
 
   test('import to folder: folder selector present', async ({ page }) => {
@@ -174,7 +174,7 @@ test.describe('Import Rayconfig', () => {
     await uploadImportFile(page, IMPORT_SNIPPETS)
 
     // Conflict badge should show
-    await expect(page.getByTestId('duplicate-badge')).toHaveCount(1)
+    await expect(page.getByTestId('import-conflict-badge')).toHaveCount(1)
 
     // Deselect the conflicting "Hello World" snippet (click its checkbox row in the import modal)
     // The modal's snippet list contains rows with checkboxes; target the import modal content
