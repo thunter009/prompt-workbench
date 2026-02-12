@@ -1235,6 +1235,7 @@ export function Sidebar() {
             {folderSnippets.map((snippet) => renderSnippet(snippet, depth + 1))}
             {isEmpty && (
               <li
+                data-testid="empty-state"
                 style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
                 className="py-1.5 text-xs text-muted-foreground italic"
               >
@@ -1384,8 +1385,8 @@ export function Sidebar() {
         onDrop={(e) => handleDrop(e, null)}
       >
         {folders.length === 0 && snippets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 px-4 text-center gap-3">
-            <p className="text-sm text-muted-foreground">Create your first snippet to get started</p>
+          <div data-testid="empty-state" className="flex flex-col items-center justify-center py-8 px-4 text-center gap-3">
+            <p className="text-sm text-muted-foreground">No snippets yet — click + to create one</p>
             <button
               onClick={handleNewSnippet}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-500 transition-colors"

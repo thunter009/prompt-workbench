@@ -385,8 +385,8 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
           <TabBar />
           <PreviewToolbar />
         </div>
-        <div className="flex-1 flex items-center justify-center">
-          <span className="text-muted-foreground text-sm">Start typing to see preview...</span>
+        <div data-testid="empty-state" className="flex-1 flex items-center justify-center">
+          <span className="text-muted-foreground text-sm">Nothing to preview</span>
         </div>
       </div>
     )

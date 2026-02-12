@@ -11,6 +11,7 @@ import {
 } from "@codemirror/view";
 import { StateField, StateEffect } from "@codemirror/state";
 import { RangeSetBuilder } from "@codemirror/state";
+import { toast } from "sonner";
 import { useSnippetStore } from "@/lib/store";
 import {
   parsePlaceholder,
@@ -417,7 +418,11 @@ const snippetClickHandler = EditorView.domEventHandlers({
 
     const { snippets, selectSnippet } = useSnippetStore.getState();
     const snippet = snippets.find((s) => s.name === ref.name);
-    if (!snippet) return false;
+    if (!snippet) {
+      event.preventDefault();
+      toast.error(`Snippet not found: ${ref.name}`);
+      return true;
+    }
 
     event.preventDefault();
     selectSnippet(snippet.id);

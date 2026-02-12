@@ -402,7 +402,7 @@ export default function HomePage() {
       setSaveStatus('saved')
       savedIndicatorTimerRef.current = setTimeout(() => {
         setSaveStatus('idle')
-      }, 3000)
+      }, 2000)
     }, AUTOSAVE_DEBOUNCE_MS)
   }, [selectedId, updateSnippet, createSnippet, getSelectedSnippet, scheduleInference])
 
@@ -912,23 +912,29 @@ export default function HomePage() {
                           </button>
                           <PaneThemeToggle />
                           <ImprovePromptButton disabled={improve.disabled} loading={improve.status === 'loading'} onImprove={improve.handleImprove} />
-                          {saveStatus === 'saving' && (
-                            <>
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              <span>Saving...</span>
-                            </>
-                          )}
-                          {saveStatus === 'saved' && (
-                            <>
-                              <Check className="w-3 h-3 text-green-500" />
-                              <span className="text-green-500">Saved</span>
-                            </>
-                          )}
+                          <span data-testid="save-indicator" className="flex items-center gap-1">
+                            {saveStatus === 'saving' && (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>Saving...</span>
+                              </>
+                            )}
+                            {saveStatus === 'saved' && (
+                              <>
+                                <Check className="w-3 h-3 text-green-500" />
+                                <span className="text-green-500">Saved</span>
+                              </>
+                            )}
+                          </span>
                         </div>
                       </div>
                     )}
                     <div className="flex-1 overflow-auto relative">
-                      {activeDiff ? (
+                      {!selectedId && !activeDiff ? (
+                        <div data-testid="empty-state" className="flex-1 flex items-center justify-center h-full">
+                          <span className="text-sm text-muted-foreground">Select a snippet to start editing</span>
+                        </div>
+                      ) : activeDiff ? (
                         <InlineDiffView {...activeDiff} />
                       ) : (
                         <>
@@ -1011,18 +1017,20 @@ export default function HomePage() {
                       {inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </button>
                     <ImprovePromptButton disabled={improve.disabled} loading={improve.status === 'loading'} onImprove={improve.handleImprove} />
-                    {saveStatus === 'saving' && (
-                      <>
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        <span>Saving...</span>
-                      </>
-                    )}
-                    {saveStatus === 'saved' && (
-                      <>
-                        <Check className="w-3 h-3 text-green-500" />
-                        <span className="text-green-500">Saved</span>
-                      </>
-                    )}
+                    <span data-testid="save-indicator" className="flex items-center gap-1">
+                      {saveStatus === 'saving' && (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      )}
+                      {saveStatus === 'saved' && (
+                        <>
+                          <Check className="w-3 h-3 text-green-500" />
+                          <span className="text-green-500">Saved</span>
+                        </>
+                      )}
+                    </span>
                   </div>
                 </div>
               )}

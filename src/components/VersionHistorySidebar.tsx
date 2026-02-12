@@ -108,6 +108,7 @@ function VersionEntry({ version, isCurrent, isSelected, isCompare, showCompare, 
           )}
           {!isCurrent && (
             <button
+              data-testid="delete-version"
               onClick={(e) => onDelete(version.id, e)}
               className="p-0.5 rounded transition-colors text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100"
               title="Delete this version"
@@ -149,6 +150,7 @@ export function VersionHistorySidebar({ open, onOpenChange, onDiffChange }: Vers
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
   const [compareVersionId, setCompareVersionId] = useState<string | null>(null)
   const [restoreConfirmVersion, setRestoreConfirmVersion] = useState<SnippetVersion | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [cleanupMenuOpen, setCleanupMenuOpen] = useState(false)
 
   const versions = useMemo(
@@ -226,16 +228,26 @@ export function VersionHistorySidebar({ open, onOpenChange, onDiffChange }: Vers
 
   const handleDeleteVersion = useCallback((versionId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (selectedVersionId === versionId) {
+    setDeleteConfirmId(versionId)
+  }, [])
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (!deleteConfirmId) return
+    if (selectedVersionId === deleteConfirmId) {
       setSelectedVersionId(null)
       onDiffChange(null)
     }
-    if (compareVersionId === versionId) {
+    if (compareVersionId === deleteConfirmId) {
       setCompareVersionId(null)
     }
-    deleteVersion(versionId)
+    deleteVersion(deleteConfirmId)
     toast.success('Version deleted')
-  }, [selectedVersionId, compareVersionId, deleteVersion, onDiffChange])
+    setDeleteConfirmId(null)
+  }, [deleteConfirmId, selectedVersionId, compareVersionId, deleteVersion, onDiffChange])
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteConfirmId(null)
+  }, [])
 
   const handleKeepLastN = useCallback((n: number) => {
     if (!selectedId) return
@@ -265,6 +277,7 @@ export function VersionHistorySidebar({ open, onOpenChange, onDiffChange }: Vers
           {versions.length > 1 && (
             <div className="relative">
               <button
+                data-testid="clear-versions"
                 onClick={() => setCleanupMenuOpen(!cleanupMenuOpen)}
                 className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground flex items-center gap-0.5"
                 title="Cleanup versions"
@@ -317,7 +330,7 @@ export function VersionHistorySidebar({ open, onOpenChange, onDiffChange }: Vers
           <p className="text-sm text-muted-foreground text-center">Select a snippet to view its history</p>
         </div>
       ) : versions.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-4 gap-2">
+        <div data-testid="empty-state" className="flex-1 flex flex-col items-center justify-center p-4 gap-2">
           <Clock className="w-8 h-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground text-center">No versions yet</p>
           <p className="text-xs text-muted-foreground text-center">
@@ -386,6 +399,31 @@ export function VersionHistorySidebar({ open, onOpenChange, onDiffChange }: Vers
               <RotateCcw className="w-3 h-3" />
               Restore
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation dialog */}
+      {deleteConfirmId && (
+        <div data-testid="delete-confirm-dialog" className="absolute inset-0 bg-muted/95 flex flex-col items-center justify-center z-10">
+          <div className="p-4 text-center">
+            <h3 className="text-sm font-medium text-foreground">Delete this version?</h3>
+            <p className="text-xs text-muted-foreground mt-1">This action cannot be undone.</p>
+            <div className="flex gap-2 justify-center mt-4">
+              <button
+                onClick={handleDeleteCancel}
+                className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-500 text-white rounded transition-colors flex items-center gap-1"
+              >
+                <Trash2 className="w-3 h-3" />
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

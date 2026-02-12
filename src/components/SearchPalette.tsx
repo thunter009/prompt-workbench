@@ -236,7 +236,7 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
               </div>
             )
           ) : results.length === 0 ? (
-            <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
+            <Command.Empty data-testid="empty-state" className="py-8 text-center text-sm text-muted-foreground">
               <p>No results for &ldquo;{search}&rdquo;</p>
               <p className="text-xs mt-1">Try a shorter or different query</p>
             </Command.Empty>

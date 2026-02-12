@@ -1,0 +1,144 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - heading "Prompt Workbench" [level=1] [ref=e6]
+        - generic [ref=e7]:
+          - button "Sync to Raycast" [ref=e8] [cursor=pointer]:
+            - img [ref=e9]
+          - button "Import from Raycast" [ref=e14] [cursor=pointer]:
+            - img [ref=e15]
+          - generic [ref=e19]:
+            - button "Quick export" [ref=e20] [cursor=pointer]:
+              - img [ref=e21]
+            - button "More export options" [ref=e24] [cursor=pointer]:
+              - img [ref=e25]
+          - button "Version history" [ref=e27] [cursor=pointer]:
+            - img [ref=e28]
+          - button "Settings" [ref=e32] [cursor=pointer]:
+            - img [ref=e33]
+          - button "Keyboard shortcuts" [ref=e36] [cursor=pointer]:
+            - img [ref=e37]
+          - button "Switch to dark mode" [ref=e40] [cursor=pointer]:
+            - img [ref=e41]
+          - button "Hide preview" [expanded] [ref=e43] [cursor=pointer]:
+            - img [ref=e44]
+      - generic [ref=e48]:
+        - complementary [ref=e51]:
+          - generic [ref=e52]:
+            - generic [ref=e53]: Snippets
+            - generic [ref=e54]:
+              - button "Filter by export status" [ref=e56] [cursor=pointer]:
+                - img [ref=e57]
+              - button "Expand all folders" [ref=e59] [cursor=pointer]:
+                - img [ref=e60]
+              - button "Collapse all folders" [ref=e63] [cursor=pointer]:
+                - img [ref=e64]
+              - button "Batch reorganize" [ref=e67] [cursor=pointer]:
+                - img [ref=e68]
+              - button "New folder" [ref=e71] [cursor=pointer]:
+                - img [ref=e72]
+              - button "New snippet" [ref=e74] [cursor=pointer]:
+                - img [ref=e75]
+          - listbox "Snippets and folders" [ref=e77]:
+            - listitem [ref=e78]:
+              - generic [active] [ref=e79] [cursor=pointer]:
+                - button "Toggle Parent Folder" [expanded] [ref=e80]:
+                  - img [ref=e81]
+                - img [ref=e83]
+                - generic "Parent Folder" [ref=e85]
+                - generic [ref=e86]: (3)
+              - list [ref=e88]:
+                - listitem [ref=e89]:
+                  - generic [ref=e90] [cursor=pointer]:
+                    - button "Toggle Child Folder" [ref=e91]:
+                      - img [ref=e92]
+                    - img [ref=e94]
+                    - generic "Child Folder" [ref=e96]
+                    - generic [ref=e97]: (1)
+                  - generic:
+                    - list:
+                      - listitem [ref=e98] [cursor=pointer]:
+                        - img [ref=e99]
+                        - generic "Snippet C" [ref=e102]
+                        - button "Edit Snippet C" [ref=e103]:
+                          - img [ref=e104]
+                        - generic "Never exported" [ref=e107]
+                - listitem [ref=e108] [cursor=pointer]:
+                  - img [ref=e109]
+                  - generic "Snippet A" [ref=e112]
+                  - button "Edit Snippet A" [ref=e113]:
+                    - img [ref=e114]
+                  - generic "Never exported" [ref=e117]
+                - listitem [ref=e118] [cursor=pointer]:
+                  - img [ref=e119]
+                  - generic "Snippet B" [ref=e122]
+                  - button "Edit Snippet B" [ref=e123]:
+                    - img [ref=e124]
+                  - generic "Never exported" [ref=e127]
+            - listitem [ref=e128]:
+              - generic [ref=e129] [cursor=pointer]:
+                - button "Toggle Empty Folder" [ref=e130]:
+                  - img [ref=e131]
+                - img [ref=e133]
+                - generic "Empty Folder" [ref=e135]
+              - generic:
+                - list:
+                  - listitem [ref=e136]: Empty folder
+            - listitem [ref=e137] [cursor=pointer]:
+              - img [ref=e138]
+              - generic "Unfiled Snippet" [ref=e141]
+              - button "Edit Unfiled Snippet" [ref=e142]:
+                - img [ref=e143]
+              - generic "Never exported" [ref=e146]
+        - separator [ref=e147]
+        - generic [ref=e150]:
+          - generic [ref=e152]:
+            - button "Show placeholder previews" [ref=e153] [cursor=pointer]:
+              - img [ref=e154]
+            - button "Match global theme" [ref=e159] [cursor=pointer]:
+              - img [ref=e160]
+            - button "Text too short (<20 chars)" [disabled] [ref=e162]:
+              - img [ref=e163]
+          - generic [ref=e169]:
+            - generic [ref=e172]: "1"
+            - textbox [ref=e173]
+        - separator [ref=e175]
+        - generic [ref=e178]:
+          - generic [ref=e179]:
+            - button "Preview" [ref=e180] [cursor=pointer]
+            - button "Playground" [ref=e181] [cursor=pointer]
+            - button "Match global theme" [ref=e183] [cursor=pointer]:
+              - img [ref=e184]
+          - generic [ref=e187]:
+            - generic [ref=e188]:
+              - generic [ref=e189]:
+                - button "Preview" [ref=e190] [cursor=pointer]
+                - button "Playground" [ref=e191] [cursor=pointer]
+              - generic [ref=e192]:
+                - button "Hide resolved includes" [ref=e193] [cursor=pointer]:
+                  - img [ref=e194]
+                - button "Disable scroll sync" [ref=e198] [cursor=pointer]:
+                  - img [ref=e199]
+                - button "Show example values" [ref=e202] [cursor=pointer]:
+                  - img [ref=e203]
+            - generic [ref=e209]: Start typing to see preview...
+  - region "Notifications alt+T"
+  - generic [ref=e214] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e215]:
+      - img [ref=e216]
+    - generic [ref=e219]:
+      - button "Open issues overlay" [ref=e220]:
+        - generic [ref=e221]:
+          - generic [ref=e222]: "1"
+          - generic [ref=e223]: "2"
+        - generic [ref=e224]:
+          - text: Issue
+          - generic [ref=e225]: s
+      - button "Collapse issues badge" [ref=e226]:
+        - img [ref=e227]
+  - alert [ref=e229]
+```
