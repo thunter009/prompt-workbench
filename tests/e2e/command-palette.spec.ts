@@ -106,6 +106,99 @@ test.describe('Command Palette', () => {
     await expect(page.locator('[data-testid="command-palette"]')).not.toBeVisible()
   })
 
+  test('fuzzy search matches partial input like "tog prev"', async ({ page }) => {
+    await page.keyboard.press('Meta+k')
+    const input = page.locator('[data-testid="command-palette"] input')
+    await input.fill('tog prev')
+
+    const items = page.locator('[data-testid="command-palette"] [data-command-item]')
+    await expect(items.first()).toContainText('Toggle Preview')
+  })
+
+  test('fuzzy search matches misspelling like "togle"', async ({ page }) => {
+    await page.keyboard.press('Meta+k')
+    const input = page.locator('[data-testid="command-palette"] input')
+    await input.fill('togle')
+
+    const items = page.locator('[data-testid="command-palette"] [data-command-item]')
+    const count = await items.count()
+    expect(count).toBeGreaterThan(0)
+    const texts = await items.allTextContents()
+    expect(texts.some((t) => t.includes('Toggle'))).toBe(true)
+  })
+
+  test('fuzzy search highlights matched characters', async ({ page }) => {
+    await page.keyboard.press('Meta+k')
+    const input = page.locator('[data-testid="command-palette"] input')
+    await input.fill('dark')
+
+    // Should have <mark> elements for highlighted chars
+    const marks = page.locator('[data-testid="command-palette"] [data-command-item] mark')
+    await expect(marks.first()).toBeVisible()
+  })
+
+  test('fuzzy search shows flat list without section headers', async ({ page }) => {
+    await page.keyboard.press('Meta+k')
+
+    // With empty search, sections are visible
+    const sectionHeaders = page.locator('[data-testid="command-palette"] [data-command-section]')
+    const initialSections = await sectionHeaders.count()
+    expect(initialSections).toBeGreaterThan(1)
+
+    // Type search query
+    const input = page.locator('[data-testid="command-palette"] input')
+    await input.fill('toggle')
+
+    // Should have results but no section headers (single wrapper with no data-command-section)
+    const items = page.locator('[data-testid="command-palette"] [data-command-item]')
+    await expect(items.first()).toBeVisible()
+    const filteredSections = page.locator('[data-testid="command-palette"] [data-command-section]')
+    await expect(filteredSections).toHaveCount(0)
+  })
+
+  test('fuzzy search results update as user types', async ({ page }) => {
+    await page.keyboard.press('Meta+k')
+    const input = page.locator('[data-testid="command-palette"] input')
+    const items = page.locator('[data-testid="command-palette"] [data-command-item]')
+
+    // Type "t" - many matches
+    await input.fill('t')
+    const countAfterT = await items.count()
+    expect(countAfterT).toBeGreaterThan(2)
+
+    // Type "to" - fewer matches
+    await input.fill('to')
+    const countAfterTo = await items.count()
+    expect(countAfterTo).toBeLessThanOrEqual(countAfterT)
+
+    // Type "tog" - even fewer
+    await input.fill('tog')
+    const countAfterTog = await items.count()
+    expect(countAfterTog).toBeLessThanOrEqual(countAfterTo)
+  })
+
+  test('empty input after search restores all commands grouped by section', async ({ page }) => {
+    await page.keyboard.press('Meta+k')
+    const input = page.locator('[data-testid="command-palette"] input')
+    const items = page.locator('[data-testid="command-palette"] [data-command-item]')
+
+    const initialCount = await items.count()
+
+    // Filter
+    await input.fill('dark')
+    const filteredCount = await items.count()
+    expect(filteredCount).toBeLessThan(initialCount)
+
+    // Clear search
+    await input.fill('')
+    const restoredCount = await items.count()
+    expect(restoredCount).toBe(initialCount)
+
+    // Section headers should be back
+    const sections = page.locator('[data-testid="command-palette"] [data-command-section]')
+    expect(await sections.count()).toBeGreaterThan(1)
+  })
+
   test('arrow keys wrap around list', async ({ page }) => {
     await page.keyboard.press('Meta+k')
 

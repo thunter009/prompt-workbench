@@ -3,7 +3,44 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Command as CmdkRoot } from 'cmdk'
 import { Search } from 'lucide-react'
+import Fuse from 'fuse.js'
 import { type Command, SECTION_ORDER, type CommandSection } from '@/lib/commands'
+
+type FuseMatch = { indices: readonly [number, number][]; key?: string }
+
+function HighlightedLabel({ text, matches }: { text: string; matches?: readonly FuseMatch[] }) {
+  const labelMatch = matches?.find((m) => m.key === 'label')
+  if (!labelMatch) return <span className="text-sm flex-1">{text}</span>
+
+  const chars = text.split('')
+  const highlighted = new Set<number>()
+  for (const [start, end] of labelMatch.indices) {
+    for (let i = start; i <= end; i++) highlighted.add(i)
+  }
+
+  const spans: { text: string; match: boolean }[] = []
+  for (let i = 0; i < chars.length; i++) {
+    const isMatch = highlighted.has(i)
+    const last = spans[spans.length - 1]
+    if (last && last.match === isMatch) {
+      last.text += chars[i]
+    } else {
+      spans.push({ text: chars[i], match: isMatch })
+    }
+  }
+
+  return (
+    <span className="text-sm flex-1">
+      {spans.map((s, i) =>
+        s.match ? (
+          <mark key={i} className="bg-transparent text-blue-300 font-semibold">{s.text}</mark>
+        ) : (
+          <span key={i}>{s.text}</span>
+        )
+      )}
+    </span>
+  )
+}
 
 interface CommandPaletteProps {
   open: boolean
@@ -16,16 +53,35 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
   const [selectedIndex, setSelectedIndex] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
 
-  // Filter commands by search, hide disabled when searching
-  const filtered = useMemo(() => {
+  // Fuse instance for fuzzy search
+  const fuse = useMemo(() => {
     const visible = commands.filter((c) => !c.disabled)
-    if (!search.trim()) return visible
-    const q = search.toLowerCase()
-    return visible.filter((c) => c.label.toLowerCase().includes(q))
-  }, [commands, search])
+    return new Fuse(visible, {
+      keys: ['label'],
+      threshold: 0.4,
+      includeMatches: true,
+      ignoreLocation: true,
+    })
+  }, [commands])
+
+  // Fuzzy filter commands by search
+  const { filtered, matchMap } = useMemo(() => {
+    const visible = commands.filter((c) => !c.disabled)
+    if (!search.trim()) return { filtered: visible, matchMap: new Map<string, readonly FuseMatch[]>() }
+    const results = fuse.search(search)
+    const map = new Map<string, readonly FuseMatch[]>()
+    for (const r of results) {
+      if (r.matches) map.set(r.item.id, r.matches)
+    }
+    return { filtered: results.map((r) => r.item), matchMap: map }
+  }, [commands, search, fuse])
 
   // Group filtered commands by section, preserving order
+  // When searching, show flat list (no section headers) sorted by relevance
   const sections = useMemo(() => {
+    if (search.trim()) {
+      return [{ section: '' as CommandSection, commands: filtered }]
+    }
     const groups = new Map<CommandSection, Command[]>()
     for (const cmd of filtered) {
       const list = groups.get(cmd.section) ?? []
@@ -35,7 +91,7 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
     return SECTION_ORDER
       .filter((s) => groups.has(s))
       .map((s) => ({ section: s, commands: groups.get(s)! }))
-  }, [filtered])
+  }, [filtered, search])
 
   // Flat list for keyboard navigation
   const flatItems = useMemo(() => sections.flatMap((s) => s.commands), [sections])
@@ -157,7 +213,7 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
                     }`}
                   >
                     {Icon && <Icon className="w-4 h-4 shrink-0 text-muted-foreground" />}
-                    <span className="text-sm flex-1">{cmd.label}</span>
+                    <HighlightedLabel text={cmd.label} matches={matchMap.get(cmd.id)} />
                     {cmd.shortcut && (
                       <kbd className="text-xs text-muted-foreground px-1.5 py-0.5 bg-accent rounded">
                         {cmd.shortcut}
@@ -168,10 +224,12 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
               })
 
               return (
-                <div key={group.section} data-command-section={group.section}>
-                  <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    {group.section}
-                  </div>
+                <div key={group.section || 'search-results'} data-command-section={group.section || undefined}>
+                  {group.section && (
+                    <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      {group.section}
+                    </div>
+                  )}
                   {items}
                 </div>
               )
