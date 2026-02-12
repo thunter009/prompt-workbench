@@ -11,7 +11,7 @@ import { TagFilter } from '@/components/TagFilter'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ExportFolderDialog } from '@/components/ExportFolderDialog'
 import { FolderReorgModal } from '@/components/FolderReorgModal'
-import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown, Pencil, Sparkles, Copy, Trash2, FolderInput, Download, XCircle, AlertTriangle } from 'lucide-react'
+import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown, Pencil, Sparkles, Copy, Trash2, FolderInput, Download, XCircle, AlertTriangle, Clock } from 'lucide-react'
 import { useMethodologyStore, validateFolderName } from '@/lib/folder-methodology'
 import type { Snippet, Folder } from '@/types'
 
@@ -166,6 +166,7 @@ export function Sidebar() {
   const duplicateSnippet = useSnippetStore((s) => s.duplicateSnippet)
   const selectedTags = useSnippetStore((s) => s.selectedTags)
   const tagFilterMode = useSnippetStore((s) => s.tagFilterMode)
+  const getRecentSnippets = useSnippetStore((s) => s.getRecentSnippets)
 
   const methodologyConfig = useMethodologyStore((s) => s.config)
 
@@ -193,6 +194,7 @@ export function Sidebar() {
   const [deleteSnippetDialog, setDeleteSnippetDialog] = useState<{ open: boolean; snippetIds: string[] }>({ open: false, snippetIds: [] })
   const [moveToFolderOpen, setMoveToFolderOpen] = useState(false)
   const [reorgOpen, setReorgOpen] = useState(false)
+  const [recentExpanded, setRecentExpanded] = useState(true)
   const [contextMenuIndex, setContextMenuIndex] = useState(-1)
   const menuRef = useRef<HTMLDivElement>(null)
   const sidebarListRef = useRef<HTMLUListElement>(null)
@@ -865,6 +867,9 @@ export function Sidebar() {
     return filteredSnippets.filter((s) => !s.folderId)
   }, [filteredSnippets])
 
+  // Recently edited snippets for sidebar section
+  const recentSnippets = useMemo(() => getRecentSnippets(5), [getRecentSnippets])
+
   // Build flat list of navigable items (matches render order) for arrow key nav
   const navigableItems = useMemo(() => {
     const items: Array<{ type: 'snippet'; id: string } | { type: 'folder'; id: string }> = []
@@ -1386,7 +1391,7 @@ export function Sidebar() {
       >
         {folders.length === 0 && snippets.length === 0 ? (
           <div data-testid="empty-state" className="flex flex-col items-center justify-center py-8 px-4 text-center gap-3">
-            <p className="text-sm text-muted-foreground">No snippets yet — click + to create one</p>
+            <p className="text-sm text-muted-foreground">Create your first snippet to get started</p>
             <button
               onClick={handleNewSnippet}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-500 transition-colors"
@@ -1398,10 +1403,30 @@ export function Sidebar() {
         ) : filteredSnippets.length === 0 && exportFilter !== 'all' ? (
           <p className="text-sm text-muted-foreground p-2">No {exportFilter} snippets</p>
         ) : (
-          <ul ref={sidebarListRef} className="space-y-0.5" role="listbox" aria-label="Snippets and folders">
-            {rootFolders.map((folder) => renderFolder(folder))}
-            {filteredRootSnippets.map((snippet) => renderSnippet(snippet))}
-          </ul>
+          <>
+            {/* Recently edited snippets */}
+            {recentSnippets.length > 0 && (
+              <div className="mb-2">
+                <button
+                  onClick={() => setRecentExpanded((v) => !v)}
+                  className="flex items-center gap-1.5 w-full px-1 py-1 text-xs font-medium text-muted-foreground hover:text-secondary-foreground transition-colors"
+                >
+                  <ChevronRight className={cn('w-3 h-3 transition-transform', recentExpanded && 'rotate-90')} />
+                  <Clock className="w-3 h-3" />
+                  Recent
+                </button>
+                {recentExpanded && (
+                  <ul className="space-y-0.5">
+                    {recentSnippets.map((snippet) => renderSnippet(snippet))}
+                  </ul>
+                )}
+              </div>
+            )}
+            <ul ref={sidebarListRef} className="space-y-0.5" role="listbox" aria-label="Snippets and folders">
+              {rootFolders.map((folder) => renderFolder(folder))}
+              {filteredRootSnippets.map((snippet) => renderSnippet(snippet))}
+            </ul>
+          </>
         )}
       </div>
 

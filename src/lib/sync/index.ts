@@ -20,3 +20,7 @@ export {
 
 // Note: For client-side, import conflict-detection directly:
 // import { detectConflicts } from '@/lib/sync/conflict-detection'
+
+// Sync history log — client-side store
+// import { useSyncHistoryStore } from '@/lib/sync-history-store'
+export { useSyncHistoryStore } from '../sync-history-store'

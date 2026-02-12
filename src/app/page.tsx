@@ -402,7 +402,7 @@ export default function HomePage() {
       setSaveStatus('saved')
       savedIndicatorTimerRef.current = setTimeout(() => {
         setSaveStatus('idle')
-      }, 2000)
+      }, 3000)
     }, AUTOSAVE_DEBOUNCE_MS)
   }, [selectedId, updateSnippet, createSnippet, getSelectedSnippet, scheduleInference])
 
