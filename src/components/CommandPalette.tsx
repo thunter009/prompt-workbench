@@ -1,20 +1,14 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Command } from 'cmdk'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { Command as CmdkRoot } from 'cmdk'
 import { Search } from 'lucide-react'
-
-export interface CommandItem {
-  id: string
-  label: string
-  shortcut?: string
-  onSelect: () => void
-}
+import { type Command, SECTION_ORDER, type CommandSection } from '@/lib/commands'
 
 interface CommandPaletteProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  commands: CommandItem[]
+  commands: Command[]
 }
 
 export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteProps) {
@@ -22,10 +16,29 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
   const [selectedIndex, setSelectedIndex] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
 
-  // Filter commands by search
-  const filtered = search.trim()
-    ? commands.filter((c) => c.label.toLowerCase().includes(search.toLowerCase()))
-    : commands
+  // Filter commands by search, hide disabled when searching
+  const filtered = useMemo(() => {
+    const visible = commands.filter((c) => !c.disabled)
+    if (!search.trim()) return visible
+    const q = search.toLowerCase()
+    return visible.filter((c) => c.label.toLowerCase().includes(q))
+  }, [commands, search])
+
+  // Group filtered commands by section, preserving order
+  const sections = useMemo(() => {
+    const groups = new Map<CommandSection, Command[]>()
+    for (const cmd of filtered) {
+      const list = groups.get(cmd.section) ?? []
+      list.push(cmd)
+      groups.set(cmd.section, list)
+    }
+    return SECTION_ORDER
+      .filter((s) => groups.has(s))
+      .map((s) => ({ section: s, commands: groups.get(s)! }))
+  }, [filtered])
+
+  // Flat list for keyboard navigation
+  const flatItems = useMemo(() => sections.flatMap((s) => s.commands), [sections])
 
   // Reset on close
   useEffect(() => {
@@ -43,20 +56,20 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
   // Scroll selected item into view
   useEffect(() => {
     const list = listRef.current
-    if (!list || filtered.length === 0) return
+    if (!list || flatItems.length === 0) return
     const items = list.querySelectorAll('[data-command-item]')
     const selected = items[selectedIndex] as HTMLElement | undefined
     selected?.scrollIntoView({ block: 'nearest' })
-  }, [selectedIndex, filtered.length])
+  }, [selectedIndex, flatItems.length])
 
   const execute = useCallback(
     (index: number) => {
-      const cmd = filtered[index]
+      const cmd = flatItems[index]
       if (!cmd) return
-      cmd.onSelect()
+      cmd.action()
       onOpenChange(false)
     },
-    [filtered, onOpenChange]
+    [flatItems, onOpenChange]
   )
 
   const handleKeyDown = useCallback(
@@ -67,16 +80,16 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
         return
       }
 
-      if (filtered.length === 0) return
+      if (flatItems.length === 0) return
 
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault()
-          setSelectedIndex((i) => (i + 1) % filtered.length)
+          setSelectedIndex((i) => (i + 1) % flatItems.length)
           break
         case 'ArrowUp':
           e.preventDefault()
-          setSelectedIndex((i) => (i - 1 + filtered.length) % filtered.length)
+          setSelectedIndex((i) => (i - 1 + flatItems.length) % flatItems.length)
           break
         case 'Enter':
           e.preventDefault()
@@ -84,10 +97,13 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
           break
       }
     },
-    [filtered.length, selectedIndex, execute, onOpenChange]
+    [flatItems.length, selectedIndex, execute, onOpenChange]
   )
 
   if (!open) return null
+
+  // Build flat index counter for aria-selected
+  let flatIdx = 0
 
   return (
     <div
@@ -99,7 +115,7 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-overlay-in" />
 
       {/* Dialog */}
-      <Command
+      <CmdkRoot
         className="relative w-full max-w-lg mx-4 sm:mx-0 bg-muted border border-border rounded-xl shadow-2xl overflow-hidden animate-modal-in"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
@@ -108,7 +124,7 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
         {/* Input */}
         <div className="flex items-center gap-3 px-4 border-b border-border">
           <Search className="w-5 h-5 text-muted-foreground shrink-0" />
-          <Command.Input
+          <CmdkRoot.Input
             value={search}
             onValueChange={setSearch}
             placeholder="Type a command..."
@@ -118,34 +134,50 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
         </div>
 
         {/* Command list */}
-        <Command.List ref={listRef} role="listbox" className="max-h-80 overflow-y-auto p-2">
-          {filtered.length === 0 ? (
-            <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
+        <CmdkRoot.List ref={listRef} role="listbox" className="max-h-80 overflow-y-auto p-2">
+          {flatItems.length === 0 ? (
+            <CmdkRoot.Empty className="py-8 text-center text-sm text-muted-foreground">
               No matching commands
-            </Command.Empty>
+            </CmdkRoot.Empty>
           ) : (
-            filtered.map((cmd, index) => (
-              <div
-                key={cmd.id}
-                data-command-item
-                role="option"
-                aria-selected={index === selectedIndex}
-                onClick={() => execute(index)}
-                onMouseEnter={() => setSelectedIndex(index)}
-                className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-secondary-foreground transition-colors ${
-                  index === selectedIndex ? 'bg-blue-600/30 text-blue-200' : 'hover:bg-accent/50'
-                }`}
-              >
-                <span className="text-sm">{cmd.label}</span>
-                {cmd.shortcut && (
-                  <kbd className="text-xs text-muted-foreground px-1.5 py-0.5 bg-accent rounded">
-                    {cmd.shortcut}
-                  </kbd>
-                )}
-              </div>
-            ))
+            sections.map((group) => {
+              const items = group.commands.map((cmd) => {
+                const idx = flatIdx++
+                const Icon = cmd.icon
+                return (
+                  <div
+                    key={cmd.id}
+                    data-command-item
+                    role="option"
+                    aria-selected={idx === selectedIndex}
+                    onClick={() => execute(idx)}
+                    onMouseEnter={() => setSelectedIndex(idx)}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer text-secondary-foreground transition-colors ${
+                      idx === selectedIndex ? 'bg-blue-600/30 text-blue-200' : 'hover:bg-accent/50'
+                    }`}
+                  >
+                    {Icon && <Icon className="w-4 h-4 shrink-0 text-muted-foreground" />}
+                    <span className="text-sm flex-1">{cmd.label}</span>
+                    {cmd.shortcut && (
+                      <kbd className="text-xs text-muted-foreground px-1.5 py-0.5 bg-accent rounded">
+                        {cmd.shortcut}
+                      </kbd>
+                    )}
+                  </div>
+                )
+              })
+
+              return (
+                <div key={group.section} data-command-section={group.section}>
+                  <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    {group.section}
+                  </div>
+                  {items}
+                </div>
+              )
+            })
           )}
-        </Command.List>
+        </CmdkRoot.List>
 
         {/* Footer */}
         <div className="flex items-center gap-4 px-4 py-2 border-t border-border text-xs text-muted-foreground">
@@ -159,7 +191,7 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
             <kbd className="px-1.5 py-0.5 bg-accent rounded text-[10px] font-medium">esc</kbd> close
           </span>
         </div>
-      </Command>
+      </CmdkRoot>
     </div>
   )
 }

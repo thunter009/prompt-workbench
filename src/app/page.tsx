@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useTransition, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { toast } from 'sonner'
+import { useTheme } from 'next-themes'
 import { Group, Panel, Separator, useDefaultLayout, usePanelRef } from 'react-resizable-panels'
 import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
 import { useTitleInference } from '@/hooks/useTitleInference'
@@ -18,7 +19,8 @@ import { SidebarRail } from '@/components/SidebarRail'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ConflictPanel } from '@/components/ConflictPanel'
 import { SearchPalette } from '@/components/SearchPalette'
-import { CommandPalette, type CommandItem } from '@/components/CommandPalette'
+import { CommandPalette } from '@/components/CommandPalette'
+import { useCommands } from '@/lib/commands'
 import { CrossSnippetSearch } from '@/components/CrossSnippetSearch'
 import { VersionHistorySidebar } from '@/components/VersionHistorySidebar'
 import { SettingsModal } from '@/components/SettingsModal'
@@ -161,6 +163,9 @@ export default function HomePage() {
   const activeTab = usePlaygroundStore((s) => s.activeTab)
   const playgroundRun = usePlaygroundStore((s) => s.run)
   const playgroundSetActiveTab = usePlaygroundStore((s) => s.setActiveTab)
+
+  // Theme
+  const { resolvedTheme, setTheme } = useTheme()
 
   // Title inference handler
   const handleTitleInferred = useCallback((title: string) => {
@@ -654,25 +659,54 @@ export default function HomePage() {
   })
 
   // Command palette commands
-  const appCommands: CommandItem[] = useMemo(() => [
-    { id: 'search', label: 'Search snippets', shortcut: '⌘P', onSelect: () => setSearchOpen(true) },
-    { id: 'new-snippet', label: 'New snippet', shortcut: '⌘N', onSelect: () => createSnippet({ name: 'New Snippet', text: '' }) },
-    { id: 'new-folder', label: 'New folder', shortcut: '⌘⇧N', onSelect: () => {
+  const appCommands = useCommands({
+    createSnippet: () => createSnippet({ name: 'New Snippet', text: '' }),
+    createFolder: () => {
       const maxOrder = folders.reduce((max, f) => (!f.parentId ? Math.max(max, f.orderIndex) : max), -1)
       createFolder({ name: 'New Folder', orderIndex: maxOrder + 1 })
-    }},
-    { id: 'export', label: 'Quick export', shortcut: '⌘⇧E', onSelect: () => handleQuickExport(false) },
-    { id: 'sync', label: 'Sync to Raycast', shortcut: '⌘⇧S', onSelect: handleSyncToRaycast },
-    { id: 'import', label: 'Import from Raycast', onSelect: () => setImportOpen(true) },
-    { id: 'global-search', label: 'Find & replace', shortcut: '⌘⇧F', onSelect: () => setGlobalSearchOpen(true) },
-    { id: 'settings', label: 'Settings', shortcut: '⌘,', onSelect: () => setSettingsOpen(true) },
-    { id: 'shortcuts', label: 'Keyboard shortcuts', shortcut: '⌘/', onSelect: () => setHotkeySheetOpen(true) },
-    { id: 'toggle-preview', label: 'Toggle preview', shortcut: '⌘\\', onSelect: () => {
+    },
+    duplicateSelected: () => {
+      const id = selectedIds.size > 0 ? Array.from(selectedIds)[0] : selectedId
+      if (id) {
+        const copy = duplicateSnippet(id)
+        if (copy) toast.success(`Duplicated "${copy.name}"`)
+      }
+    },
+    deleteSelected: () => {
+      if (selectedIds.size > 0) setDeleteDialogIds(Array.from(selectedIds))
+    },
+    renameSelected: () => {
+      // Rename is handled in the sidebar — focus it
+      toast('Select snippet in sidebar and press F2 to rename')
+    },
+    togglePreview: () => {
       const panel = previewPanelRef.current
       if (panel) { if (panel.isCollapsed()) { panel.expand() } else { panel.collapse() } }
-    }},
-    { id: 'history', label: 'Version history', onSelect: () => setHistoryOpen((v) => !v) },
-  ], [createSnippet, folders, createFolder, handleQuickExport, handleSyncToRaycast, previewPanelRef])
+    },
+    toggleSidebar: () => {
+      const panel = sidebarPanelRef.current
+      if (panel) { if (panel.isCollapsed()) { panel.expand() } else { panel.collapse() } }
+    },
+    openSearch: () => setSearchOpen(true),
+    togglePlayground: () => {
+      playgroundSetActiveTab(activeTab === 'playground' ? 'preview' : 'playground')
+      const panel = previewPanelRef.current
+      if (panel?.isCollapsed()) panel.expand()
+    },
+    improvePrompt: () => improve.handleImprove(),
+    suggestKeywords: () => toast('Use the sidebar context menu to suggest keywords'),
+    suggestFolder: () => toast('Use the sidebar context menu to suggest a folder'),
+    reorganizeFolders: () => {
+      // Dispatch a custom event the Sidebar can listen for
+      window.dispatchEvent(new CustomEvent('command:reorganize-folders'))
+    },
+    syncToRaycast: handleSyncToRaycast,
+    importFromRaycast: () => setImportOpen(true),
+    openSettings: () => setSettingsOpen(true),
+    toggleDarkMode: () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark'),
+    openShortcuts: () => setHotkeySheetOpen(true),
+    hasSelection: selectedIds.size > 0 || !!selectedId,
+  })
 
   const togglePreviewPanel = useCallback(() => {
     const panel = previewPanelRef.current
