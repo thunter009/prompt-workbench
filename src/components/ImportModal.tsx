@@ -2,8 +2,9 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
-import { X, Upload, FileJson, Check, AlertCircle, Zap, RefreshCw, Loader2, FolderOpen, ChevronDown } from 'lucide-react'
+import { X, Upload, FileJson, Check, AlertCircle, Zap, RefreshCw, Loader2, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
+import { computeLineDiff } from '@/lib/diff'
 import type { RaycastSnippet } from '@/types'
 
 interface ImportModalProps {
@@ -47,6 +48,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null)
   const [folderDropdownOpen, setFolderDropdownOpen] = useState(false)
   const [conflictResolutions, setConflictResolutions] = useState<Map<number, ConflictResolutionChoice>>(new Map())
+  const [expandedDiffs, setExpandedDiffs] = useState<Set<number>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
 
@@ -60,6 +62,13 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
     const names = new Set<string>()
     for (const s of snippets) names.add(s.name.toLowerCase())
     return names
+  }, [snippets])
+
+  // Lookup existing snippets by lowercase name for diff
+  const existingByName = useMemo(() => {
+    const map = new Map<string, typeof snippets[number]>()
+    for (const s of snippets) map.set(s.name.toLowerCase(), s)
+    return map
   }, [snippets])
 
   // Detect which preview snippets conflict with existing names
@@ -322,6 +331,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
       setPreview(null)
       setSelected(new Set())
       setConflictResolutions(new Map())
+      setExpandedDiffs(new Set())
       setExistingExport(null)
       setTargetFolderId(null)
     } catch (err) {
@@ -337,6 +347,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
     setPreview(null)
     setSelected(new Set())
     setConflictResolutions(new Map())
+    setExpandedDiffs(new Set())
     setExistingExport(null)
     setTargetFolderId(null)
   }, [onClose])
@@ -512,7 +523,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                   </span>
                 </div>
                 <button
-                  onClick={() => { setPreview(null); setSelected(new Set()); setConflictResolutions(new Map()) }}
+                  onClick={() => { setPreview(null); setSelected(new Set()); setConflictResolutions(new Map()); setExpandedDiffs(new Set()) }}
                   className="text-sm text-muted-foreground hover:text-foreground"
                 >
                   Choose different file
@@ -583,6 +594,33 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                 )}
               </div>
 
+              {/* Bulk conflict resolution */}
+              {conflicts.size > 0 && (
+                <div className="mb-3 pb-3 border-b border-border" data-testid="bulk-conflict-resolution">
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Apply to all conflicts</label>
+                  <div className="flex items-center gap-1">
+                    {(['skip', 'replace', 'keep-both'] as const).map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => {
+                          setConflictResolutions((prev) => {
+                            const next = new Map(prev)
+                            for (const idx of conflicts) {
+                              next.set(idx, option)
+                            }
+                            return next
+                          })
+                        }}
+                        className="px-2.5 py-1 text-xs rounded transition-colors bg-accent text-muted-foreground hover:text-foreground"
+                        data-testid={`bulk-${option}`}
+                      >
+                        {option === 'skip' ? 'Skip All' : option === 'replace' ? 'Replace All' : 'Keep All'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Select all */}
               <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border">
                 <button
@@ -630,6 +668,23 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                             {selected.has(i) && <Check className="w-3 h-3" />}
                           </div>
                         )}
+                        {isConflict && (
+                          <button
+                            className="mt-0.5 flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setExpandedDiffs((prev) => {
+                                const next = new Set(prev)
+                                if (next.has(i)) next.delete(i)
+                                else next.add(i)
+                                return next
+                              })
+                            }}
+                            data-testid={`conflict-diff-toggle-${i}`}
+                          >
+                            <ChevronRight className={`w-4 h-4 transition-transform ${expandedDiffs.has(i) ? 'rotate-90' : ''}`} />
+                          </button>
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className={`text-sm font-medium truncate ${isSkipped ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{snippet.name}</span>
@@ -643,6 +698,18 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                                 {snippet.keyword}
                               </span>
                             )}
+                            {isConflict && (() => {
+                              const existing = existingByName.get(snippet.name.toLowerCase())
+                              if (!existing) return null
+                              const diff = computeLineDiff(existing.text, snippet.text)
+                              if (diff.addedLines === 0 && diff.removedLines === 0) return null
+                              return (
+                                <span data-testid={`conflict-diff-stats-${i}`} className="flex items-center gap-1 text-[10px]">
+                                  {diff.addedLines > 0 && <span className="text-green-400">+{diff.addedLines}</span>}
+                                  {diff.removedLines > 0 && <span className="text-red-400">-{diff.removedLines}</span>}
+                                </span>
+                              )
+                            })()}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{snippet.text}</p>
                         </div>
@@ -676,6 +743,58 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                           ))}
                         </div>
                       )}
+                      {isConflict && expandedDiffs.has(i) && (() => {
+                        const existing = existingByName.get(snippet.name.toLowerCase())
+                        if (!existing) return null
+                        const diff = computeLineDiff(existing.text, snippet.text)
+                        const nameDiff = existing.name !== snippet.name
+                        const keywordDiff = (existing.keyword ?? '') !== (snippet.keyword ?? '')
+                        return (
+                          <div className="mt-2 border-t border-border pt-2" data-testid={`conflict-diff-panel-${i}`}>
+                            {(nameDiff || keywordDiff) && (
+                              <div className="mb-2 text-xs space-y-0.5">
+                                {nameDiff && (
+                                  <div className="flex gap-2">
+                                    <span className="text-muted-foreground">Name:</span>
+                                    <span className="text-red-400 line-through">{existing.name}</span>
+                                    <span className="text-green-400">{snippet.name}</span>
+                                  </div>
+                                )}
+                                {keywordDiff && (
+                                  <div className="flex gap-2">
+                                    <span className="text-muted-foreground">Keyword:</span>
+                                    <span className="text-red-400 line-through">{existing.keyword || '(none)'}</span>
+                                    <span className="text-green-400">{snippet.keyword || '(none)'}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            <div className="font-mono text-xs leading-relaxed max-h-48 overflow-auto rounded bg-accent/50 p-2">
+                              {diff.changes.map((change, ci) => (
+                                <div key={ci}>
+                                  {change.value.split('\n').filter((line, li, arr) => !(li === arr.length - 1 && line === '')).map((line, li) => (
+                                    <div
+                                      key={li}
+                                      className={
+                                        change.added
+                                          ? 'text-green-400 bg-green-500/10'
+                                          : change.removed
+                                            ? 'text-red-400 bg-red-500/10'
+                                            : 'text-muted-foreground'
+                                      }
+                                    >
+                                      <span className="select-none opacity-50 inline-block w-4 text-right mr-2">
+                                        {change.added ? '+' : change.removed ? '-' : ' '}
+                                      </span>
+                                      {line || ' '}
+                                    </div>
+                                  ))}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
                   )
                 })}

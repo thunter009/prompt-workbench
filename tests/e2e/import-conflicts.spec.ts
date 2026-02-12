@@ -182,6 +182,34 @@ test.describe('Import Conflict Resolution', () => {
     expect(result.sigImported).toBe('Best regards,\nThom') // imported copy
   })
 
+  test('bulk "Replace All" sets all conflicts to replace', async ({ page }) => {
+    await seedExistingSnippet(page, 'Hello World', 'existing hello')
+    await seedExistingSnippet(page, 'Signature', 'existing sig')
+
+    await openImportModal(page)
+    await uploadImportFile(page, IMPORT_SNIPPETS)
+
+    // Both should show conflict badges
+    await expect(page.getByTestId('import-conflict-badge')).toHaveCount(2)
+
+    // Default: skip → 1 import (only non-conflict)
+    await expect(page.getByText('Import 1 snippet')).toBeVisible()
+
+    // Click bulk Replace All
+    await page.getByTestId('bulk-replace').click()
+
+    // All conflicts now set to replace → 3 imports
+    await expect(page.getByText('Import 3 snippets')).toBeVisible()
+
+    // Verify individual controls updated
+    await expect(page.getByTestId('conflict-replace-0')).toHaveClass(/bg-blue-600/)
+    await expect(page.getByTestId('conflict-replace-1')).toHaveClass(/bg-blue-600/)
+
+    // Individual can still override after bulk
+    await page.getByTestId('conflict-skip-0').click()
+    await expect(page.getByText('Import 2 snippets')).toBeVisible()
+  })
+
   test('switching resolution updates button count', async ({ page }) => {
     await seedExistingSnippet(page, 'Hello World', 'existing')
     await openImportModal(page)
@@ -201,5 +229,53 @@ test.describe('Import Conflict Resolution', () => {
     // Switch to Keep Both → 3 imports
     await page.getByTestId('conflict-keep-both-0').click()
     await expect(page.getByText('Import 3 snippets')).toBeVisible()
+  })
+
+  test('conflict diff panel expands on toggle click', async ({ page }) => {
+    await seedExistingSnippet(page, 'Hello World', 'old content here')
+    await openImportModal(page)
+    await uploadImportFile(page, IMPORT_SNIPPETS)
+
+    // Diff panel collapsed by default
+    await expect(page.getByTestId('conflict-diff-panel-0')).toHaveCount(0)
+
+    // Diff stats shown inline
+    const stats = page.getByTestId('conflict-diff-stats-0')
+    await expect(stats).toBeVisible()
+
+    // Click toggle to expand
+    await page.getByTestId('conflict-diff-toggle-0').click()
+    const diffPanel = page.getByTestId('conflict-diff-panel-0')
+    await expect(diffPanel).toBeVisible()
+
+    // Should show diff content with +/- lines
+    await expect(diffPanel.locator('text=old content here')).toBeVisible()
+    await expect(diffPanel.locator('text=Hello, {clipboard}!')).toBeVisible()
+
+    // Click toggle again to collapse
+    await page.getByTestId('conflict-diff-toggle-0').click()
+    await expect(page.getByTestId('conflict-diff-panel-0')).toHaveCount(0)
+  })
+
+  test('conflict diff shows keyword differences', async ({ page }) => {
+    // Seed with a keyword that differs from import
+    await page.evaluate(() => {
+      const store = window.__snippetStore
+      if (!store) throw new Error('Store not exposed')
+      store.getState().createSnippet({ name: 'Hello World', text: 'Hello, {clipboard}!', keyword: '!old' })
+    })
+
+    await openImportModal(page)
+    await uploadImportFile(page, IMPORT_SNIPPETS)
+
+    // Expand diff
+    await page.getByTestId('conflict-diff-toggle-0').click()
+    const diffPanel = page.getByTestId('conflict-diff-panel-0')
+    await expect(diffPanel).toBeVisible()
+
+    // Should show keyword diff
+    await expect(diffPanel.locator('text=Keyword:')).toBeVisible()
+    await expect(diffPanel.locator('text=!old')).toBeVisible()
+    await expect(diffPanel.locator('text=!hello')).toBeVisible()
   })
 })
