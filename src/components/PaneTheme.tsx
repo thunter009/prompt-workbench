@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { useTheme } from 'next-themes'
 import { Sun, Moon, Monitor } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { dbClient } from '@/lib/db/client'
 
 type PaneThemeValue = 'light' | 'dark' | 'global'
 
@@ -21,7 +22,7 @@ function usePaneThemeContext() {
   return ctx
 }
 
-const STORAGE_KEYS: Record<string, string> = {
+const SETTING_KEYS: Record<string, string> = {
   editor: 'editorTheme',
   preview: 'previewTheme',
 }
@@ -40,27 +41,29 @@ export function PaneThemeProvider({
   const [mounted, setMounted] = useState(false)
   const [paneTheme, setPaneThemeState] = useState<PaneThemeValue>('global')
 
-  const storageKey = STORAGE_KEYS[pane]
+  const settingKey = SETTING_KEYS[pane]
 
-  // Load from localStorage on mount
+  // Load from DB on mount
   useEffect(() => {
     setMounted(true)
-    const stored = localStorage.getItem(storageKey)
-    if (stored === 'light' || stored === 'dark') {
-      setPaneThemeState(stored)
-    }
-  }, [storageKey])
+    dbClient.getSettings([settingKey]).then((settings) => {
+      const stored = settings[settingKey] as string | undefined
+      if (stored === 'light' || stored === 'dark') {
+        setPaneThemeState(stored)
+      }
+    }).catch(() => {})
+  }, [settingKey])
 
   const setPaneTheme = useCallback(
     (theme: PaneThemeValue) => {
       setPaneThemeState(theme)
       if (theme === 'global') {
-        localStorage.removeItem(storageKey)
+        dbClient.saveSetting(settingKey, null)
       } else {
-        localStorage.setItem(storageKey, theme)
+        dbClient.saveSetting(settingKey, theme)
       }
     },
-    [storageKey],
+    [settingKey],
   )
 
   const globalTheme = (resolvedTheme as 'light' | 'dark') ?? 'light'

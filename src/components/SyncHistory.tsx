@@ -129,7 +129,7 @@ function SyncEventItem({ event }: SyncEventItemProps) {
 export function SyncHistory() {
   const events = useSyncHistoryStore((s) => s.events)
   const clearHistory = useSyncHistoryStore((s) => s.clearHistory)
-  const load = useSyncHistoryStore((s) => s.load)
+  const load = useSyncHistoryStore((s) => s.hydrate)
 
   const [filter, setFilter] = useState<DirectionFilter>('all')
 

@@ -8,22 +8,7 @@ import { useSnippetStore } from '@/lib/store'
 import { useKeywordStyleStore, type CasePreference } from '@/lib/keyword-style-store'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
 import type { Snippet } from '@/types'
-
-const EXCEPTIONS_KEY = 'prompt-workbench-keyword-exceptions'
-
-function loadExceptions(): Set<string> {
-  if (typeof window === 'undefined') return new Set()
-  try {
-    const data = localStorage.getItem(EXCEPTIONS_KEY)
-    return data ? new Set(JSON.parse(data)) : new Set()
-  } catch {
-    return new Set()
-  }
-}
-
-function saveExceptions(exceptions: Set<string>) {
-  localStorage.setItem(EXCEPTIONS_KEY, JSON.stringify([...exceptions]))
-}
+import { dbClient } from '@/lib/db/client'
 
 interface KeywordAuditModalProps {
   open: boolean
@@ -97,25 +82,29 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
   const keywordPrefix = useKeywordStyleStore((s) => s.prefix)
   const keywordMaxLength = useKeywordStyleStore((s) => s.maxLength)
   const keywordCase = useKeywordStyleStore((s) => s.casePreference)
-  const loadPrefs = useKeywordStyleStore((s) => s.load)
+  const hydratePrefs = useKeywordStyleStore((s) => s.hydrate)
 
   const ollamaUrl = useAISettingsStore((s) => s.ollamaUrl)
   const ollamaModel = useAISettingsStore((s) => s.ollamaModel)
-  const loadAISettings = useAISettingsStore((s) => s.load)
+  const hydrateAISettings = useAISettingsStore((s) => s.hydrate)
 
   const [auditResults, setAuditResults] = useState<AuditResult[]>([])
   const [scanning, setScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 })
-  const [exceptions, setExceptions] = useState<Set<string>>(() => loadExceptions())
+  const [exceptions, setExceptions] = useState<Set<string>>(new Set())
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
-  // Load stores on open
+  // Load stores and exceptions on open
   useEffect(() => {
     if (open) {
-      loadPrefs()
-      loadAISettings()
+      hydratePrefs()
+      hydrateAISettings()
+      dbClient.getSettings(['keywordExceptions']).then((settings) => {
+        const stored = settings.keywordExceptions as string[] | undefined
+        if (stored) setExceptions(new Set(stored))
+      }).catch(() => {})
     }
-  }, [open, loadPrefs, loadAISettings])
+  }, [open, hydratePrefs, hydrateAISettings])
 
   // Audit snippets when modal opens or prefs change
   useEffect(() => {
@@ -324,7 +313,7 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
     const newExceptions = new Set(exceptions)
     newExceptions.add(snippetId)
     setExceptions(newExceptions)
-    saveExceptions(newExceptions)
+    dbClient.saveSetting('keywordExceptions', [...newExceptions])
 
     // Update local state to move to OK
     setAuditResults((prev) =>

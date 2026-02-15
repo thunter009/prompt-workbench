@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import type { SyncEvent, SyncDirection, SyncEventType, SyncEventDetails } from '@/types'
 import { generateId } from './utils/id'
+import { dbClient } from './db/client'
 
-const STORAGE_KEY = 'prompt-workbench-sync-history'
 const MAX_EVENTS = 50
 
 interface SyncHistoryStore {
@@ -14,26 +14,7 @@ interface SyncHistoryStore {
     details?: SyncEventDetails
   ) => void
   clearHistory: () => void
-  load: () => void
-}
-
-function loadFromStorage(): SyncEvent[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : []
-  } catch {
-    return []
-  }
-}
-
-function saveToStorage(events: SyncEvent[]): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(events))
-  } catch {
-    // Ignore storage errors
-  }
+  hydrate: () => Promise<void>
 }
 
 export const useSyncHistoryStore = create<SyncHistoryStore>((set, get) => ({
@@ -50,16 +31,20 @@ export const useSyncHistoryStore = create<SyncHistoryStore>((set, get) => ({
     }
     const events = [newEvent, ...get().events].slice(0, MAX_EVENTS)
     set({ events })
-    saveToStorage(events)
+    dbClient.createSyncEvent(newEvent)
   },
 
   clearHistory: () => {
     set({ events: [] })
-    saveToStorage([])
+    dbClient.clearSyncHistory()
   },
 
-  load: () => {
-    const events = loadFromStorage()
-    set({ events })
+  hydrate: async () => {
+    try {
+      const events = await dbClient.getSyncHistory()
+      set({ events })
+    } catch {
+      // DB not available
+    }
   },
 }))

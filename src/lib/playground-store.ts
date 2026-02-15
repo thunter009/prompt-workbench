@@ -3,13 +3,10 @@ import { findPlaceholders } from '@/lib/raycast/placeholder-parser'
 import type { ParsedPlaceholder } from '@/lib/raycast/placeholder-parser'
 import { resolveSnippetIncludes, type ResolutionError } from '@/lib/raycast/snippet-resolver'
 import type { Snippet } from '@/types'
+import { dbClient } from './db/client'
 
 type ActiveTab = 'preview' | 'playground'
 
-const STORAGE_KEY = 'prompt-workbench-playground'
-const TEST_VALUES_KEY = 'prompt-workbench-test-values'
-const HISTORY_KEY = 'prompt-workbench-run-history'
-const COMPARE_MODELS_KEY = 'prompt-workbench-compare-models'
 const MAX_RUNS = 5
 const MAX_COMPARE_MODELS = 3
 
@@ -21,7 +18,6 @@ export interface PlaygroundRun {
   response: string
   tokenCount: number
   durationMs: number
-  /** If part of a comparison, all models in the group */
   compareGroup?: string[]
 }
 
@@ -42,7 +38,6 @@ export function substitutePlaceholders(
   const matches = findPlaceholders(text)
   if (matches.length === 0) return text
 
-  // Replace from end to start so positions stay valid
   let result = text
   for (let i = matches.length - 1; i >= 0; i--) {
     const m = matches[i]
@@ -89,7 +84,7 @@ interface PlaygroundStore {
   clearResponse: () => void
   addRun: (snippetId: string, run: PlaygroundRun) => void
   getHistory: (snippetId: string) => PlaygroundRun[]
-  load: () => void
+  hydrate: () => Promise<void>
   snippetErrors: ResolutionError[]
   checkSnippetErrors: (text: string, snippets: Snippet[]) => ResolutionError[]
   run: (params: {
@@ -116,82 +111,6 @@ interface PlaygroundStore {
   stopCompare: () => void
 }
 
-function loadFromStorage(): Partial<{ activeTab: ActiveTab }> {
-  if (typeof window === 'undefined') return {}
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : {}
-  } catch {
-    return {}
-  }
-}
-
-function loadTestValues(): TestValues {
-  if (typeof window === 'undefined') return {}
-  try {
-    const stored = localStorage.getItem(TEST_VALUES_KEY)
-    return stored ? JSON.parse(stored) : {}
-  } catch {
-    return {}
-  }
-}
-
-function saveToStorage(tab: ActiveTab): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ activeTab: tab }))
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-function saveTestValues(testValues: TestValues): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(TEST_VALUES_KEY, JSON.stringify(testValues))
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-function loadRunHistory(): Record<string, PlaygroundRun[]> {
-  if (typeof window === 'undefined') return {}
-  try {
-    const stored = localStorage.getItem(HISTORY_KEY)
-    return stored ? JSON.parse(stored) : {}
-  } catch {
-    return {}
-  }
-}
-
-function saveRunHistory(history: Record<string, PlaygroundRun[]>): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-function loadCompareModels(): string[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const stored = localStorage.getItem(COMPARE_MODELS_KEY)
-    return stored ? JSON.parse(stored) : []
-  } catch {
-    return []
-  }
-}
-
-function saveCompareModels(models: string[]): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(COMPARE_MODELS_KEY, JSON.stringify(models))
-  } catch {
-    // Ignore storage errors
-  }
-}
-
 /** Stream a single model's response, updating compareResponses in place */
 async function streamModelResponse(
   model: string,
@@ -203,7 +122,6 @@ async function streamModelResponse(
 ): Promise<void> {
   const startTime = Date.now()
 
-  // Init this model's response entry
   set((s) => ({
     compareResponses: {
       ...s.compareResponses,
@@ -317,7 +235,7 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
 
   setActiveTab: (tab) => {
     set({ activeTab: tab })
-    saveToStorage(tab)
+    dbClient.saveSetting('playgroundActiveTab', tab)
   },
 
   setTestValue: (snippetId, key, value) => {
@@ -325,7 +243,7 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     const snippetValues = { ...current[snippetId], [key]: value }
     const next = { ...current, [snippetId]: snippetValues }
     set({ testValues: next })
-    saveTestValues(next)
+    dbClient.saveSetting('playgroundTestValues', next)
   },
 
   getTestValues: (snippetId) => {
@@ -341,24 +259,28 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     const existing = history[snippetId] ?? []
     history[snippetId] = [run, ...existing].slice(0, MAX_RUNS)
     set({ runHistory: history })
-    saveRunHistory(history)
+    dbClient.createPlaygroundRun(snippetId, run)
   },
 
   getHistory: (snippetId) => {
     return get().runHistory[snippetId] ?? []
   },
 
-  load: () => {
-    const stored = loadFromStorage()
-    const testValues = loadTestValues()
-    const runHistory = loadRunHistory()
-    const compareModels = loadCompareModels()
-    set({
-      ...(stored.activeTab ? { activeTab: stored.activeTab } : {}),
-      testValues,
-      runHistory,
-      compareModels,
-    })
+  hydrate: async () => {
+    try {
+      const settings = await dbClient.getSettings([
+        'playgroundActiveTab', 'playgroundTestValues', 'playgroundCompareModels',
+      ])
+      // TODO: hydrate runHistory from dbClient.getPlaygroundRuns() when snippet_id grouping added
+
+      set({
+        activeTab: (settings.playgroundActiveTab as ActiveTab) ?? 'preview',
+        testValues: (settings.playgroundTestValues as TestValues) ?? {},
+        compareModels: (settings.playgroundCompareModels as string[]) ?? [],
+      })
+    } catch {
+      // DB not available
+    }
   },
 
   checkSnippetErrors: (text, snippets) => {
@@ -371,7 +293,6 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
     const controller = new AbortController()
     const values = get().getTestValues(snippetId)
 
-    // Resolve snippet includes if snippets provided
     let resolvedText = text
     if (snippets && snippets.length > 0) {
       const { text: resolved, errors } = resolveSnippetIncludes(text, snippets)
@@ -479,13 +400,13 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       next = [...current, model]
     }
     set({ compareModels: next })
-    saveCompareModels(next)
+    dbClient.saveSetting('playgroundCompareModels', next)
   },
 
   setCompareModels: (models) => {
     const clamped = models.slice(0, MAX_COMPARE_MODELS)
     set({ compareModels: clamped })
-    saveCompareModels(clamped)
+    dbClient.saveSetting('playgroundCompareModels', clamped)
   },
 
   clearCompareResponses: () => {
@@ -498,7 +419,6 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
 
     const values = get().getTestValues(snippetId)
 
-    // Resolve snippet includes if snippets provided
     let resolvedText = text
     if (snippets && snippets.length > 0) {
       const { text: resolved, errors } = resolveSnippetIncludes(text, snippets)
@@ -517,12 +437,10 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
       isComparing: true,
       compareResponses: {},
       compareAbortControllers: controllers,
-      // Clear single-run state
       currentResponse: '',
       responseMeta: null,
     })
 
-    // Run all models in parallel
     await Promise.allSettled(
       models.map((model, i) =>
         streamModelResponse(model, prompt, ollamaUrl, systemPrompt, controllers[i].signal, set)
@@ -531,7 +449,6 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
 
     set({ isComparing: false, compareAbortControllers: [] })
 
-    // Save each completed response as a grouped history entry
     const responses = get().compareResponses
     const timestamp = Date.now()
     for (const model of models) {

@@ -1,10 +1,9 @@
 import { create } from 'zustand'
+import { dbClient } from './db/client'
 
 export const DEFAULT_OLLAMA_URL = 'http://localhost:11434'
 export const DEFAULT_OLLAMA_MODEL = 'llama3.2'
 export const DEFAULT_META_SYSTEM_PROMPT = `You are a prompt engineering expert. Improve the given prompt to be clearer, more specific, and more effective. Return only the improved prompt text without explanation.`
-
-const STORAGE_KEY = 'prompt-workbench-ai-settings'
 
 interface AISettings {
   ollamaUrl: string
@@ -16,26 +15,7 @@ interface AISettingsStore extends AISettings {
   setOllamaUrl: (url: string) => void
   setOllamaModel: (model: string) => void
   setMetaSystemPrompt: (prompt: string) => void
-  load: () => void
-}
-
-function loadFromStorage(): Partial<AISettings> {
-  if (typeof window === 'undefined') return {}
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : {}
-  } catch {
-    return {}
-  }
-}
-
-function saveToStorage(settings: AISettings): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
-  } catch {
-    // Ignore storage errors
-  }
+  hydrate: () => Promise<void>
 }
 
 export const useAISettingsStore = create<AISettingsStore>((set, get) => ({
@@ -45,25 +25,40 @@ export const useAISettingsStore = create<AISettingsStore>((set, get) => ({
 
   setOllamaUrl: (url) => {
     set({ ollamaUrl: url })
-    saveToStorage(get())
+    dbClient.saveSetting('aiSettings', extractSettings({ ...get(), ollamaUrl: url }))
   },
 
   setOllamaModel: (model) => {
     set({ ollamaModel: model })
-    saveToStorage(get())
+    dbClient.saveSetting('aiSettings', extractSettings({ ...get(), ollamaModel: model }))
   },
 
   setMetaSystemPrompt: (prompt) => {
     set({ metaSystemPrompt: prompt })
-    saveToStorage(get())
+    dbClient.saveSetting('aiSettings', extractSettings({ ...get(), metaSystemPrompt: prompt }))
   },
 
-  load: () => {
-    const stored = loadFromStorage()
-    set({
-      ollamaUrl: stored.ollamaUrl ?? DEFAULT_OLLAMA_URL,
-      ollamaModel: stored.ollamaModel ?? DEFAULT_OLLAMA_MODEL,
-      metaSystemPrompt: stored.metaSystemPrompt ?? DEFAULT_META_SYSTEM_PROMPT,
-    })
+  hydrate: async () => {
+    try {
+      const settings = await dbClient.getSettings(['aiSettings'])
+      const stored = settings.aiSettings as Partial<AISettings> | undefined
+      if (stored) {
+        set({
+          ollamaUrl: stored.ollamaUrl ?? DEFAULT_OLLAMA_URL,
+          ollamaModel: stored.ollamaModel ?? DEFAULT_OLLAMA_MODEL,
+          metaSystemPrompt: stored.metaSystemPrompt ?? DEFAULT_META_SYSTEM_PROMPT,
+        })
+      }
+    } catch {
+      // DB not available
+    }
   },
 }))
+
+function extractSettings(state: AISettings): AISettings {
+  return {
+    ollamaUrl: state.ollamaUrl,
+    ollamaModel: state.ollamaModel,
+    metaSystemPrompt: state.metaSystemPrompt,
+  }
+}

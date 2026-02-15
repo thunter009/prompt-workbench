@@ -58,6 +58,7 @@ export function ValidationDialog({
     <dialog
       ref={dialogRef}
       onClick={handleBackdropClick}
+      data-testid="validation-dialog"
       className="backdrop:bg-black/50 bg-transparent p-0 max-w-lg w-full"
     >
       <div className="bg-muted border border-border rounded-lg shadow-xl">
@@ -79,13 +80,13 @@ export function ValidationDialog({
           {/* Summary */}
           <p className="text-sm text-muted-foreground mb-4">
             {result.errorCount > 0 && (
-              <span className="text-red-400">
+              <span className="text-red-700 dark:text-red-400">
                 {result.errorCount} error{result.errorCount > 1 ? 's' : ''}
               </span>
             )}
             {result.errorCount > 0 && result.warningCount > 0 && ', '}
             {result.warningCount > 0 && (
-              <span className="text-yellow-400">
+              <span className="text-amber-600 dark:text-yellow-400">
                 {result.warningCount} warning{result.warningCount > 1 ? 's' : ''}
               </span>
             )}
@@ -94,7 +95,7 @@ export function ValidationDialog({
           {/* Errors */}
           {errors.length > 0 && (
             <div className="mb-4">
-              <h3 className="text-sm font-medium text-red-400 mb-2 flex items-center gap-1.5">
+              <h3 className="text-sm font-medium text-red-700 dark:text-red-400 mb-2 flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4" />
                 Errors (must fix)
               </h3>
@@ -103,13 +104,13 @@ export function ValidationDialog({
                   <li key={`error-${i}`}>
                     <button
                       onClick={() => handleIssueClick(issue)}
-                      className="w-full text-left p-2 rounded bg-red-950/30 border border-red-900/50 hover:bg-red-950/50 transition-colors"
+                      className="w-full text-left p-2 rounded bg-red-100 dark:bg-red-950/30 border border-red-300 dark:border-red-900/50 hover:bg-red-200 dark:hover:bg-red-950/50 transition-colors"
                     >
                       <div className="flex items-center gap-2 text-sm">
-                        <FileText className="w-4 h-4 text-red-400 shrink-0" />
+                        <FileText className="w-4 h-4 text-red-700 dark:text-red-400 shrink-0" />
                         <span className="text-foreground truncate">{issue.snippetName}</span>
                       </div>
-                      <p className="text-xs text-red-300 mt-1 ml-6">{issue.message}</p>
+                      <p className="text-xs text-red-600 dark:text-red-300 mt-1 ml-6">{issue.message}</p>
                     </button>
                   </li>
                 ))}
@@ -120,7 +121,7 @@ export function ValidationDialog({
           {/* Warnings */}
           {warnings.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-yellow-400 mb-2 flex items-center gap-1.5">
+              <h3 className="text-sm font-medium text-amber-600 dark:text-yellow-400 mb-2 flex items-center gap-1.5">
                 <AlertTriangle className="w-4 h-4" />
                 Warnings
               </h3>
@@ -129,13 +130,13 @@ export function ValidationDialog({
                   <li key={`warning-${i}`}>
                     <button
                       onClick={() => handleIssueClick(issue)}
-                      className="w-full text-left p-2 rounded bg-yellow-950/20 border border-yellow-900/30 hover:bg-yellow-950/40 transition-colors"
+                      className="w-full text-left p-2 rounded bg-amber-100 dark:bg-yellow-950/20 border border-amber-300 dark:border-yellow-900/30 hover:bg-amber-200 dark:hover:bg-yellow-950/40 transition-colors"
                     >
                       <div className="flex items-center gap-2 text-sm">
-                        <FileText className="w-4 h-4 text-yellow-400 shrink-0" />
+                        <FileText className="w-4 h-4 text-amber-600 dark:text-yellow-400 shrink-0" />
                         <span className="text-foreground truncate">{issue.snippetName}</span>
                       </div>
-                      <p className="text-xs text-yellow-300 mt-1 ml-6">{issue.message}</p>
+                      <p className="text-xs text-amber-600 dark:text-yellow-300 mt-1 ml-6">{issue.message}</p>
                     </button>
                   </li>
                 ))}

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { dbClient } from './db/client'
 
 export type SyncInterval = '5m' | '15m' | '30m' | '1h' | '4h'
 
@@ -12,8 +13,6 @@ export const SYNC_INTERVALS: { value: SyncInterval; label: string }[] = [
 
 export const DEFAULT_INTERVAL: SyncInterval = '30m'
 
-const STORAGE_KEY = 'prompt-workbench-sync-settings'
-
 interface SyncSettings {
   fileWatcherEnabled: boolean
   intervalSyncEnabled: boolean
@@ -26,26 +25,7 @@ interface SyncSettingsStore extends SyncSettings {
   setIntervalSyncEnabled: (enabled: boolean) => void
   setSyncInterval: (interval: SyncInterval) => void
   setLastSyncTime: (time: number | null) => void
-  load: () => void
-}
-
-function loadFromStorage(): Partial<SyncSettings> {
-  if (typeof window === 'undefined') return {}
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : {}
-  } catch {
-    return {}
-  }
-}
-
-function saveToStorage(settings: SyncSettings): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
-  } catch {
-    // Ignore storage errors
-  }
+  hydrate: () => Promise<void>
 }
 
 export const useSyncSettingsStore = create<SyncSettingsStore>((set, get) => ({
@@ -56,30 +36,45 @@ export const useSyncSettingsStore = create<SyncSettingsStore>((set, get) => ({
 
   setFileWatcherEnabled: (enabled) => {
     set({ fileWatcherEnabled: enabled })
-    saveToStorage(get())
+    dbClient.saveSetting('syncSettings', { ...extractSettings(get()), fileWatcherEnabled: enabled })
   },
 
   setIntervalSyncEnabled: (enabled) => {
     set({ intervalSyncEnabled: enabled })
-    saveToStorage(get())
+    dbClient.saveSetting('syncSettings', { ...extractSettings(get()), intervalSyncEnabled: enabled })
   },
 
   setSyncInterval: (interval) => {
     set({ syncInterval: interval })
-    saveToStorage(get())
+    dbClient.saveSetting('syncSettings', { ...extractSettings(get()), syncInterval: interval })
   },
 
   setLastSyncTime: (time) => {
     set({ lastSyncTime: time })
-    // Don't persist lastSyncTime to storage
   },
 
-  load: () => {
-    const stored = loadFromStorage()
-    set({
-      fileWatcherEnabled: stored.fileWatcherEnabled ?? true,
-      intervalSyncEnabled: stored.intervalSyncEnabled ?? true,
-      syncInterval: stored.syncInterval ?? DEFAULT_INTERVAL,
-    })
+  hydrate: async () => {
+    try {
+      const settings = await dbClient.getSettings(['syncSettings'])
+      const stored = settings.syncSettings as Partial<SyncSettings> | undefined
+      if (stored) {
+        set({
+          fileWatcherEnabled: stored.fileWatcherEnabled ?? true,
+          intervalSyncEnabled: stored.intervalSyncEnabled ?? true,
+          syncInterval: stored.syncInterval ?? DEFAULT_INTERVAL,
+        })
+      }
+    } catch {
+      // DB not available
+    }
   },
 }))
+
+function extractSettings(state: SyncSettings): SyncSettings {
+  return {
+    fileWatcherEnabled: state.fileWatcherEnabled,
+    intervalSyncEnabled: state.intervalSyncEnabled,
+    syncInterval: state.syncInterval,
+    lastSyncTime: state.lastSyncTime,
+  }
+}

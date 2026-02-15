@@ -8,9 +8,9 @@
 | UI | React 19, TypeScript |
 | Styling | Tailwind CSS + shadcn/ui |
 | Editor | CodeMirror 6 |
-| Database | Local Supabase (Docker) |
+| Database | SQLite (`~/.prompt-workbench/data.db`) via better-sqlite3 + drizzle-orm |
 | State | Zustand |
-| Sync | chokidar + node-cron |
+| Sync | Raycast export/import |
 
 ## High-Level Structure
 
@@ -28,17 +28,22 @@
 └─────────────────────────────────────────┘
            ↓
 ┌─────────────────────────────────────────┐
-│      Local Supabase (Docker)            │
-│  - snippets, folders, versions          │
-│  - RLS policies for future multi-user   │
+│    Zustand Stores (client state)        │
+│  - Hydrate from API on mount            │
+│  - Fire-and-forget writes to API        │
 └─────────────────────────────────────────┘
            ↓
 ┌─────────────────────────────────────────┐
-│      Sync Engine                        │
-│  - File watcher (chokidar)              │
-│  - Interval backup (node-cron)          │
-│  - Export: Generate JSON                │
-│  - Import: Parse .rayconfig             │
+│    Next.js API Routes (/api/db/*)       │
+│  - snippets, folders, versions          │
+│  - settings (key-value), playground     │
+│  - sync-history                         │
+└─────────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────────┐
+│    SQLite (better-sqlite3 + drizzle)    │
+│  - ~/.prompt-workbench/data.db          │
+│  - WAL mode, singleton connection       │
 └─────────────────────────────────────────┘
 ```
 
@@ -48,8 +53,8 @@
 /src
 ├── app/                   # Next.js App Router pages
 │   ├── page.tsx           # Main editor view
-│   └── api/               # API routes
-│       ├── snippets/      # CRUD
+│   └── api/
+│       ├── db/            # SQLite CRUD routes
 │       └── sync/          # Raycast sync
 │
 ├── components/
@@ -59,12 +64,15 @@
 │   └── preview/           # Live markdown render
 │
 ├── lib/
-│   ├── supabase.ts        # Supabase client init
+│   ├── db/
+│   │   ├── schema.ts      # Drizzle table definitions
+│   │   ├── connection.ts  # Singleton DB connection
+│   │   ├── queries.ts     # Shared query functions
+│   │   └── client.ts      # Typed fetch wrapper for stores
+│   ├── store.ts           # Main snippet store (Zustand)
+│   ├── version-store.ts   # Version history store
 │   ├── raycast/           # Import/export logic
 │   └── sync/              # Sync engine
-│       ├── watcher.ts     # chokidar file watcher
-│       ├── scheduler.ts   # node-cron interval
-│       └── engine.ts      # Diff, merge, conflict detection
 │
 ├── hooks/                 # Custom React hooks
 └── types/                 # TypeScript definitions
@@ -75,33 +83,33 @@
 ```
 Component
   ↓
-Zustand Store
+Zustand Store (hydrate on mount, optimistic updates)
   ↓
-Supabase Client (@supabase/supabase-js)
+dbClient (fire-and-forget fetch calls)
   ↓
-Local Supabase (Docker)
+API Route (/api/db/*)
+  ↓
+Drizzle ORM → SQLite
 ```
 
 ## Sync Flow
 
 ```
-┌─────────────────┐     ┌─────────────────┐
-│ File Watcher    │     │ Interval Cron   │
-│ (chokidar)      │     │ (node-cron)     │
-└────────┬────────┘     └────────┬────────┘
-         │                       │
-         └───────────┬───────────┘
-                     ↓
-           ┌─────────────────┐
-           │   Sync Engine   │
-           │ - Diff detection│
-           │ - Conflict UI   │
-           └────────┬────────┘
-                    ↓
-           ┌─────────────────┐
-           │ Raycast Export  │
-           │ (JSON file)     │
-           └─────────────────┘
+┌─────────────────┐
+│ Manual Trigger   │
+│ or Interval Sync │
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│   Sync Engine   │
+│ - Diff detection│
+│ - Conflict UI   │
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│ Raycast Export  │
+│ (JSON file)     │
+└─────────────────┘
 ```
 
 ## Key Patterns
@@ -113,6 +121,11 @@ Local Supabase (Docker)
 - Split pane: editor | preview
 
 ### State Management
-- Zustand for UI state
-- React Query for server state (if needed)
-- Local-first: Supabase (Docker) is source of truth
+- Zustand stores start empty, hydrate from SQLite via API on mount
+- Writes are fire-and-forget (optimistic) — SQLite is <1ms, API ~5ms
+- Settings stored as key-value pairs in `settings` table (JSON values)
+- `theme` kept in localStorage (next-themes needs pre-hydration)
+- Panel layout kept in localStorage (react-resizable-panels needs sync storage)
+
+### Auto-Migration
+- On first load: detect localStorage data + empty DB → migrate to SQLite → clear localStorage

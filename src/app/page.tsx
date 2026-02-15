@@ -28,7 +28,7 @@ import { ImportModal } from '@/components/ImportModal'
 import { HotkeyCheatsheet } from '@/components/HotkeyCheatsheet'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { PaneThemeProvider, PaneThemeToggle } from '@/components/PaneTheme'
-import { loadPersistedState, updatePersistedField } from '@/lib/persistence'
+import { checkAndMigrate } from '@/lib/db/migration-check'
 import { useSnippetStore } from '@/lib/store'
 import { useUndoStore } from '@/lib/undo-store'
 import { useConflictStore } from '@/lib/conflict-store'
@@ -145,21 +145,12 @@ export default function HomePage() {
   )
 
   // Sync history
-  const { addSyncEvent, loadSyncHistory } = useSyncHistoryStore(
-    useShallow((s) => ({ addSyncEvent: s.addEvent, loadSyncHistory: s.load }))
-  )
-
-  // Version history
-  const loadVersionHistory = useVersionStore((s) => s.load)
+  const addSyncEvent = useSyncHistoryStore((s) => s.addEvent)
 
   // Sync settings
   const fileWatcherEnabled = useSyncSettingsStore((s) => s.fileWatcherEnabled)
 
-  // AI settings
-  const loadAISettings = useAISettingsStore((s) => s.load)
-
   // Playground
-  const loadPlayground = usePlaygroundStore((s) => s.load)
   const activeTab = usePlaygroundStore((s) => s.activeTab)
   const playgroundRun = usePlaygroundStore((s) => s.run)
   const playgroundSetActiveTab = usePlaygroundStore((s) => s.setActiveTab)
@@ -248,46 +239,41 @@ export default function HomePage() {
 
   useFileWatcher({ onChanges: handleFileChanges, enabled: fileWatcherEnabled })
 
-  // Load from localStorage on mount - single consolidated read
+  // Migrate localStorage → SQLite, then hydrate all stores
   useEffect(() => {
-    const state = loadPersistedState()
-    setContent(state.content)
-    setPreviewVisible(state.previewVisible)
+    async function init() {
+      // Auto-migrate from localStorage if DB is empty
+      const migration = await checkAndMigrate()
+      if (migration.migrated) {
+        toast.success('Data migrated from browser to SQLite', {
+          description: `${migration.counts?.snippets ?? 0} snippets, ${migration.counts?.folders ?? 0} folders`,
+        })
+      }
 
-    // Load export settings
-    const storedPath = getStoredExportPath()
-    if (storedPath) {
-      hasValidExportHandle().then((valid) => {
-        setExportSettings({ defaultPath: storedPath, hasDirectoryHandle: valid })
-      })
-    } else if (!supportsFileSystemAccess()) {
-      // For Firefox/Safari, use default server-side path
-      setExportSettings({ defaultPath: getDefaultExportPath(), hasDirectoryHandle: true })
+      // Hydrate all stores from SQLite
+      await Promise.all([
+        useSnippetStore.getState().hydrate(),
+        useVersionStore.getState().hydrate(),
+        usePlaygroundStore.getState().hydrate(),
+        useSyncSettingsStore.getState().hydrate(),
+        useSyncHistoryStore.getState().hydrate(),
+        useAISettingsStore.getState().hydrate(),
+      ])
+
+      // Load export settings (uses browser APIs, keep as-is)
+      const storedPath = getStoredExportPath()
+      if (storedPath) {
+        hasValidExportHandle().then((valid) => {
+          setExportSettings({ defaultPath: storedPath, hasDirectoryHandle: valid })
+        })
+      } else if (!supportsFileSystemAccess()) {
+        setExportSettings({ defaultPath: getDefaultExportPath(), hasDirectoryHandle: true })
+      }
+
+      setMounted(true)
     }
-
-    // Load sync history
-    loadSyncHistory()
-
-    // Load version history
-    loadVersionHistory()
-
-    // Load AI settings
-    loadAISettings()
-
-    // Load playground tab
-    loadPlayground()
-
-    setMounted(true)
-  }, [setPreviewVisible, setExportSettings, loadSyncHistory, loadVersionHistory, loadAISettings, loadPlayground])
-
-  // Persist state to localStorage
-  useEffect(() => {
-    if (mounted) updatePersistedField('content', content)
-  }, [content, mounted])
-
-  useEffect(() => {
-    if (mounted) updatePersistedField('previewVisible', previewVisible)
-  }, [previewVisible, mounted])
+    init()
+  }, [setExportSettings])
 
   // Sync editor content with selected snippet
   useEffect(() => {

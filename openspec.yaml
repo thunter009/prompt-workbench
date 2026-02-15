@@ -28,7 +28,7 @@ stack:
   language: typescript
   ui: shadcn-ui
   editor: codemirror-6
-  database: supabase-local  # Docker, same as NoticeWise
+  database: sqlite  # ~/.prompt-workbench/data.db via better-sqlite3 + drizzle-orm
   package_manager: pnpm
 
 sync:

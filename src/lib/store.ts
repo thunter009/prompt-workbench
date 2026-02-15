@@ -2,44 +2,20 @@ import { create } from 'zustand'
 import type { Snippet, Folder } from '@/types'
 import { useVersionStore } from './version-store'
 import { generateId } from './utils/id'
+import { dbClient } from './db/client'
 
 export const MAX_DEPTH = 3
-
-// localStorage keys
-const SNIPPETS_KEY = 'prompt-workbench-snippets'
-const FOLDERS_KEY = 'prompt-workbench-folders'
-
-function loadFromLocalStorage<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback
-  try {
-    const stored = localStorage.getItem(key)
-    return stored ? JSON.parse(stored) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function saveToLocalStorage<T>(key: string, data: T): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(key, JSON.stringify(data))
-  } catch {
-    // quota exceeded etc
-  }
-}
 
 // Debounced version saving per snippet
 const DEBOUNCE_MS = 2000
 const versionSaveTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 function scheduleVersionSave(snippetId: string, text: string) {
-  // Clear existing timer for this snippet
   const existingTimer = versionSaveTimers.get(snippetId)
   if (existingTimer) {
     clearTimeout(existingTimer)
   }
 
-  // Schedule new save
   const timer = setTimeout(() => {
     useVersionStore.getState().saveVersion(snippetId, text)
     versionSaveTimers.delete(snippetId)
@@ -52,8 +28,8 @@ type ExportFilter = 'all' | 'unexported' | 'modified'
 type TagFilterMode = 'and' | 'or'
 
 interface ExportSettings {
-  defaultPath: string | null  // Display path for UI
-  hasDirectoryHandle: boolean // Whether we have a stored handle
+  defaultPath: string | null
+  hasDirectoryHandle: boolean
 }
 
 interface SearchSettings {
@@ -79,6 +55,10 @@ interface SnippetStore {
   searchSettings: SearchSettings
   selectedTags: string[]
   tagFilterMode: TagFilterMode
+  hydrated: boolean
+
+  // Hydration
+  hydrate: () => Promise<void>
 
   // Snippet actions
   selectSnippet: (id: string | null) => void
@@ -149,9 +129,9 @@ declare global {
 }
 
 export const useSnippetStore = create<SnippetStore>((set, get) => ({
-  // Initial state - hydrate from localStorage
-  snippets: loadFromLocalStorage<Snippet[]>(SNIPPETS_KEY, []),
-  folders: loadFromLocalStorage<Folder[]>(FOLDERS_KEY, []),
+  // Start empty, hydrate from API
+  snippets: [],
+  folders: [],
   selectedId: null,
   selectedIds: new Set<string>(),
   selectedFolderId: null,
@@ -167,12 +147,46 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   searchSettings: { scopeToCurrentFolder: false },
   selectedTags: [],
   tagFilterMode: 'or' as TagFilterMode,
+  hydrated: false,
+
+  hydrate: async () => {
+    try {
+      const [snippets, folders, settingsMap] = await Promise.all([
+        dbClient.getSnippets(),
+        dbClient.getFolders(),
+        dbClient.getSettings([
+          'previewVisible', 'previewValues', 'resolveIncludes', 'syncScroll',
+          'selectedId', 'selectedFolderId', 'recentSnippetIds', 'searchSettings',
+        ]),
+      ])
+
+      set({
+        snippets,
+        folders,
+        hydrated: true,
+        previewVisible: settingsMap.previewVisible as boolean ?? true,
+        previewValues: settingsMap.previewValues as boolean ?? false,
+        resolveIncludes: settingsMap.resolveIncludes as boolean ?? true,
+        syncScroll: settingsMap.syncScroll as boolean ?? true,
+        selectedId: settingsMap.selectedId as string ?? null,
+        selectedFolderId: settingsMap.selectedFolderId as string ?? null,
+        recentSnippetIds: settingsMap.recentSnippetIds as string[] ?? [],
+        searchSettings: settingsMap.searchSettings as SearchSettings ?? { scopeToCurrentFolder: false },
+      })
+    } catch {
+      // DB not available, stay empty
+      set({ hydrated: true })
+    }
+  },
 
   // Snippet actions
   selectSnippet: (id) => set((state) => {
     if (!id) return { selectedId: null, selectedIds: new Set() }
-    // Track recent: add to front, dedupe, limit to 10
     const recent = [id, ...state.recentSnippetIds.filter((rid) => rid !== id)].slice(0, 10)
+    dbClient.saveSettings([
+      { key: 'selectedId', value: id },
+      { key: 'recentSnippetIds', value: recent },
+    ])
     return { selectedId: id, selectedIds: new Set([id]), recentSnippetIds: recent }
   }),
 
@@ -181,7 +195,6 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     const newSelection = new Set(selectedIds)
 
     if (shiftKey && selectedId) {
-      // Range select: select all between last selected and current
       const ids = snippets.map((s) => s.id)
       const lastIndex = ids.indexOf(selectedId)
       const currentIndex = ids.indexOf(id)
@@ -192,7 +205,6 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         }
       }
     } else {
-      // Toggle single item
       if (newSelection.has(id)) {
         newSelection.delete(id)
       } else {
@@ -235,11 +247,11 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       selectedId: snippet.id,
     }))
 
+    dbClient.createSnippet(snippet)
     return snippet
   },
 
   updateSnippet: (id, data) => {
-    // Schedule version save if text is changing
     if (data.text !== undefined) {
       const currentSnippet = get().snippets.find((s) => s.id === id)
       if (currentSnippet && currentSnippet.text !== data.text) {
@@ -247,18 +259,18 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       }
     }
 
+    let updatedData: Partial<Snippet> = {}
     set((state) => ({
-      snippets: state.snippets.map((s) =>
-        s.id === id
-          ? {
-              ...s,
-              ...data,
-              updatedAt: Date.now(),
-              version: s.version + 1,
-            }
-          : s
-      ),
+      snippets: state.snippets.map((s) => {
+        if (s.id === id) {
+          updatedData = { ...data, updatedAt: Date.now(), version: s.version + 1 }
+          return { ...s, ...updatedData }
+        }
+        return s
+      }),
     }))
+
+    dbClient.updateSnippet(id, updatedData)
   },
 
   deleteSnippet: (id) => {
@@ -266,6 +278,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       snippets: state.snippets.filter((s) => s.id !== id),
       selectedId: state.selectedId === id ? null : state.selectedId,
     }))
+    dbClient.deleteSnippets([id])
   },
 
   deleteSnippets: (ids) => {
@@ -276,6 +289,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       selectedId: state.selectedId && ids.includes(state.selectedId) ? null : state.selectedId,
       selectedIds: new Set(),
     }))
+    dbClient.deleteSnippets(ids)
     return deleted
   },
 
@@ -299,6 +313,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       selectedId: copy.id,
       selectedIds: new Set([copy.id]),
     }))
+    dbClient.createSnippet(copy)
     return copy
   },
 
@@ -315,16 +330,44 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         ids.includes(s.id) ? { ...s, lastExportedAt: now } : s
       ),
     }))
+    for (const id of ids) {
+      dbClient.updateSnippet(id, { lastExportedAt: now })
+    }
   },
 
   // UI actions
-  togglePreview: () => set((state) => ({ previewVisible: !state.previewVisible })),
-  setPreviewVisible: (visible) => set({ previewVisible: visible }),
-  togglePreviewValues: () => set((state) => ({ previewValues: !state.previewValues })),
-  setPreviewValues: (enabled) => set({ previewValues: enabled }),
-  toggleResolveIncludes: () => set((state) => ({ resolveIncludes: !state.resolveIncludes })),
-  toggleSyncScroll: () => set((state) => ({ syncScroll: !state.syncScroll })),
-  setSyncScroll: (enabled) => set({ syncScroll: enabled }),
+  togglePreview: () => set((state) => {
+    const next = !state.previewVisible
+    dbClient.saveSetting('previewVisible', next)
+    return { previewVisible: next }
+  }),
+  setPreviewVisible: (visible) => {
+    set({ previewVisible: visible })
+    dbClient.saveSetting('previewVisible', visible)
+  },
+  togglePreviewValues: () => set((state) => {
+    const next = !state.previewValues
+    dbClient.saveSetting('previewValues', next)
+    return { previewValues: next }
+  }),
+  setPreviewValues: (enabled) => {
+    set({ previewValues: enabled })
+    dbClient.saveSetting('previewValues', enabled)
+  },
+  toggleResolveIncludes: () => set((state) => {
+    const next = !state.resolveIncludes
+    dbClient.saveSetting('resolveIncludes', next)
+    return { resolveIncludes: next }
+  }),
+  toggleSyncScroll: () => set((state) => {
+    const next = !state.syncScroll
+    dbClient.saveSetting('syncScroll', next)
+    return { syncScroll: next }
+  }),
+  setSyncScroll: (enabled) => {
+    set({ syncScroll: enabled })
+    dbClient.saveSetting('syncScroll', enabled)
+  },
 
   // Export settings actions
   setExportSettings: (settings) => set((state) => ({
@@ -332,9 +375,11 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   })),
 
   // Search settings actions
-  setSearchSettings: (settings) => set((state) => ({
-    searchSettings: { ...state.searchSettings, ...settings }
-  })),
+  setSearchSettings: (settings) => set((state) => {
+    const merged = { ...state.searchSettings, ...settings }
+    dbClient.saveSetting('searchSettings', merged)
+    return { searchSettings: merged }
+  }),
 
   // Tag filter actions
   toggleTagFilter: (tag) => set((state) => {
@@ -360,12 +405,10 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
 
   getCurrentFolderContext: () => {
     const { selectedId, selectedFolderId, snippets, folders } = get()
-    // If a folder is selected, use that
     if (selectedFolderId) {
       const folder = folders.find((f) => f.id === selectedFolderId)
       return { folderId: selectedFolderId, folderName: folder?.name ?? null }
     }
-    // If a snippet is selected, use its folder
     if (selectedId) {
       const snippet = snippets.find((s) => s.id === selectedId)
       if (snippet?.folderId) {
@@ -377,7 +420,10 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   },
 
   // Folder actions
-  selectFolder: (id) => set({ selectedFolderId: id, selectedId: null, selectedIds: new Set() }),
+  selectFolder: (id) => {
+    set({ selectedFolderId: id, selectedId: null, selectedIds: new Set() })
+    dbClient.saveSetting('selectedFolderId', id)
+  },
 
   createFolder: (data) => {
     const folder: Folder = {
@@ -391,6 +437,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       folders: [...state.folders, folder],
     }))
 
+    dbClient.createFolder(folder)
     return folder
   },
 
@@ -400,23 +447,36 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         f.id === id ? { ...f, ...data } : f
       ),
     }))
+    dbClient.updateFolder(id, data)
   },
 
   deleteFolder: (id) => {
     set((state) => {
       const deleted = state.folders.find((f) => f.id === id)
       const parentId = deleted?.parentId
-      return {
-        folders: state.folders
-          .filter((f) => f.id !== id)
-          // Orphan child folders to deleted folder's parent
-          .map((f) => f.parentId === id ? { ...f, parentId } : f),
-        // Orphan snippets to deleted folder's parent
-        snippets: state.snippets.map((s) =>
-          s.folderId === id ? { ...s, folderId: parentId } : s
-        ),
+      const updatedSnippets = state.snippets.map((s) =>
+        s.folderId === id ? { ...s, folderId: parentId } : s
+      )
+      const updatedFolders = state.folders
+        .filter((f) => f.id !== id)
+        .map((f) => f.parentId === id ? { ...f, parentId } : f)
+
+      // Persist orphaned snippets
+      for (const s of state.snippets) {
+        if (s.folderId === id) {
+          dbClient.updateSnippet(s.id, { folderId: parentId })
+        }
       }
+      // Persist orphaned child folders
+      for (const f of state.folders) {
+        if (f.parentId === id) {
+          dbClient.updateFolder(f.id, { parentId })
+        }
+      }
+
+      return { folders: updatedFolders, snippets: updatedSnippets }
     })
+    dbClient.deleteFolder(id)
   },
 
   getSubfolderIds: (folderId) => {
@@ -446,7 +506,6 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   // Drag & Drop
   moveSnippetsToFolder: (snippetIds, folderId) => {
     const { snippets } = get()
-    // Track previous folders for undo
     const previousFolders = snippetIds.map((id) => {
       const snippet = snippets.find((s) => s.id === id)
       return { snippetId: id, previousFolderId: snippet?.folderId }
@@ -457,6 +516,10 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         snippetIds.includes(s.id) ? { ...s, folderId: folderId ?? undefined, updatedAt: Date.now() } : s
       ),
     }))
+
+    for (const id of snippetIds) {
+      dbClient.updateSnippet(id, { folderId: folderId ?? undefined, updatedAt: Date.now() })
+    }
 
     return previousFolders
   },
@@ -476,6 +539,8 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
           : f
       ),
     }))
+
+    dbClient.updateFolder(folderId, { parentId: newParentId ?? undefined, orderIndex: newOrderIndex })
 
     return { previousParentId, previousOrderIndex }
   },
@@ -506,22 +571,18 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     const folder = folders.find((f) => f.id === folderId)
     if (!folder) return []
 
-    // Get siblings (folders with same parent)
     const siblings = folders
       .filter((f) => f.parentId === folder.parentId && f.id !== folderId)
       .sort((a, b) => a.orderIndex - b.orderIndex)
 
-    // Track previous order indices for undo
     const previousOrders = [{ folderId, previousOrderIndex: folder.orderIndex }]
 
-    // Insert at target position and recalculate indices
     siblings.splice(targetIndex, 0, folder)
     const updates: { id: string; orderIndex: number }[] = siblings.map((f, i) => ({
       id: f.id,
       orderIndex: i,
     }))
 
-    // Track changes for other siblings
     for (const f of folders.filter((f) => f.parentId === folder.parentId && f.id !== folderId)) {
       const newOrder = updates.find((u) => u.id === f.id)?.orderIndex
       if (newOrder !== undefined && newOrder !== f.orderIndex) {
@@ -535,6 +596,10 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         return update ? { ...f, orderIndex: update.orderIndex } : f
       }),
     }))
+
+    for (const u of updates) {
+      dbClient.updateFolder(u.id, { orderIndex: u.orderIndex })
+    }
 
     return previousOrders
   },
@@ -558,7 +623,6 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     const { snippets, searchQuery, selectedTags, tagFilterMode } = get()
     let result = snippets
 
-    // Apply tag filter
     if (selectedTags.length > 0) {
       result = result.filter((s) => {
         if (tagFilterMode === 'and') {
@@ -568,7 +632,6 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       })
     }
 
-    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       result = result.filter(
@@ -582,16 +645,6 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     return result
   },
 }))
-
-// Persist snippets & folders to localStorage on every change
-useSnippetStore.subscribe((state, prevState) => {
-  if (state.snippets !== prevState.snippets) {
-    saveToLocalStorage(SNIPPETS_KEY, state.snippets)
-  }
-  if (state.folders !== prevState.folders) {
-    saveToLocalStorage(FOLDERS_KEY, state.folders)
-  }
-})
 
 if (typeof window !== 'undefined') {
   window.__snippetStore = useSnippetStore

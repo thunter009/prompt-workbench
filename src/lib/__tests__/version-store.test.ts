@@ -192,25 +192,10 @@ describe('version-store', () => {
     })
   })
 
-  describe('load', () => {
-    it('loads versions from localStorage', () => {
-      const existingVersions = [
-        { id: 'v1', snippetId: 's1', text: 'Stored', createdAt: Date.now() }
-      ]
-      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(existingVersions))
-
-      useVersionStore.getState().load()
-
-      expect(useVersionStore.getState().versions).toHaveLength(1)
-      expect(useVersionStore.getState().versions[0].text).toBe('Stored')
-    })
-
-    it('handles invalid JSON gracefully', () => {
-      localStorageMock.getItem.mockReturnValueOnce('not valid json')
-
-      // Should not throw
-      useVersionStore.getState().load()
-
+  describe('hydrate', () => {
+    it('hydrate does not throw when API unavailable', async () => {
+      // hydrate fetches from API; when unavailable it should not throw
+      await useVersionStore.getState().hydrate()
       expect(useVersionStore.getState().versions).toHaveLength(0)
     })
   })

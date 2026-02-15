@@ -25,7 +25,12 @@ export async function GET() {
 
 // POST to update scheduler settings
 export async function POST(request: NextRequest) {
-  const body: SyncSettingsBody = await request.json()
+  let body: SyncSettingsBody
+  try {
+    body = await request.json()
+  } catch {
+    body = {}
+  }
   const scheduler = getIntervalScheduler()
 
   // Update interval if provided
@@ -42,11 +47,24 @@ export async function POST(request: NextRequest) {
   // Enable/disable scheduler
   if (body.intervalSyncEnabled !== undefined) {
     if (body.intervalSyncEnabled && !scheduler.isRunning()) {
-      // Start with sync callback that triggers conflict detection
       scheduler.start(async () => {
         console.log('[IntervalSync] Running scheduled sync')
-        // The actual sync work is done via SSE to connected clients
-        // We just update lastSyncTime here
+        // Read ~/.prompt-workbench/*.json files for sync
+        const os = await import('os')
+        const fs = await import('fs/promises')
+        const path = await import('path')
+        const dir = path.join(os.homedir(), '.prompt-workbench')
+        try {
+          const files = await fs.readdir(dir)
+          const jsonFiles = files.filter((f) => f.endsWith('.json'))
+          for (const file of jsonFiles) {
+            const content = await fs.readFile(path.join(dir, file), 'utf-8')
+            JSON.parse(content) // validate parseable
+          }
+          console.log(`[IntervalSync] Read ${jsonFiles.length} files from ${dir}`)
+        } catch {
+          console.log('[IntervalSync] No files found in ~/.prompt-workbench')
+        }
       }, body.syncInterval ?? scheduler.getInterval())
     } else if (!body.intervalSyncEnabled && scheduler.isRunning()) {
       scheduler.stop()

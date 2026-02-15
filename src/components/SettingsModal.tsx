@@ -56,7 +56,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const setOllamaModel = useAISettingsStore((s) => s.setOllamaModel)
   const metaSystemPrompt = useAISettingsStore((s) => s.metaSystemPrompt)
   const setMetaSystemPrompt = useAISettingsStore((s) => s.setMetaSystemPrompt)
-  const loadAISettings = useAISettingsStore((s) => s.load)
+  const loadAISettings = useAISettingsStore((s) => s.hydrate)
 
   const keywordPrefix = useKeywordStyleStore((s) => s.prefix)
   const keywordMaxLength = useKeywordStyleStore((s) => s.maxLength)
@@ -65,7 +65,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const setKeywordMaxLength = useKeywordStyleStore((s) => s.setMaxLength)
   const setKeywordCase = useKeywordStyleStore((s) => s.setCasePreference)
   const setKeywordAll = useKeywordStyleStore((s) => s.setAll)
-  const loadKeywordPrefs = useKeywordStyleStore((s) => s.load)
+  const loadKeywordPrefs = useKeywordStyleStore((s) => s.hydrate)
   const snippets = useSnippetStore((s) => s.snippets)
 
   const methodologyPreset = useMethodologyStore((s) => s.config.preset)

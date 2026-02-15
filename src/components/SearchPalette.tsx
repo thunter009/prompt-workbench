@@ -20,7 +20,7 @@ function HighlightedText({ text, indices }: { text: string; indices: [number, nu
     <>
       {parts.map((part, i) =>
         part.highlighted ? (
-          <mark key={i} className="bg-yellow-500/30 text-yellow-200 rounded-sm px-0.5">
+          <mark key={i} className="bg-yellow-200 dark:bg-yellow-500/30 text-yellow-900 dark:text-yellow-200 rounded-sm px-0.5">
             {part.text}
           </mark>
         ) : (
@@ -50,8 +50,6 @@ function truncateContentMatch(text: string, indices: [number, number][]): { text
   return { text: truncated, indices: adjustedIndices }
 }
 
-const SEARCH_SETTINGS_KEY = 'prompt-workbench-search-settings'
-
 export function SearchPalette({ open, onOpenChange, onSelect }: SearchPaletteProps) {
   const [search, setSearch] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -63,30 +61,6 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
   const getCurrentFolderContext = useSnippetStore((s) => s.getCurrentFolderContext)
   const getSubfolderIds = useSnippetStore((s) => s.getSubfolderIds)
   const listRef = useRef<HTMLDivElement>(null)
-  const [settingsInitialized, setSettingsInitialized] = useState(false)
-
-  // Initialize search settings from localStorage
-  useEffect(() => {
-    if (settingsInitialized) return
-    try {
-      const stored = localStorage.getItem(SEARCH_SETTINGS_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        if (typeof parsed.scopeToCurrentFolder === 'boolean') {
-          setSearchSettings({ scopeToCurrentFolder: parsed.scopeToCurrentFolder })
-        }
-      }
-    } catch {
-      // ignore parse errors
-    }
-    setSettingsInitialized(true)
-  }, [settingsInitialized, setSearchSettings])
-
-  // Persist search settings to localStorage
-  useEffect(() => {
-    if (!settingsInitialized) return
-    localStorage.setItem(SEARCH_SETTINGS_KEY, JSON.stringify(searchSettings))
-  }, [searchSettings, settingsInitialized])
 
   // Get current folder context
   const { folderId: currentFolderId, folderName: currentFolderName } = getCurrentFolderContext()

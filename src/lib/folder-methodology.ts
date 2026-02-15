@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { dbClient } from './db/client'
 
 export type MethodologyPreset = 'flat' | 'para' | 'johnny-decimal' | 'custom'
 
@@ -14,51 +14,72 @@ interface MethodologyStore {
   setCustomTopLevel: (folders: string[]) => void
   addCustomFolder: (name: string) => void
   removeCustomFolder: (name: string) => void
+  hydrate: () => Promise<void>
 }
 
-export const useMethodologyStore = create<MethodologyStore>()(
-  persist(
-    (set) => ({
-      config: {
-        preset: 'flat',
-        customTopLevel: [],
-      },
+export const useMethodologyStore = create<MethodologyStore>((set) => ({
+  config: {
+    preset: 'flat',
+    customTopLevel: [],
+  },
 
-      setPreset: (preset) =>
-        set((state) => ({ config: { ...state.config, preset } })),
+  setPreset: (preset) => {
+    set((state) => {
+      const config = { ...state.config, preset }
+      dbClient.saveSetting('folderMethodology', config)
+      return { config }
+    })
+  },
 
-      setCustomTopLevel: (folders) =>
-        set((state) => ({ config: { ...state.config, customTopLevel: folders } })),
+  setCustomTopLevel: (folders) => {
+    set((state) => {
+      const config = { ...state.config, customTopLevel: folders }
+      dbClient.saveSetting('folderMethodology', config)
+      return { config }
+    })
+  },
 
-      addCustomFolder: (name) =>
-        set((state) => ({
-          config: {
-            ...state.config,
-            customTopLevel: state.config.customTopLevel.includes(name)
-              ? state.config.customTopLevel
-              : [...state.config.customTopLevel, name],
-          },
-        })),
+  addCustomFolder: (name) => {
+    set((state) => {
+      if (state.config.customTopLevel.includes(name)) return state
+      const config = {
+        ...state.config,
+        customTopLevel: [...state.config.customTopLevel, name],
+      }
+      dbClient.saveSetting('folderMethodology', config)
+      return { config }
+    })
+  },
 
-      removeCustomFolder: (name) =>
-        set((state) => ({
-          config: {
-            ...state.config,
-            customTopLevel: state.config.customTopLevel.filter((f) => f !== name),
-          },
-        })),
-    }),
-    {
-      name: 'prompt-workbench-folder-methodology',
+  removeCustomFolder: (name) => {
+    set((state) => {
+      const config = {
+        ...state.config,
+        customTopLevel: state.config.customTopLevel.filter((f) => f !== name),
+      }
+      dbClient.saveSetting('folderMethodology', config)
+      return { config }
+    })
+  },
+
+  hydrate: async () => {
+    try {
+      const settings = await dbClient.getSettings(['folderMethodology'])
+      const stored = settings.folderMethodology as MethodologyConfig | undefined
+      if (stored) {
+        set({ config: stored })
+      }
+    } catch {
+      // DB not available
     }
-  )
-)
+  },
+}))
 
 export const PARA_FOLDERS = ['Projects', 'Areas', 'Resources', 'Archive'] as const
 
-const JD_AREA_PATTERN = /^\d0-\d9$/       // e.g. 10-19, 20-29
-const JD_CATEGORY_PATTERN = /^\d{2}$/      // e.g. 11, 23
-const JD_ID_PATTERN = /^\d{2}\.\d{2}$/     // e.g. 11.01
+const JD_AREA_PATTERN = /^\d0-\d9$/
+const JD_CATEGORY_PATTERN = /^\d{2}$/
+const JD_ID_PATTERN = /^\d{2}\.\d{2}$/
 
 export interface FolderValidationResult {
   valid: boolean

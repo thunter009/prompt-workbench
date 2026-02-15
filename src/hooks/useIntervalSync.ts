@@ -13,13 +13,13 @@ export function useIntervalSync() {
     setIntervalSyncEnabled,
     setSyncInterval,
     setLastSyncTime,
-    load,
+    hydrate,
   } = useSyncSettingsStore()
 
   // Load settings on mount
   useEffect(() => {
-    load()
-  }, [load])
+    hydrate()
+  }, [hydrate])
 
   // Sync settings to server when they change
   useEffect(() => {

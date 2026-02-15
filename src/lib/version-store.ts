@@ -1,15 +1,16 @@
 import { create } from 'zustand'
 import type { SnippetVersion } from '@/types'
 import { generateId } from './utils/id'
+import { dbClient } from './db/client'
 
-const STORAGE_KEY = 'prompt-workbench-versions'
 const MAX_VERSIONS_PER_SNIPPET = 100
 
 interface VersionStore {
   versions: SnippetVersion[]
+  hydrated: boolean
 
   // Actions
-  load: () => void
+  hydrate: () => Promise<void>
   saveVersion: (snippetId: string, text: string) => SnippetVersion | null
   getVersionsForSnippet: (snippetId: string) => SnippetVersion[]
   getVersion: (id: string) => SnippetVersion | undefined
@@ -28,29 +29,26 @@ declare global {
 
 export const useVersionStore = create<VersionStore>((set, get) => ({
   versions: [],
+  hydrated: false,
 
-  load: () => {
+  hydrate: async () => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        const versions = JSON.parse(stored) as SnippetVersion[]
-        set({ versions })
-      }
+      const versions = await dbClient.getVersions()
+      set({ versions, hydrated: true })
     } catch {
-      // Ignore parse errors
+      set({ hydrated: true })
     }
   },
 
   saveVersion: (snippetId, text) => {
     const { versions, pruneVersions } = get()
 
-    // Don't save if text matches most recent version for this snippet
     const snippetVersions = versions
       .filter((v) => v.snippetId === snippetId)
       .sort((a, b) => b.createdAt - a.createdAt)
 
     if (snippetVersions[0]?.text === text) {
-      return null // No change
+      return null
     }
 
     const version: SnippetVersion = {
@@ -60,17 +58,8 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
       createdAt: Date.now(),
     }
 
-    const newVersions = [...versions, version]
-    set({ versions: newVersions })
-
-    // Persist
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newVersions))
-    } catch {
-      // Storage full - prune aggressively
-    }
-
-    // Prune if over limit
+    set({ versions: [...versions, version] })
+    dbClient.createVersion(version)
     pruneVersions(snippetId)
 
     return version
@@ -87,9 +76,8 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
   },
 
   deleteVersion: (id) => {
-    const newVersions = get().versions.filter((v) => v.id !== id)
-    set({ versions: newVersions })
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newVersions))
+    set({ versions: get().versions.filter((v) => v.id !== id) })
+    dbClient.deleteVersion(id)
   },
 
   keepLastN: (snippetId, n) => {
@@ -98,19 +86,17 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
       .filter((v) => v.snippetId === snippetId)
       .sort((a, b) => b.createdAt - a.createdAt)
 
-    if (snippetVersions.length <= n) {
-      return 0 // Nothing to delete
-    }
+    if (snippetVersions.length <= n) return 0
 
     const toKeepIds = new Set(snippetVersions.slice(0, n).map((v) => v.id))
     const deletedCount = snippetVersions.length - n
 
-    const newVersions = versions.filter(
-      (v) => v.snippetId !== snippetId || toKeepIds.has(v.id)
-    )
-
-    set({ versions: newVersions })
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newVersions))
+    set({
+      versions: versions.filter(
+        (v) => v.snippetId !== snippetId || toKeepIds.has(v.id)
+      ),
+    })
+    dbClient.pruneVersions(snippetId, n)
     return deletedCount
   },
 
@@ -120,27 +106,23 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
       .filter((v) => v.snippetId === snippetId)
       .sort((a, b) => b.createdAt - a.createdAt)
 
-    if (snippetVersions.length <= MAX_VERSIONS_PER_SNIPPET) {
-      return // Nothing to prune
-    }
+    if (snippetVersions.length <= MAX_VERSIONS_PER_SNIPPET) return
 
-    // Keep only the most recent MAX_VERSIONS_PER_SNIPPET
     const toKeepIds = new Set(
       snippetVersions.slice(0, MAX_VERSIONS_PER_SNIPPET).map((v) => v.id)
     )
 
-    const newVersions = versions.filter(
-      (v) => v.snippetId !== snippetId || toKeepIds.has(v.id)
-    )
-
-    set({ versions: newVersions })
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newVersions))
+    set({
+      versions: versions.filter(
+        (v) => v.snippetId !== snippetId || toKeepIds.has(v.id)
+      ),
+    })
+    dbClient.pruneVersions(snippetId, MAX_VERSIONS_PER_SNIPPET)
   },
 
   clearVersionsForSnippet: (snippetId) => {
-    const newVersions = get().versions.filter((v) => v.snippetId !== snippetId)
-    set({ versions: newVersions })
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newVersions))
+    set({ versions: get().versions.filter((v) => v.snippetId !== snippetId) })
+    dbClient.deleteVersionsBySnippet(snippetId)
   },
 }))
 

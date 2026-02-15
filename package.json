@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",
@@ -20,12 +21,14 @@
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.36.5",
     "@types/mdast": "^4.0.4",
+    "better-sqlite3": "^12.6.2",
     "chokidar": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "codemirror": "^6.0.1",
     "diff": "^8.0.3",
+    "drizzle-orm": "^0.45.1",
     "fuse.js": "^7.1.0",
     "lucide-react": "^0.563.0",
     "next": "^15.1.0",
@@ -48,11 +51,13 @@
     "@playwright/test": "^1.58.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
     "@types/node-cron": "^3.0.11",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.4.0",
+    "drizzle-kit": "^0.31.9",
     "eslint": "^9.18.0",
     "eslint-config-next": "^15.1.0",
     "jsdom": "^27.4.0",
@@ -60,5 +65,11 @@
     "tailwindcss": "^3.4.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
   }
 }

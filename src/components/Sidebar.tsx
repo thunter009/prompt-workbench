@@ -13,6 +13,7 @@ import { ExportFolderDialog } from '@/components/ExportFolderDialog'
 import { FolderReorgModal } from '@/components/FolderReorgModal'
 import { FileText, Plus, Folder as FolderIcon, FolderPlus, ChevronRight, Filter, ChevronsDownUp, ChevronsUpDown, Pencil, Sparkles, Copy, Trash2, FolderInput, Download, XCircle, AlertTriangle, Clock } from 'lucide-react'
 import { useMethodologyStore, validateFolderName } from '@/lib/folder-methodology'
+import { dbClient } from '@/lib/db/client'
 import type { Snippet, Folder } from '@/types'
 
 type DragItemType = 'snippet' | 'folder'
@@ -203,30 +204,24 @@ export function Sidebar() {
   const deleteSnippetDialogRef = useRef<HTMLDialogElement>(null)
   const deleteFolderDialogRef = useRef<HTMLDialogElement>(null)
 
-  const EXPANDED_FOLDERS_KEY = 'prompt-workbench-expanded-folders'
-
-  // Initialize expanded folders from localStorage
+  // Initialize expanded folders from DB
   const [expandedFoldersInitialized, setExpandedFoldersInitialized] = useState(false)
   useEffect(() => {
     if (expandedFoldersInitialized) return
-    try {
-      const stored = localStorage.getItem(EXPANDED_FOLDERS_KEY)
+    dbClient.getSettings(['expandedFolders']).then((settings) => {
+      const stored = settings.expandedFolders as string[] | undefined
       if (stored) {
-        const parsed = JSON.parse(stored) as string[]
-        // Only restore IDs that still exist
-        const validIds = parsed.filter((id) => folders.some((f) => f.id === id))
+        const validIds = stored.filter((id) => folders.some((f) => f.id === id))
         setExpandedFolders(new Set(validIds))
       }
-    } catch {
-      // ignore parse errors
-    }
+    }).catch(() => {})
     setExpandedFoldersInitialized(true)
   }, [folders, expandedFoldersInitialized])
 
-  // Persist expanded folders to localStorage
+  // Persist expanded folders to DB
   useEffect(() => {
     if (!expandedFoldersInitialized) return
-    localStorage.setItem(EXPANDED_FOLDERS_KEY, JSON.stringify([...expandedFolders]))
+    dbClient.saveSetting('expandedFolders', [...expandedFolders])
   }, [expandedFolders, expandedFoldersInitialized])
 
   // Build folder tree structure
