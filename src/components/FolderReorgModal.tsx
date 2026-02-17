@@ -51,6 +51,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [folderGroups, setFolderGroups] = useState<Map<string, SnippetSuggestion[]>>(new Map())
   const [mergeMenuOpen, setMergeMenuOpen] = useState<string | null>(null)
+  const [editingFolder, setEditingFolder] = useState<string | null>(null)
   const mergeMenuRef = useRef<HTMLDivElement>(null)
 
   const snippets = useSnippetStore((s) => s.snippets)
@@ -305,6 +306,38 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     })
   }
 
+  const handleRename = (oldName: string, newName: string) => {
+    const trimmed = newName.trim()
+    if (!trimmed || trimmed === oldName) {
+      setEditingFolder(null)
+      return
+    }
+    setFolderGroups((prev) => {
+      const next = new Map<string, SnippetSuggestion[]>()
+      for (const [key, val] of prev) {
+        if (key === oldName) continue // skip old, will merge below
+        next.set(key, val)
+      }
+      const oldItems = prev.get(oldName) ?? []
+      const existingTarget = next.get(trimmed)
+      if (existingTarget) {
+        // Merge into existing group
+        next.set(trimmed, [...existingTarget, ...oldItems])
+      } else {
+        next.set(trimmed, oldItems)
+      }
+      return next
+    })
+    // Update expanded groups
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      next.delete(oldName)
+      next.add(trimmed)
+      return next
+    })
+    setEditingFolder(null)
+  }
+
   const handleApply = async () => {
     setApplying(true)
 
@@ -518,7 +551,36 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
                             ) : (
                               <FolderPlus className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                             )}
-                            <span className="text-sm font-medium flex-1 truncate" title={folderName}>{folderName}</span>
+                            {editingFolder === folderName ? (
+                              <input
+                                autoFocus
+                                data-testid="reorg-folder-rename-input"
+                                defaultValue={folderName}
+                                className="text-sm font-medium flex-1 min-w-0 bg-background border border-border rounded px-1 py-0 focus:outline-none focus:ring-1 focus:ring-ring"
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  e.stopPropagation()
+                                  if (e.key === 'Enter') {
+                                    handleRename(folderName, e.currentTarget.value)
+                                  } else if (e.key === 'Escape') {
+                                    setEditingFolder(null)
+                                  }
+                                }}
+                                onBlur={(e) => handleRename(folderName, e.currentTarget.value)}
+                              />
+                            ) : (
+                              <span
+                                data-testid="reorg-folder-name"
+                                className="text-sm font-medium flex-1 truncate cursor-text hover:underline decoration-muted-foreground/40"
+                                title={`${folderName} (click to rename)`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setEditingFolder(folderName)
+                                }}
+                              >
+                                {folderName}
+                              </span>
+                            )}
                             <span className="text-xs text-muted-foreground">{groupItems.length}</span>
                             <div className="relative">
                               <button
