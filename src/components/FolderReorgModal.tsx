@@ -13,6 +13,8 @@ import {
   Minus,
   ChevronRight,
   Search,
+  MoreHorizontal,
+  Merge,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSnippetStore } from '@/lib/store'
@@ -47,6 +49,9 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
   const [done, setDone] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [folderGroups, setFolderGroups] = useState<Map<string, SnippetSuggestion[]>>(new Map())
+  const [mergeMenuOpen, setMergeMenuOpen] = useState<string | null>(null)
+  const mergeMenuRef = useRef<HTMLDivElement>(null)
 
   const snippets = useSnippetStore((s) => s.snippets)
   const folders = useSnippetStore((s) => s.folders)
@@ -168,6 +173,19 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     }
 
     setItems(results)
+
+    // Build mutable folder groups from suggested items
+    const groups = new Map<string, SnippetSuggestion[]>()
+    for (const item of results) {
+      if (item.status === 'suggested' && item.suggestion) {
+        const folderName = item.suggestion.folder
+        const list = groups.get(folderName) ?? []
+        list.push(item)
+        groups.set(folderName, list)
+      }
+    }
+    setFolderGroups(groups)
+
     // Auto-select all suggested items
     const suggestedIds = new Set(
       results.filter((r) => r.status === 'suggested').map((r) => r.snippet.id)
@@ -175,11 +193,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     setSelected(suggestedIds)
 
     // Expand all folder groups + unfiled/well-placed by default
-    const folderNames = new Set(
-      results
-        .filter((r) => r.status === 'suggested' && r.suggestion)
-        .map((r) => r.suggestion!.folder)
-    )
+    const folderNames = new Set(groups.keys())
     setExpandedGroups(new Set([...folderNames, '__unfiled__', '__well-placed__']))
 
     setLoading(false)
@@ -212,6 +226,15 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     }
   }, [])
 
+  // Derive suggested items from folderGroups (source of truth for suggestions)
+  const suggestedItems = useMemo(
+    () => [...folderGroups.values()].flat(),
+    [folderGroups]
+  )
+
+  const unfiledItems = items.filter((i) => i.status === 'unfiled')
+  const wellPlacedItems = items.filter((i) => i.status === 'well-placed')
+
   const toggleSelected = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -222,11 +245,10 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
   }
 
   const toggleAll = () => {
-    const suggested = items.filter((i) => i.status === 'suggested')
-    if (selected.size === suggested.length) {
+    if (selected.size === suggestedItems.length) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(suggested.map((i) => i.snippet.id)))
+      setSelected(new Set(suggestedItems.map((i) => i.snippet.id)))
     }
   }
 
@@ -248,6 +270,37 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
       } else {
         folderSnippetIds.forEach((id) => next.add(id))
       }
+      return next
+    })
+  }
+
+  // Close merge menu on click outside
+  useEffect(() => {
+    if (!mergeMenuOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (mergeMenuRef.current && !mergeMenuRef.current.contains(e.target as Node)) {
+        setMergeMenuOpen(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [mergeMenuOpen])
+
+  const handleMerge = (sourceFolder: string, targetFolder: string) => {
+    setFolderGroups((prev) => {
+      const next = new Map(prev)
+      const sourceItems = next.get(sourceFolder) ?? []
+      const targetItems = next.get(targetFolder) ?? []
+      next.set(targetFolder, [...targetItems, ...sourceItems])
+      next.delete(sourceFolder)
+      return next
+    })
+    setMergeMenuOpen(null)
+    // Remove source from expanded groups, ensure target is expanded
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      next.delete(sourceFolder)
+      next.add(targetFolder)
       return next
     })
   }
@@ -281,31 +334,6 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     setApplying(false)
     setDone(true)
   }
-
-  const unfiledItems = items.filter((i) => i.status === 'unfiled')
-  const wellPlacedItems = items.filter((i) => i.status === 'well-placed')
-
-  // Mutable folder groups — populated from suggestions, editable by rename/merge/reassign
-  const [folderGroups, setFolderGroups] = useState<Map<string, SnippetSuggestion[]>>(new Map())
-
-  // Rebuild folder groups when items change (after scan completes)
-  useEffect(() => {
-    const groups = new Map<string, SnippetSuggestion[]>()
-    for (const item of items) {
-      if (item.status !== 'suggested' || !item.suggestion) continue
-      const folderName = item.suggestion.folder
-      const list = groups.get(folderName) ?? []
-      list.push(item)
-      groups.set(folderName, list)
-    }
-    setFolderGroups(groups)
-  }, [items])
-
-  // Derive suggested items from folderGroups (source of truth for suggestions)
-  const suggestedItems = useMemo(
-    () => [...folderGroups.values()].flat(),
-    [folderGroups]
-  )
 
   // Summary stats
   const summaryStats = useMemo(() => {
@@ -492,6 +520,56 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
                             )}
                             <span className="text-sm font-medium flex-1 truncate" title={folderName}>{folderName}</span>
                             <span className="text-xs text-muted-foreground">{groupItems.length}</span>
+                            <div className="relative">
+                              <button
+                                data-testid="reorg-folder-menu"
+                                className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setMergeMenuOpen(mergeMenuOpen === folderName ? null : folderName)
+                                }}
+                              >
+                                <MoreHorizontal className="w-3.5 h-3.5" />
+                              </button>
+                              {mergeMenuOpen === folderName && (
+                                <div
+                                  ref={mergeMenuRef}
+                                  role="menu"
+                                  className="absolute right-0 top-full mt-1 z-50 min-w-[180px] bg-muted border border-border rounded-md shadow-lg py-1"
+                                >
+                                  <div className="px-2 py-1 text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                                    <Merge className="w-3 h-3" />
+                                    Merge into...
+                                  </div>
+                                  {[...folderGroups.keys()]
+                                    .filter((name) => name !== folderName)
+                                    .map((targetName) => (
+                                      <button
+                                        key={targetName}
+                                        role="menuitem"
+                                        data-testid="reorg-merge-target"
+                                        className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent/50 truncate flex items-center gap-1.5"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleMerge(folderName, targetName)
+                                        }}
+                                      >
+                                        {isExistingFolder(targetName) ? (
+                                          <FolderIcon className="w-3 h-3 text-muted-foreground shrink-0" />
+                                        ) : (
+                                          <FolderPlus className="w-3 h-3 text-muted-foreground shrink-0" />
+                                        )}
+                                        <span className="truncate">{targetName}</span>
+                                      </button>
+                                    ))}
+                                  {[...folderGroups.keys()].filter((name) => name !== folderName).length === 0 && (
+                                    <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
+                                      No other folders
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                             <ChevronRight
                               className={cn(
                                 'w-3.5 h-3.5 text-muted-foreground transition-transform duration-150',
