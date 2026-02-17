@@ -15,6 +15,8 @@ import {
   Search,
   MoreHorizontal,
   Merge,
+  ArrowRightLeft,
+  Plus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSnippetStore } from '@/lib/store'
@@ -52,7 +54,10 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
   const [folderGroups, setFolderGroups] = useState<Map<string, SnippetSuggestion[]>>(new Map())
   const [mergeMenuOpen, setMergeMenuOpen] = useState<string | null>(null)
   const [editingFolder, setEditingFolder] = useState<string | null>(null)
+  const [reassignMenuOpen, setReassignMenuOpen] = useState<string | null>(null)
+  const [newFolderForSnippet, setNewFolderForSnippet] = useState<string | null>(null)
   const mergeMenuRef = useRef<HTMLDivElement>(null)
+  const reassignMenuRef = useRef<HTMLDivElement>(null)
 
   const snippets = useSnippetStore((s) => s.snippets)
   const folders = useSnippetStore((s) => s.folders)
@@ -287,6 +292,19 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [mergeMenuOpen])
 
+  // Close reassign menu on click outside
+  useEffect(() => {
+    if (!reassignMenuOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (reassignMenuRef.current && !reassignMenuRef.current.contains(e.target as Node)) {
+        setReassignMenuOpen(null)
+        setNewFolderForSnippet(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [reassignMenuOpen])
+
   const handleMerge = (sourceFolder: string, targetFolder: string) => {
     setFolderGroups((prev) => {
       const next = new Map(prev)
@@ -336,6 +354,38 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
       return next
     })
     setEditingFolder(null)
+  }
+
+  const handleReassign = (snippetId: string, sourceFolder: string, targetFolder: string) => {
+    setFolderGroups((prev) => {
+      const next = new Map(prev)
+      // Find the item in the source group
+      const sourceItems = next.get(sourceFolder) ?? []
+      const item = sourceItems.find((i) => i.snippet.id === snippetId)
+      if (!item) return prev
+
+      // Remove from source
+      const remaining = sourceItems.filter((i) => i.snippet.id !== snippetId)
+      if (remaining.length === 0) {
+        next.delete(sourceFolder)
+      } else {
+        next.set(sourceFolder, remaining)
+      }
+
+      // Add to target
+      const targetItems = next.get(targetFolder) ?? []
+      next.set(targetFolder, [...targetItems, item])
+
+      return next
+    })
+    // Clean up expanded groups if source was emptied
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      next.add(targetFolder)
+      return next
+    })
+    setReassignMenuOpen(null)
+    setNewFolderForSnippet(null)
   }
 
   const handleApply = async () => {
@@ -646,28 +696,108 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
                             isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
                           )}>
                             <ul className="overflow-hidden">
-                              {groupItems.map((item) => (
-                                <li
-                                  key={item.snippet.id}
-                                  data-testid="reorg-suggestion-row"
-                                  className="flex items-center gap-2 pl-8 pr-2 py-1 hover:bg-accent/30 cursor-pointer"
-                                  onClick={() => toggleSelected(item.snippet.id)}
-                                >
-                                  <button
-                                    data-testid="reorg-checkbox"
-                                    className="shrink-0 text-muted-foreground"
+                              {groupItems.map((item) => {
+                                const isReassignOpen = reassignMenuOpen === item.snippet.id
+                                // All target options: other suggestion groups + existing real folders not already a group
+                                const existingFolderNames = folders.map((f) => f.name)
+                                const allTargets = new Set([
+                                  ...folderGroups.keys(),
+                                  ...existingFolderNames,
+                                ])
+                                allTargets.delete(folderName)
+
+                                return (
+                                  <li
+                                    key={item.snippet.id}
+                                    data-testid="reorg-suggestion-row"
+                                    className="flex items-center gap-2 pl-8 pr-2 py-1 hover:bg-accent/30 cursor-pointer"
+                                    onClick={() => toggleSelected(item.snippet.id)}
                                   >
-                                    {selected.has(item.snippet.id) ? (
-                                      <CheckSquare className="w-4 h-4 text-blue-500" />
-                                    ) : (
-                                      <Square className="w-4 h-4" />
-                                    )}
-                                  </button>
-                                  {confidenceDot(item.suggestion!.confidence)}
-                                  <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                  <span className="text-sm truncate flex-1" title={item.snippet.name}>{item.snippet.name}</span>
-                                </li>
-                              ))}
+                                    <button
+                                      data-testid="reorg-checkbox"
+                                      className="shrink-0 text-muted-foreground"
+                                    >
+                                      {selected.has(item.snippet.id) ? (
+                                        <CheckSquare className="w-4 h-4 text-blue-500" />
+                                      ) : (
+                                        <Square className="w-4 h-4" />
+                                      )}
+                                    </button>
+                                    {confidenceDot(item.suggestion!.confidence)}
+                                    <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                    <span className="text-sm truncate flex-1" title={item.snippet.name}>{item.snippet.name}</span>
+                                    <div className="relative shrink-0">
+                                      <button
+                                        data-testid="reorg-reassign-btn"
+                                        title="Move to different folder"
+                                        className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setReassignMenuOpen(isReassignOpen ? null : item.snippet.id)
+                                          setNewFolderForSnippet(null)
+                                        }}
+                                      >
+                                        <ArrowRightLeft className="w-3.5 h-3.5" />
+                                      </button>
+                                      {isReassignOpen && (
+                                        <div
+                                          ref={reassignMenuRef}
+                                          role="menu"
+                                          data-testid="reorg-reassign-menu"
+                                          className="absolute right-0 top-full mt-1 z-50 min-w-[180px] max-h-[200px] overflow-y-auto bg-muted border border-border rounded-md shadow-lg py-1"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <div className="px-2 py-1 text-xs text-muted-foreground font-medium">
+                                            Move to...
+                                          </div>
+                                          {[...allTargets].map((targetName) => (
+                                            <button
+                                              key={targetName}
+                                              role="menuitem"
+                                              data-testid="reorg-reassign-target"
+                                              className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent/50 truncate flex items-center gap-1.5"
+                                              onClick={() => handleReassign(item.snippet.id, folderName, targetName)}
+                                            >
+                                              {isExistingFolder(targetName) ? (
+                                                <FolderIcon className="w-3 h-3 text-muted-foreground shrink-0" />
+                                              ) : (
+                                                <FolderPlus className="w-3 h-3 text-muted-foreground shrink-0" />
+                                              )}
+                                              <span className="truncate">{targetName}</span>
+                                            </button>
+                                          ))}
+                                          {newFolderForSnippet === item.snippet.id ? (
+                                            <div className="px-2 py-1">
+                                              <input
+                                                autoFocus
+                                                data-testid="reorg-reassign-new-folder-input"
+                                                placeholder="Folder name..."
+                                                className="w-full text-sm bg-background border border-border rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-ring"
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                                    handleReassign(item.snippet.id, folderName, e.currentTarget.value.trim())
+                                                  } else if (e.key === 'Escape') {
+                                                    setNewFolderForSnippet(null)
+                                                  }
+                                                }}
+                                              />
+                                            </div>
+                                          ) : (
+                                            <button
+                                              data-testid="reorg-reassign-new-folder"
+                                              className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent/50 flex items-center gap-1.5 text-muted-foreground"
+                                              onClick={() => setNewFolderForSnippet(item.snippet.id)}
+                                            >
+                                              <Plus className="w-3 h-3 shrink-0" />
+                                              <span>New folder...</span>
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </li>
+                                )
+                              })}
                             </ul>
                           </div>
                         </div>
