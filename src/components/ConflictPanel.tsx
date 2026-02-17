@@ -41,7 +41,7 @@ function ConflictItem({ conflict, onResolve }: ConflictItemProps) {
         {/* Header */}
         <div className="px-3 py-2 bg-accent/50 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <GitMerge className="w-4 h-4 text-green-400" />
+            <GitMerge className="w-4 h-4 text-green-600 dark:text-green-400" />
             <span className="font-medium text-sm">Merge: {mergeName}</span>
           </div>
           <button
@@ -132,11 +132,11 @@ function ConflictItem({ conflict, onResolve }: ConflictItemProps) {
       {/* Header */}
       <div className="px-3 py-2 bg-accent/50 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-amber-400" />
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
           <span className="font-medium text-sm">
             {remoteSnippet?.name || localSnippet?.name || 'Unknown'}
           </span>
-          <span className="text-xs px-1.5 py-0.5 rounded bg-amber-900/30 text-amber-300">
+          <span className="text-xs px-1.5 py-0.5 rounded bg-amber-900/30 text-amber-600 dark:text-amber-300">
             {getConflictLabel(type)}
           </span>
         </div>
@@ -319,7 +319,7 @@ export function ConflictPanel() {
         {/* Header */}
         <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-400" />
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             <h2 className="font-medium">
               {conflicts.length} Conflict{conflicts.length > 1 ? 's' : ''} Detected
             </h2>
@@ -381,7 +381,7 @@ export function ConflictPanel() {
                       }}
                       className="w-full px-3 py-2 text-sm text-left text-foreground hover:bg-accent flex items-center gap-2"
                     >
-                      <Check className="w-4 h-4 text-blue-400" />
+                      <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       <span>Keep All Local</span>
                       <span className="ml-auto text-xs text-muted-foreground">
                         {conflictsWithLocal.length}

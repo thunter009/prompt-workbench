@@ -33,7 +33,7 @@ function HighlightedLabel({ text, matches }: { text: string; matches?: readonly 
     <span className="text-sm flex-1">
       {spans.map((s, i) =>
         s.match ? (
-          <mark key={i} className="bg-transparent text-blue-300 font-semibold">{s.text}</mark>
+          <mark key={i} className="bg-transparent text-blue-600 dark:text-blue-300 font-semibold">{s.text}</mark>
         ) : (
           <span key={i}>{s.text}</span>
         )
@@ -209,7 +209,7 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
                     onClick={() => execute(idx)}
                     onMouseEnter={() => setSelectedIndex(idx)}
                     className={`flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer text-secondary-foreground transition-colors ${
-                      idx === selectedIndex ? 'bg-blue-600/30 text-blue-200' : 'hover:bg-accent/50'
+                      idx === selectedIndex ? 'bg-blue-600/30 text-blue-800 dark:text-blue-200' : 'hover:bg-accent/50'
                     }`}
                   >
                     {Icon && <Icon className="w-4 h-4 shrink-0 text-muted-foreground" />}

@@ -412,7 +412,7 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
           <button
             onClick={handleScanAndSuggest}
             disabled={scanning || problemCount === 0}
-            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm font-medium transition-colors"
           >
             {scanning ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -544,7 +544,7 @@ export function KeywordAuditModal({ open, onClose }: KeywordAuditModalProps) {
                       {item.currentKeyword}
                     </code>
                     <span className="text-muted-foreground">→</span>
-                    <code className="bg-green-900/50 px-1.5 py-0.5 rounded text-green-300">
+                    <code className="bg-green-200 dark:bg-green-900/50 px-1.5 py-0.5 rounded text-green-600 dark:text-green-300">
                       {item.suggestions![0]}
                     </code>
                   </div>
@@ -614,7 +614,7 @@ function AuditRow({ result, onApply, onKeep, collapsed = false, showReplaceActio
       {showReplaceActions && topSuggestion && (
         <>
           <span className="text-muted-foreground text-xs">→</span>
-          <code className="text-xs bg-green-900/50 px-1.5 py-0.5 rounded text-green-300">
+          <code className="text-xs bg-green-200 dark:bg-green-900/50 px-1.5 py-0.5 rounded text-green-600 dark:text-green-300">
             {topSuggestion}
           </code>
         </>
@@ -682,9 +682,9 @@ function AuditRow({ result, onApply, onKeep, collapsed = false, showReplaceActio
 
 function StatusBadge({ status }: { status: AuditStatus }) {
   const config = {
-    missing: { label: 'Missing', className: 'bg-amber-900/50 text-amber-300' },
+    missing: { label: 'Missing', className: 'bg-amber-200 dark:bg-amber-900/50 text-amber-600 dark:text-amber-300' },
     inconsistent: { label: 'Style', className: 'bg-orange-900/50 text-orange-300' },
-    ok: { label: 'OK', className: 'bg-green-900/50 text-green-300' },
+    ok: { label: 'OK', className: 'bg-green-200 dark:bg-green-900/50 text-green-600 dark:text-green-300' },
   }
 
   const { label, className } = config[status]

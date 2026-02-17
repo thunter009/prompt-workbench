@@ -126,7 +126,7 @@ export function PaneThemeToggle() {
         'p-1.5 rounded hover:bg-accent transition-colors',
         paneTheme === 'global'
           ? 'text-muted-foreground hover:text-secondary-foreground'
-          : 'text-blue-400',
+          : 'text-blue-600 dark:text-blue-400',
       )}
       title={title}
     >

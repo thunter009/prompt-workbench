@@ -400,15 +400,15 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
             <>
               {/* Quick import button */}
               <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                <h3 className="text-sm font-medium text-blue-400 mb-2">Quick Import</h3>
-                <p className="text-xs text-blue-300/70 mb-3">
+                <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">Quick Import</h3>
+                <p className="text-xs text-blue-600 dark:text-blue-300/70 mb-3">
                   Click below to open Raycast&apos;s export dialog automatically
                 </p>
                 <div className="flex gap-2">
                   <button
                     onClick={triggerRaycastExport}
                     disabled={triggering}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded text-sm font-medium transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 rounded text-sm font-medium transition-colors"
                   >
                     {triggering ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -453,10 +453,10 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                               : 'border-border bg-accent/30'
                           }`}
                         >
-                          <FileJson className={`w-4 h-4 flex-shrink-0 ${isMostRecent ? 'text-green-400' : 'text-muted-foreground'}`} />
+                          <FileJson className={`w-4 h-4 flex-shrink-0 ${isMostRecent ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`} />
                           <div className="flex-1 min-w-0">
-                            <span className={`text-sm truncate block ${isMostRecent ? 'text-green-300' : 'text-foreground'}`}>{file.name}</span>
-                            <span className={`text-xs ${isMostRecent ? 'text-green-400/60' : 'text-muted-foreground'}`}>{file.snippetCount} snippets · {file.age}</span>
+                            <span className={`text-sm truncate block ${isMostRecent ? 'text-green-600 dark:text-green-300' : 'text-foreground'}`}>{file.name}</span>
+                            <span className={`text-xs ${isMostRecent ? 'text-green-600 dark:text-green-400/60' : 'text-muted-foreground'}`}>{file.snippetCount} snippets · {file.age}</span>
                           </div>
                           <button
                             onClick={() => loadFileFromServer(file.name)}
@@ -533,11 +533,11 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
               {/* Errors */}
               {preview.errors && preview.errors.length > 0 && (
                 <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                  <div className="flex items-center gap-2 text-amber-400 mb-2">
+                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-2">
                     <AlertCircle className="w-4 h-4" />
                     <span className="text-sm font-medium">Some snippets were skipped:</span>
                   </div>
-                  <ul className="text-xs text-amber-300/80 space-y-0.5">
+                  <ul className="text-xs text-amber-600 dark:text-amber-300/80 space-y-0.5">
                     {preview.errors.slice(0, 5).map((err, i) => (
                       <li key={i}>{err}</li>
                     ))}
@@ -551,13 +551,13 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
               {/* Conflict warning */}
               {conflicts.size > 0 && (
                 <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg" data-testid="conflict-warning">
-                  <div className="flex items-center gap-2 text-amber-400">
+                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                     <AlertCircle className="w-4 h-4" />
                     <span className="text-sm font-medium">
                       {conflicts.size} conflict{conflicts.size !== 1 ? 's' : ''} detected
                     </span>
                   </div>
-                  <p className="text-xs text-amber-300/70 mt-1">
+                  <p className="text-xs text-amber-600 dark:text-amber-300/70 mt-1">
                     Choose how to handle each duplicate: Skip, Replace, or Keep Both.
                   </p>
                 </div>
@@ -577,7 +577,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                   <div className="absolute z-10 mt-1 w-full bg-accent border border-border rounded shadow-lg max-h-48 overflow-auto">
                     <button
                       onClick={() => { setTargetFolderId(null); setFolderDropdownOpen(false) }}
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${!targetFolderId ? 'text-blue-400' : 'text-foreground'}`}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${!targetFolderId ? 'text-blue-600 dark:text-blue-400' : 'text-foreground'}`}
                     >
                       No folder (root)
                     </button>
@@ -585,7 +585,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                       <button
                         key={f.id}
                         onClick={() => { setTargetFolderId(f.id); setFolderDropdownOpen(false) }}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${targetFolderId === f.id ? 'text-blue-400' : 'text-foreground'}`}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${targetFolderId === f.id ? 'text-blue-600 dark:text-blue-400' : 'text-foreground'}`}
                       >
                         {f.parentId ? '  └ ' : ''}{f.name}
                       </button>
@@ -629,9 +629,9 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                 >
                   <div className={`w-4 h-4 rounded border flex items-center justify-center ${
                     selected.size === preview.snippets.length
-                      ? 'bg-blue-600 border-blue-600'
+                      ? 'bg-blue-600 border-blue-600 text-white'
                       : selected.size > 0
-                        ? 'bg-blue-600/50 border-blue-600'
+                        ? 'bg-blue-600/50 border-blue-600 text-white'
                         : 'border-border'
                   }`}>
                     {selected.size > 0 && <Check className="w-3 h-3" />}
@@ -663,7 +663,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                       <div className={`flex items-start gap-3 ${!isConflict ? 'cursor-pointer' : ''}`} onClick={() => { if (!isConflict) toggleSelect(i) }}>
                         {!isConflict && (
                           <div className={`w-4 h-4 mt-0.5 rounded border flex-shrink-0 flex items-center justify-center ${
-                            selected.has(i) ? 'bg-blue-600 border-blue-600' : 'border-border'
+                            selected.has(i) ? 'bg-blue-600 border-blue-600 text-white' : 'border-border'
                           }`}>
                             {selected.has(i) && <Check className="w-3 h-3" />}
                           </div>
@@ -689,7 +689,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                           <div className="flex items-center gap-2">
                             <span className={`text-sm font-medium truncate ${isSkipped ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{snippet.name}</span>
                             {isConflict && (
-                              <span className="px-1.5 py-0.5 text-xs bg-yellow-500/20 border border-yellow-500/30 rounded text-yellow-400" data-testid="import-conflict-badge">
+                              <span className="px-1.5 py-0.5 text-xs bg-yellow-500/20 border border-yellow-500/30 rounded text-yellow-600 dark:text-yellow-400" data-testid="import-conflict-badge">
                                 conflict
                               </span>
                             )}
@@ -705,8 +705,8 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                               if (diff.addedLines === 0 && diff.removedLines === 0) return null
                               return (
                                 <span data-testid={`conflict-diff-stats-${i}`} className="flex items-center gap-1 text-[10px]">
-                                  {diff.addedLines > 0 && <span className="text-green-400">+{diff.addedLines}</span>}
-                                  {diff.removedLines > 0 && <span className="text-red-400">-{diff.removedLines}</span>}
+                                  {diff.addedLines > 0 && <span className="text-green-600 dark:text-green-400">+{diff.addedLines}</span>}
+                                  {diff.removedLines > 0 && <span className="text-red-600 dark:text-red-400">-{diff.removedLines}</span>}
                                 </span>
                               )
                             })()}
@@ -730,7 +730,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                               className={`px-2.5 py-1 text-xs rounded transition-colors ${
                                 resolution === option
                                   ? option === 'skip'
-                                    ? 'bg-zinc-600 text-white'
+                                    ? 'bg-zinc-400 dark:bg-zinc-600 text-white'
                                     : option === 'replace'
                                       ? 'bg-blue-600 text-white'
                                       : 'bg-green-600 text-white'
@@ -756,15 +756,15 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                                 {nameDiff && (
                                   <div className="flex gap-2">
                                     <span className="text-muted-foreground">Name:</span>
-                                    <span className="text-red-400 line-through">{existing.name}</span>
-                                    <span className="text-green-400">{snippet.name}</span>
+                                    <span className="text-red-600 dark:text-red-400 line-through">{existing.name}</span>
+                                    <span className="text-green-600 dark:text-green-400">{snippet.name}</span>
                                   </div>
                                 )}
                                 {keywordDiff && (
                                   <div className="flex gap-2">
                                     <span className="text-muted-foreground">Keyword:</span>
-                                    <span className="text-red-400 line-through">{existing.keyword || '(none)'}</span>
-                                    <span className="text-green-400">{snippet.keyword || '(none)'}</span>
+                                    <span className="text-red-600 dark:text-red-400 line-through">{existing.keyword || '(none)'}</span>
+                                    <span className="text-green-600 dark:text-green-400">{snippet.keyword || '(none)'}</span>
                                   </div>
                                 )}
                               </div>
@@ -777,9 +777,9 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
                                       key={li}
                                       className={
                                         change.added
-                                          ? 'text-green-400 bg-green-500/10'
+                                          ? 'text-green-600 dark:text-green-400 bg-green-500/10'
                                           : change.removed
-                                            ? 'text-red-400 bg-red-500/10'
+                                            ? 'text-red-600 dark:text-red-400 bg-red-500/10'
                                             : 'text-muted-foreground'
                                       }
                                     >
@@ -815,7 +815,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
             <button
               onClick={handleImport}
               disabled={importCount === 0 || importing}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm font-medium transition-colors"
             >
               {importing ? 'Importing...' : `Import ${importCount} snippet${importCount !== 1 ? 's' : ''}`}
             </button>

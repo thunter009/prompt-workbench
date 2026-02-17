@@ -726,7 +726,7 @@ export default function HomePage() {
             {conflictCount > 0 && (
               <button
                 onClick={openConflictPanel}
-                className="p-2 rounded hover:bg-accent transition-colors text-amber-400 hover:text-amber-300 relative"
+                className="p-2 rounded hover:bg-accent transition-colors text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300 relative"
                 title={`${conflictCount} conflict${conflictCount > 1 ? 's' : ''} - click to review`}
                 aria-label={`${conflictCount} conflict${conflictCount > 1 ? 's' : ''} - click to review`}
               >
@@ -795,7 +795,7 @@ export default function HomePage() {
             <button
               data-testid="history-toggle-btn"
               onClick={() => setHistoryOpen((v) => !v)}
-              className={`p-2 rounded hover:bg-accent transition-colors ${historyOpen ? 'text-blue-400' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`p-2 rounded hover:bg-accent transition-colors ${historyOpen ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground hover:text-foreground'}`}
               title="Version history"
               aria-label="Version history"
               aria-expanded={historyOpen}
@@ -890,7 +890,7 @@ export default function HomePage() {
                             onClick={toggleInlinePreviews}
                             className={cn(
                               'p-1.5 rounded hover:bg-accent transition-colors',
-                              inlinePreviewsOn ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+                              inlinePreviewsOn ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
                             )}
                             title={inlinePreviewsOn ? 'Hide placeholder previews' : 'Show placeholder previews'}
                           >
@@ -996,7 +996,7 @@ export default function HomePage() {
                       onClick={toggleInlinePreviews}
                       className={cn(
                         'p-1.5 rounded hover:bg-accent transition-colors',
-                        inlinePreviewsOn ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+                        inlinePreviewsOn ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
                       )}
                       title={inlinePreviewsOn ? 'Hide placeholder previews' : 'Show placeholder previews'}
                     >

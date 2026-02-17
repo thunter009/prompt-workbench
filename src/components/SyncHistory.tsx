@@ -10,11 +10,11 @@ type DirectionFilter = 'all' | SyncDirection
 function getEventIcon(direction: SyncDirection) {
   switch (direction) {
     case 'push':
-      return <Upload className="w-3.5 h-3.5 text-blue-400" />
+      return <Upload className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
     case 'pull':
-      return <Download className="w-3.5 h-3.5 text-green-400" />
+      return <Download className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
     case 'conflict':
-      return <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+      return <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
   }
 }
 

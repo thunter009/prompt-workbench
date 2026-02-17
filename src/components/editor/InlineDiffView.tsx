@@ -95,8 +95,8 @@ export function InlineDiffView({ original, modified, originalLabel, modifiedLabe
             {modifiedLabel}
           </span>
           <span className="flex items-center gap-1 text-[10px]">
-            {diff.addedLines > 0 && <span className="text-green-400">+{diff.addedLines}</span>}
-            {diff.removedLines > 0 && <span className="text-red-400">-{diff.removedLines}</span>}
+            {diff.addedLines > 0 && <span className="text-green-600 dark:text-green-400">+{diff.addedLines}</span>}
+            {diff.removedLines > 0 && <span className="text-red-600 dark:text-red-400">-{diff.removedLines}</span>}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -150,7 +150,7 @@ export function InlineDiffView({ original, modified, originalLabel, modifiedLabe
           {onRestore && (
             <button
               onClick={() => restoreFromDiff(onRestore)}
-              className="flex items-center gap-1 ml-2 px-2 py-0.5 text-xs text-green-400 hover:text-green-300 rounded hover:bg-accent transition-colors"
+              className="flex items-center gap-1 ml-2 px-2 py-0.5 text-xs text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 rounded hover:bg-accent transition-colors"
             >
               <RotateCcw className="w-3 h-3" />
               Restore

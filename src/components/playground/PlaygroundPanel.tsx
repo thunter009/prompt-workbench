@@ -177,12 +177,12 @@ export function PlaygroundPanel() {
 
         {/* Snippet resolution errors */}
         {(hasErrors || snippetErrors.length > 0) && (
-          <div className="flex items-start gap-2 p-2 rounded bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+          <div className="flex items-start gap-2 p-2 rounded bg-red-500/10 border border-red-500/20 text-sm text-red-600 dark:text-red-400">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
             <div>
               <p className="font-medium">Broken snippet references</p>
               {snippetErrors.map((e, i) => (
-                <p key={i} className="text-xs text-red-400/80">
+                <p key={i} className="text-xs text-red-600 dark:text-red-400/80">
                   {e.error === 'not_found' && `"${e.snippetName}" not found`}
                   {e.error === 'circular' && `"${e.snippetName}" creates circular reference`}
                   {e.error === 'max_depth' && `"${e.snippetName}" exceeds max nesting depth`}

@@ -238,7 +238,7 @@ export function KeywordSuggestions({
                 className={cn(
                   'px-2 py-0.5 rounded-full text-xs inline-flex items-center gap-1',
                   conflict?.conflict
-                    ? 'bg-amber-900/50 hover:bg-amber-800/60 text-amber-200 border border-amber-700/50'
+                    ? 'bg-amber-200 dark:bg-amber-900/50 hover:bg-amber-800/60 text-amber-200 border border-amber-700/50'
                     : 'bg-accent hover:bg-accent-foreground/10 text-foreground',
                   'transition-colors cursor-pointer'
                 )}
@@ -249,7 +249,7 @@ export function KeywordSuggestions({
                 }
               >
                 {conflict?.conflict && (
-                  <AlertTriangle className="h-2.5 w-2.5 text-amber-400" />
+                  <AlertTriangle className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
                 )}
                 {kw}
               </button>

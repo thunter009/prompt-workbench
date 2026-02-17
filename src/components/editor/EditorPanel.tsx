@@ -257,7 +257,7 @@ export function EditorPanelHeader() {
               'p-1.5 rounded transition-colors',
               loading
                 ? 'opacity-50 cursor-not-allowed'
-                : 'hover:bg-accent text-muted-foreground hover:text-amber-400'
+                : 'hover:bg-accent text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400'
             )}
           >
             {loading ? (
@@ -326,7 +326,7 @@ export function EditorPanelHeader() {
                         >
                           <span>{kw}</span>
                           {conflict?.conflict && (
-                            <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                           )}
                         </button>
                       )

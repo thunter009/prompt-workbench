@@ -232,7 +232,7 @@ export function FolderSuggestions({
               'p-1.5 rounded transition-colors',
               popoverLoading
                 ? 'bg-accent text-muted-foreground'
-                : 'hover:bg-accent text-muted-foreground hover:text-amber-400'
+                : 'hover:bg-accent text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400'
             )}
           >
             {popoverLoading ? (

@@ -247,7 +247,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                 <>
                   <button
                     onClick={handlePickExportDir}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition-colors"
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors"
                   >
                     Choose
                   </button>

@@ -229,7 +229,7 @@ export function CrossSnippetSearch({ open, onOpenChange }: CrossSnippetSearchPro
             onClick={() => setCaseSensitive((v) => !v)}
             className={cn(
               'p-1 rounded transition-colors',
-              caseSensitive ? 'bg-blue-600/30 text-blue-300' : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+              caseSensitive ? 'bg-blue-600/30 text-blue-600 dark:text-blue-300' : 'text-muted-foreground hover:text-foreground hover:bg-accent',
             )}
             title="Case sensitive"
           >
@@ -239,7 +239,7 @@ export function CrossSnippetSearch({ open, onOpenChange }: CrossSnippetSearchPro
             onClick={() => setUseRegex((v) => !v)}
             className={cn(
               'p-1 rounded transition-colors',
-              useRegex ? 'bg-blue-600/30 text-blue-300' : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+              useRegex ? 'bg-blue-600/30 text-blue-600 dark:text-blue-300' : 'text-muted-foreground hover:text-foreground hover:bg-accent',
             )}
             title="Use regex"
           >
@@ -287,7 +287,7 @@ export function CrossSnippetSearch({ open, onOpenChange }: CrossSnippetSearchPro
                           onClick={() => handleSelect(result.snippetId)}
                           className={cn(
                             'flex items-start gap-3 px-4 py-1 cursor-pointer text-sm font-mono transition-colors',
-                            fi === selectedIndex ? 'bg-blue-600/20 text-blue-200' : 'hover:bg-accent/50 text-secondary-foreground',
+                            fi === selectedIndex ? 'bg-blue-600/20 text-blue-800 dark:text-blue-200' : 'hover:bg-accent/50 text-secondary-foreground',
                           )}
                         >
                           <span className="text-xs text-muted-foreground w-8 text-right shrink-0 pt-0.5 select-none">

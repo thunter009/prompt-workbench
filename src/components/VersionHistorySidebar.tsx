@@ -38,8 +38,8 @@ function truncatePreview(text: string, maxLength: number = 80): string {
 function DiffStats({ added, removed }: { added: number; removed: number }) {
   return (
     <span data-testid="diff-stats" className="flex items-center gap-1 text-[10px]">
-      {added > 0 && <span className="text-green-400">+{added}</span>}
-      {removed > 0 && <span className="text-red-400">-{removed}</span>}
+      {added > 0 && <span className="text-green-600 dark:text-green-400">+{added}</span>}
+      {removed > 0 && <span className="text-red-600 dark:text-red-400">-{removed}</span>}
     </span>
   )
 }
@@ -70,7 +70,7 @@ function VersionEntry({ version, isCurrent, isSelected, isCompare, showCompare, 
       className={cn(
         'w-full text-left p-2 rounded transition-colors group',
         isSelected
-          ? 'bg-blue-600/30 text-blue-200'
+          ? 'bg-blue-600/30 text-blue-800 dark:text-blue-200'
           : isCompare
           ? 'bg-purple-600/30 text-purple-200'
           : 'hover:bg-accent/50 text-muted-foreground hover:text-secondary-foreground'
@@ -79,14 +79,14 @@ function VersionEntry({ version, isCurrent, isSelected, isCompare, showCompare, 
       <div className="flex items-center justify-between mb-0.5">
         <span className="text-xs font-medium flex items-center gap-1">
           {formatRelativeTime(version.createdAt)}
-          {isCurrent && <span className="text-[10px] text-blue-400">(current)</span>}
+          {isCurrent && <span className="text-[10px] text-blue-600 dark:text-blue-400">(current)</span>}
           {isCompare && <span className="text-[10px] text-purple-400">(compare)</span>}
         </span>
         <div className="flex items-center gap-0.5">
           <button
             data-testid="version-restore-btn"
             onClick={(e) => onRestore(version, e)}
-            className="p-0.5 rounded transition-colors text-muted-foreground hover:text-green-400 opacity-0 group-hover:opacity-100"
+            className="p-0.5 rounded transition-colors text-muted-foreground hover:text-green-600 dark:hover:text-green-400 opacity-0 group-hover:opacity-100"
             title="Restore this version"
           >
             <RotateCcw className="w-3 h-3" />
@@ -110,7 +110,7 @@ function VersionEntry({ version, isCurrent, isSelected, isCompare, showCompare, 
             <button
               data-testid="delete-version"
               onClick={(e) => onDelete(version.id, e)}
-              className="p-0.5 rounded transition-colors text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100"
+              className="p-0.5 rounded transition-colors text-muted-foreground hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover:opacity-100"
               title="Delete this version"
             >
               <Trash2 className="w-3 h-3" />

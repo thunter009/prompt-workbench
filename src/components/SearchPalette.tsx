@@ -245,7 +245,7 @@ export function SearchPalette({ open, onOpenChange, onSelect }: SearchPalettePro
             className={`flex items-center gap-1.5 px-2 py-1 rounded transition-colors ${
               hasCurrentFolder
                 ? searchSettings.scopeToCurrentFolder
-                  ? 'bg-blue-600/30 text-blue-300 hover:bg-blue-600/40'
+                  ? 'bg-blue-600/30 text-blue-600 dark:text-blue-300 hover:bg-blue-600/40'
                   : 'hover:bg-accent text-muted-foreground hover:text-secondary-foreground'
                 : 'opacity-50 cursor-not-allowed'
             }`}
@@ -299,7 +299,7 @@ function SearchResultItem({
       onClick={onSelect}
       onMouseEnter={onMouseEnter}
       className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-secondary-foreground transition-colors ${
-        selected ? 'bg-blue-600/30 text-blue-200' : 'hover:bg-accent/50'
+        selected ? 'bg-blue-600/30 text-blue-800 dark:text-blue-200' : 'hover:bg-accent/50'
       }`}
     >
       {/* Top row: icon + name + keyword */}
@@ -383,7 +383,7 @@ function RecentSnippetItem({
       onClick={onSelect}
       onMouseEnter={onMouseEnter}
       className={`flex flex-col gap-1 px-3 py-2.5 rounded-lg cursor-pointer text-secondary-foreground transition-colors ${
-        selected ? 'bg-blue-600/30 text-blue-200' : 'hover:bg-accent/50'
+        selected ? 'bg-blue-600/30 text-blue-800 dark:text-blue-200' : 'hover:bg-accent/50'
       }`}
     >
       <div className="flex items-center gap-2.5">

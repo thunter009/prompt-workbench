@@ -78,7 +78,7 @@ function BulkToolbar({
       <button
         data-testid="bulk-delete"
         onClick={onDelete}
-        className="p-1.5 rounded hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
+        className="p-1.5 rounded hover:bg-red-500/20 text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 transition-colors"
         title="Delete selected"
         aria-label="Delete selected"
       >
@@ -1091,7 +1091,7 @@ export function Sidebar() {
           'group flex items-center gap-2 pr-2 py-1.5 rounded cursor-pointer text-sm transition-all duration-100 outline-none focus-visible:ring-2 focus-visible:ring-ring',
           isBeingDragged && 'opacity-50',
           selectedIds.has(snippet.id)
-            ? 'bg-blue-600/30 text-blue-200'
+            ? 'bg-blue-600/30 text-blue-800 dark:text-blue-200'
             : selectedId === snippet.id
               ? 'bg-accent text-foreground'
               : 'text-muted-foreground hover:bg-accent/50 hover:text-secondary-foreground active:scale-[0.98]'
@@ -1297,7 +1297,7 @@ export function Sidebar() {
               onClick={() => setFilterMenuOpen((v) => !v)}
               className={cn(
                 'p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                exportFilter !== 'all' && 'text-blue-400'
+                exportFilter !== 'all' && 'text-blue-600 dark:text-blue-400'
               )}
               title="Filter by export status"
               aria-label="Filter by export status"
@@ -1316,7 +1316,7 @@ export function Sidebar() {
                     }}
                     className={cn(
                       'w-full text-left px-3 py-1.5 text-sm hover:bg-accent',
-                      exportFilter === f ? 'text-blue-400' : 'text-secondary-foreground'
+                      exportFilter === f ? 'text-blue-600 dark:text-blue-400' : 'text-secondary-foreground'
                     )}
                   >
                     {f === 'all' ? 'All' : f === 'unexported' ? 'Never exported' : 'Modified'}
@@ -1348,7 +1348,7 @@ export function Sidebar() {
           <button
             onClick={() => setReorgOpen(true)}
             data-testid="reorg-trigger"
-            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-amber-400 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             title="Batch reorganize"
             aria-label="Batch reorganize"
           >
@@ -1521,7 +1521,7 @@ export function Sidebar() {
                 role="menuitem"
                 onClick={handleDeleteSelectedSnippets}
                 data-testid="snippet-delete"
-                className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-accent transition-colors flex items-center gap-2 outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full text-left px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-accent transition-colors flex items-center gap-2 outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Delete ({selectedIds.size})
@@ -1555,7 +1555,7 @@ export function Sidebar() {
               <button
                 role="menuitem"
                 onClick={handleDeleteFolder}
-                className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-accent transition-colors"
+                className="w-full text-left px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-accent transition-colors"
               >
                 Delete Folder
               </button>

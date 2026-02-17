@@ -78,7 +78,7 @@ const markdownComponents: ExtendedComponents = {
   a: ({ href, children }) => (
     <a
       href={href}
-      className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+      className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 underline underline-offset-2"
       target="_blank"
       rel="noopener noreferrer"
     >
@@ -169,7 +169,7 @@ function ErrorPill({ error }: { error: ResolutionError }) {
     <span
       className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-medium border ${
         isNotFound
-          ? 'bg-red-500/15 text-red-400 border-red-500/30'
+          ? 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30'
           : 'bg-orange-500/15 text-orange-400 border-orange-500/30'
       }`}
     >
@@ -310,7 +310,7 @@ function PreviewToolbar() {
       <button
         onClick={toggleSyncScroll}
         className={`p-1.5 rounded hover:bg-accent transition-colors ${
-          syncScroll ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+          syncScroll ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
         }`}
         title={syncScroll ? 'Disable scroll sync' : 'Enable scroll sync'}
       >
@@ -319,7 +319,7 @@ function PreviewToolbar() {
       <button
         onClick={togglePreviewValues}
         className={`p-1.5 rounded hover:bg-accent transition-colors ${
-          previewValues ? 'text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+          previewValues ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
         }`}
         title={previewValues ? 'Hide example values' : 'Show example values'}
       >

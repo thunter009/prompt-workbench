@@ -17,12 +17,12 @@ export interface PlaceholderPillProps {
 
 // Color scheme per placeholder type
 const TYPE_COLORS: Record<PlaceholderType, { bg: string; text: string; border: string }> = {
-  clipboard: { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30' },
+  clipboard: { bg: 'bg-amber-500/15', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/30' },
   cursor: { bg: 'bg-rose-500/15', text: 'text-rose-400', border: 'border-rose-500/30' },
-  date: { bg: 'bg-blue-500/15', text: 'text-blue-400', border: 'border-blue-500/30' },
-  time: { bg: 'bg-blue-500/15', text: 'text-blue-400', border: 'border-blue-500/30' },
-  datetime: { bg: 'bg-blue-500/15', text: 'text-blue-400', border: 'border-blue-500/30' },
-  day: { bg: 'bg-blue-500/15', text: 'text-blue-400', border: 'border-blue-500/30' },
+  date: { bg: 'bg-blue-500/15', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/30' },
+  time: { bg: 'bg-blue-500/15', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/30' },
+  datetime: { bg: 'bg-blue-500/15', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/30' },
+  day: { bg: 'bg-blue-500/15', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/30' },
   uuid: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30' },
   selection: { bg: 'bg-purple-500/15', text: 'text-purple-400', border: 'border-purple-500/30' },
   argument: { bg: 'bg-orange-500/15', text: 'text-orange-400', border: 'border-orange-500/30' },
