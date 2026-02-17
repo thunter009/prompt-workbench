@@ -254,17 +254,16 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
 
   const handleApply = async () => {
     setApplying(true)
-    const toApply = items.filter(
-      (i) => i.status === 'suggested' && i.suggestion && selected.has(i.snippet.id)
-    )
 
-    // Group by folder name to batch moves
+    // Build apply map from mutable folderGroups, filtered by selection
     const byFolder = new Map<string, string[]>()
-    for (const item of toApply) {
-      const folderName = item.suggestion!.folder
-      const list = byFolder.get(folderName) ?? []
-      list.push(item.snippet.id)
-      byFolder.set(folderName, list)
+    for (const [folderName, groupItems] of folderGroups) {
+      const selectedIds = groupItems
+        .filter((item) => selected.has(item.snippet.id))
+        .map((item) => item.snippet.id)
+      if (selectedIds.length > 0) {
+        byFolder.set(folderName, selectedIds)
+      }
     }
 
     for (const [folderName, snippetIds] of byFolder) {
@@ -283,21 +282,30 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     setDone(true)
   }
 
-  const suggestedItems = items.filter((i) => i.status === 'suggested')
   const unfiledItems = items.filter((i) => i.status === 'unfiled')
   const wellPlacedItems = items.filter((i) => i.status === 'well-placed')
 
-  // Group suggested items by target folder
-  const folderGroups = useMemo(() => {
+  // Mutable folder groups — populated from suggestions, editable by rename/merge/reassign
+  const [folderGroups, setFolderGroups] = useState<Map<string, SnippetSuggestion[]>>(new Map())
+
+  // Rebuild folder groups when items change (after scan completes)
+  useEffect(() => {
     const groups = new Map<string, SnippetSuggestion[]>()
-    for (const item of suggestedItems) {
-      const folderName = item.suggestion!.folder
+    for (const item of items) {
+      if (item.status !== 'suggested' || !item.suggestion) continue
+      const folderName = item.suggestion.folder
       const list = groups.get(folderName) ?? []
       list.push(item)
       groups.set(folderName, list)
     }
-    return groups
-  }, [suggestedItems])
+    setFolderGroups(groups)
+  }, [items])
+
+  // Derive suggested items from folderGroups (source of truth for suggestions)
+  const suggestedItems = useMemo(
+    () => [...folderGroups.values()].flat(),
+    [folderGroups]
+  )
 
   // Summary stats
   const summaryStats = useMemo(() => {
