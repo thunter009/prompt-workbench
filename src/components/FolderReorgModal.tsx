@@ -18,6 +18,7 @@ import {
   ArrowRightLeft,
   Plus,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useSnippetStore } from '@/lib/store'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
@@ -75,7 +76,11 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
       dialog.showModal()
       setDone(false)
       setSearchQuery('')
-      analyze()
+      analyze().catch((err) => {
+        console.error('Batch reorganize failed:', err)
+        setLoading(false)
+        toast.error('Failed to analyze snippets')
+      })
     } else {
       dialog.close()
     }
@@ -137,6 +142,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
                   }),
                   signal: perReqController.signal,
                 })
+                if (!res.ok) throw new Error(`API ${res.status}`)
                 const data = await res.json()
                 const suggestions: FolderSuggestion[] = data.suggestions ?? []
                 const top = suggestions[0] ?? null
