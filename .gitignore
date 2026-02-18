@@ -48,3 +48,4 @@ supabase/.env
 package-lock.json
 yarn.lock
 .playwright-cli/
+test-results/
