@@ -857,13 +857,19 @@ export function Sidebar() {
     return result
   }, [snippets, exportFilter, selectedTags, tagFilterMode])
 
-  // Recalculate root snippets with filter
-  const filteredRootSnippets = useMemo(() => {
-    return filteredSnippets.filter((s) => !s.folderId)
-  }, [filteredSnippets])
-
   // Recently edited snippets for sidebar section
   const recentSnippets = useMemo(() => getRecentSnippets(5), [getRecentSnippets])
+
+  // Recalculate root snippets with filter
+  const filteredRootSnippets = useMemo(() => {
+    const root = filteredSnippets.filter((s) => !s.folderId)
+    // Exclude snippets already shown in Recent section to avoid duplicates
+    if (recentExpanded && recentSnippets.length > 0) {
+      const recentIds = new Set(recentSnippets.map((s) => s.id))
+      return root.filter((s) => !recentIds.has(s.id))
+    }
+    return root
+  }, [filteredSnippets, recentExpanded, recentSnippets])
 
   // Build flat list of navigable items (matches render order) for arrow key nav
   const navigableItems = useMemo(() => {
