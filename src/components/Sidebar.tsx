@@ -1583,7 +1583,7 @@ export function Sidebar() {
         />
       )}
 
-      <FolderReorgModal open={reorgOpen} onClose={() => setReorgOpen(false)} />
+      <FolderReorgModal open={reorgOpen} onClose={() => setReorgOpen(false)} snippetIds={selectedIds.size > 0 ? selectedIds : undefined} />
 
       {/* Delete Snippet Confirmation Dialog */}
       <dialog

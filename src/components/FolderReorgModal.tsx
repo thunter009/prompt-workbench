@@ -39,9 +39,10 @@ interface SnippetSuggestion {
 interface FolderReorgModalProps {
   open: boolean
   onClose: () => void
+  snippetIds?: Set<string>
 }
 
-export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
+export function FolderReorgModal({ open, onClose, snippetIds: scopedIds }: FolderReorgModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const [loading, setLoading] = useState(false)
@@ -96,10 +97,14 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     const controller = new AbortController()
     abortRef.current = controller
 
+    const targetSnippets = scopedIds && scopedIds.size > 0
+      ? snippets.filter((s) => scopedIds.has(s.id))
+      : snippets
+
     setLoading(true)
     setItems([])
     setSelected(new Set())
-    setProgress({ done: 0, total: snippets.length })
+    setProgress({ done: 0, total: targetSnippets.length })
 
     const existingFolders = folders.map((f) => f.name)
     const results: SnippetSuggestion[] = []
@@ -107,10 +112,10 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     // Process snippets in parallel batches of 3
     const batchSize = 3
     try {
-      for (let i = 0; i < snippets.length; i += batchSize) {
+      for (let i = 0; i < targetSnippets.length; i += batchSize) {
         if (controller.signal.aborted) break
 
-        const batch = snippets.slice(i, i + batchSize)
+        const batch = targetSnippets.slice(i, i + batchSize)
         const batchResults = await Promise.all(
           batch.map(async (snippet) => {
             // Skip very short snippets
@@ -178,7 +183,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
           })
         )
         results.push(...batchResults)
-        setProgress({ done: Math.min(i + batchSize, snippets.length), total: snippets.length })
+        setProgress({ done: Math.min(i + batchSize, targetSnippets.length), total: targetSnippets.length })
       }
     } catch {
       // Global abort — use whatever results we have so far
@@ -209,7 +214,7 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
     setExpandedGroups(new Set([...folderNames, '__unfiled__', '__well-placed__']))
 
     setLoading(false)
-  }, [snippets, folders, ollamaUrl, ollamaModel, methodologyConfig])
+  }, [snippets, folders, ollamaUrl, ollamaModel, methodologyConfig, scopedIds])
 
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {
@@ -494,7 +499,9 @@ export function FolderReorgModal({ open, onClose }: FolderReorgModalProps) {
       <div className="bg-muted border border-border rounded-lg shadow-xl max-h-[80vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-          <h2 className="text-lg font-medium text-foreground">Batch Reorganize</h2>
+          <h2 className="text-lg font-medium text-foreground">
+            Batch Reorganize{scopedIds && scopedIds.size > 0 ? ` (${scopedIds.size} selected)` : ''}
+          </h2>
           <div className="flex items-center gap-2">
             {!loading && !done && suggestedItems.length > 0 && (
               <button
