@@ -1,6 +1,9 @@
 /**
  * Typed fetch wrapper for DB API routes.
  * All methods are fire-and-forget safe -- catch errors silently for writes.
+ *
+ * The API routes pass data directly to/from Drizzle, which uses camelCase
+ * JS property names (matching the schema definition). No case conversion needed.
  */
 
 import type { Snippet, Folder, SnippetVersion, SyncEvent, SyncEventDetails } from '@/types'
@@ -38,51 +41,53 @@ function del(url: string, body?: unknown) {
   })
 }
 
-// DB row uses snake_case, app uses camelCase. Transform.
-interface SnippetRow {
+// Drizzle returns camelCase with nulls; app types use undefined for optional fields.
+// These helpers convert null↔undefined at the boundary.
+
+interface DrizzleSnippet {
   id: string
   name: string
   text: string
   keyword: string | null
-  folder_id: string | null
+  folderId: string | null
   tags: string[]
-  created_at: number
-  updated_at: number
+  createdAt: number
+  updatedAt: number
   version: number
-  raycast_synced_at: number | null
-  last_exported_at: number | null
+  raycastSyncedAt: number | null
+  lastExportedAt: number | null
 }
 
-interface FolderRow {
+interface DrizzleFolder {
   id: string
   name: string
-  parent_id: string | null
-  order_index: number
+  parentId: string | null
+  orderIndex: number
 }
 
-interface VersionRow {
+interface DrizzleVersion {
   id: string
-  snippet_id: string
+  snippetId: string
   text: string
-  created_at: number
+  createdAt: number
+}
+
+interface DrizzlePlaygroundRun {
+  id: string
+  snippetId: string
+  model: string
+  testValues: Record<string, string>
+  assembledPrompt: string
+  response: string
+  tokenCount: number
+  durationMs: number
+  compareGroup: string[] | null
+  createdAt: number
 }
 
 interface SettingRow {
   key: string
   value: unknown
-}
-
-interface PlaygroundRunRow {
-  id: string
-  snippet_id: string
-  model: string
-  test_values: Record<string, string>
-  assembled_prompt: string
-  response: string
-  token_count: number
-  duration_ms: number
-  compare_group: string[] | null
-  created_at: number
 }
 
 interface SyncHistoryRow {
@@ -94,79 +99,79 @@ interface SyncHistoryRow {
   details: Record<string, unknown> | null
 }
 
-function rowToSnippet(r: SnippetRow): Snippet {
+function toSnippet(r: DrizzleSnippet): Snippet {
   return {
     id: r.id,
     name: r.name,
     text: r.text,
     keyword: r.keyword ?? undefined,
-    folderId: r.folder_id ?? undefined,
+    folderId: r.folderId ?? undefined,
     tags: r.tags ?? [],
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
     version: r.version,
-    raycastSyncedAt: r.raycast_synced_at ?? undefined,
-    lastExportedAt: r.last_exported_at ?? undefined,
+    raycastSyncedAt: r.raycastSyncedAt ?? undefined,
+    lastExportedAt: r.lastExportedAt ?? undefined,
   }
 }
 
-function snippetToRow(s: Snippet): SnippetRow {
+function fromSnippet(s: Snippet): DrizzleSnippet {
   return {
     id: s.id,
     name: s.name,
     text: s.text,
     keyword: s.keyword ?? null,
-    folder_id: s.folderId ?? null,
+    folderId: s.folderId ?? null,
     tags: s.tags,
-    created_at: s.createdAt,
-    updated_at: s.updatedAt,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
     version: s.version,
-    raycast_synced_at: s.raycastSyncedAt ?? null,
-    last_exported_at: s.lastExportedAt ?? null,
+    raycastSyncedAt: s.raycastSyncedAt ?? null,
+    lastExportedAt: s.lastExportedAt ?? null,
   }
 }
 
-function rowToFolder(r: FolderRow): Folder {
+function toFolder(r: DrizzleFolder): Folder {
   return {
     id: r.id,
     name: r.name,
-    parentId: r.parent_id ?? undefined,
-    orderIndex: r.order_index,
+    parentId: r.parentId ?? undefined,
+    orderIndex: r.orderIndex,
   }
 }
 
-function folderToRow(f: Folder): FolderRow {
+function fromFolder(f: Folder): DrizzleFolder {
   return {
     id: f.id,
     name: f.name,
-    parent_id: f.parentId ?? null,
-    order_index: f.orderIndex,
+    parentId: f.parentId ?? null,
+    orderIndex: f.orderIndex,
   }
 }
 
-function rowToVersion(r: VersionRow): SnippetVersion {
+function toVersion(r: DrizzleVersion): SnippetVersion {
   return {
     id: r.id,
-    snippetId: r.snippet_id,
+    snippetId: r.snippetId,
     text: r.text,
-    createdAt: r.created_at,
+    createdAt: r.createdAt,
   }
 }
 
-function rowToPlaygroundRun(r: PlaygroundRunRow): PlaygroundRun {
+function toPlaygroundRun(r: DrizzlePlaygroundRun): PlaygroundRun {
   return {
-    timestamp: r.created_at,
+    timestamp: r.createdAt,
     model: r.model,
-    testValues: r.test_values,
-    assembledPrompt: r.assembled_prompt,
+    testValues: r.testValues,
+    assembledPrompt: r.assembledPrompt,
     response: r.response,
-    tokenCount: r.token_count,
-    durationMs: r.duration_ms,
-    compareGroup: r.compare_group ?? undefined,
+    tokenCount: r.tokenCount,
+    durationMs: r.durationMs,
+    compareGroup: r.compareGroup ?? undefined,
   }
 }
 
-function rowToSyncEvent(r: SyncHistoryRow): SyncEvent {
+function toSyncEvent(r: SyncHistoryRow): SyncEvent {
   return {
     id: r.id,
     timestamp: r.timestamp,
@@ -180,12 +185,12 @@ function rowToSyncEvent(r: SyncHistoryRow): SyncEvent {
 export const dbClient = {
   // ── Snippets ──
   async getSnippets(): Promise<Snippet[]> {
-    const rows = await json<SnippetRow[]>(`${BASE}/snippets`)
-    return rows.map(rowToSnippet)
+    const rows = await json<DrizzleSnippet[]>(`${BASE}/snippets`)
+    return rows.map(toSnippet)
   },
 
   createSnippet(s: Snippet) {
-    post(`${BASE}/snippets`, snippetToRow(s)).catch(() => {})
+    post(`${BASE}/snippets`, fromSnippet(s)).catch(() => {})
   },
 
   updateSnippet(id: string, data: Partial<Snippet>) {
@@ -193,13 +198,13 @@ export const dbClient = {
     if (data.name !== undefined) mapped.name = data.name
     if (data.text !== undefined) mapped.text = data.text
     if (data.keyword !== undefined) mapped.keyword = data.keyword ?? null
-    if (data.folderId !== undefined) mapped.folder_id = data.folderId ?? null
+    if (data.folderId !== undefined) mapped.folderId = data.folderId ?? null
     if (data.tags !== undefined) mapped.tags = data.tags
-    if (data.createdAt !== undefined) mapped.created_at = data.createdAt
-    if (data.updatedAt !== undefined) mapped.updated_at = data.updatedAt
+    if (data.createdAt !== undefined) mapped.createdAt = data.createdAt
+    if (data.updatedAt !== undefined) mapped.updatedAt = data.updatedAt
     if (data.version !== undefined) mapped.version = data.version
-    if (data.raycastSyncedAt !== undefined) mapped.raycast_synced_at = data.raycastSyncedAt ?? null
-    if (data.lastExportedAt !== undefined) mapped.last_exported_at = data.lastExportedAt ?? null
+    if (data.raycastSyncedAt !== undefined) mapped.raycastSyncedAt = data.raycastSyncedAt ?? null
+    if (data.lastExportedAt !== undefined) mapped.lastExportedAt = data.lastExportedAt ?? null
     put(`${BASE}/snippets`, mapped).catch(() => {})
   },
 
@@ -209,19 +214,19 @@ export const dbClient = {
 
   // ── Folders ──
   async getFolders(): Promise<Folder[]> {
-    const rows = await json<FolderRow[]>(`${BASE}/folders`)
-    return rows.map(rowToFolder)
+    const rows = await json<DrizzleFolder[]>(`${BASE}/folders`)
+    return rows.map(toFolder)
   },
 
   createFolder(f: Folder) {
-    post(`${BASE}/folders`, folderToRow(f)).catch(() => {})
+    post(`${BASE}/folders`, fromFolder(f)).catch(() => {})
   },
 
   updateFolder(id: string, data: Partial<Folder>) {
     const mapped: Record<string, unknown> = { id }
     if (data.name !== undefined) mapped.name = data.name
-    if (data.parentId !== undefined) mapped.parent_id = data.parentId ?? null
-    if (data.orderIndex !== undefined) mapped.order_index = data.orderIndex
+    if (data.parentId !== undefined) mapped.parentId = data.parentId ?? null
+    if (data.orderIndex !== undefined) mapped.orderIndex = data.orderIndex
     put(`${BASE}/folders`, mapped).catch(() => {})
   },
 
@@ -231,21 +236,21 @@ export const dbClient = {
 
   // ── Versions ──
   async getVersions(): Promise<SnippetVersion[]> {
-    const rows = await json<VersionRow[]>(`${BASE}/versions`)
-    return rows.map(rowToVersion)
+    const rows = await json<DrizzleVersion[]>(`${BASE}/versions`)
+    return rows.map(toVersion)
   },
 
   async getVersionsBySnippet(snippetId: string): Promise<SnippetVersion[]> {
-    const rows = await json<VersionRow[]>(`${BASE}/versions?snippetId=${snippetId}`)
-    return rows.map(rowToVersion)
+    const rows = await json<DrizzleVersion[]>(`${BASE}/versions?snippetId=${snippetId}`)
+    return rows.map(toVersion)
   },
 
   createVersion(v: SnippetVersion) {
     post(`${BASE}/versions`, {
       id: v.id,
-      snippet_id: v.snippetId,
+      snippetId: v.snippetId,
       text: v.text,
-      created_at: v.createdAt,
+      createdAt: v.createdAt,
     }).catch(() => {})
   },
 
@@ -287,29 +292,29 @@ export const dbClient = {
   // ── Playground Runs ──
   async getPlaygroundRuns(snippetId?: string): Promise<PlaygroundRun[]> {
     const url = snippetId ? `${BASE}/playground?snippetId=${snippetId}` : `${BASE}/playground`
-    const rows = await json<PlaygroundRunRow[]>(url)
-    return rows.map(rowToPlaygroundRun)
+    const rows = await json<DrizzlePlaygroundRun[]>(url)
+    return rows.map(toPlaygroundRun)
   },
 
   createPlaygroundRun(snippetId: string, run: PlaygroundRun) {
     post(`${BASE}/playground`, {
       id: crypto.randomUUID(),
-      snippet_id: snippetId,
+      snippetId,
       model: run.model,
-      test_values: run.testValues,
-      assembled_prompt: run.assembledPrompt,
+      testValues: run.testValues,
+      assembledPrompt: run.assembledPrompt,
       response: run.response,
-      token_count: run.tokenCount,
-      duration_ms: run.durationMs,
-      compare_group: run.compareGroup ?? null,
-      created_at: run.timestamp,
+      tokenCount: run.tokenCount,
+      durationMs: run.durationMs,
+      compareGroup: run.compareGroup ?? null,
+      createdAt: run.timestamp,
     }).catch(() => {})
   },
 
   // ── Sync History ──
   async getSyncHistory(): Promise<SyncEvent[]> {
     const rows = await json<SyncHistoryRow[]>(`${BASE}/sync-history`)
-    return rows.map(rowToSyncEvent)
+    return rows.map(toSyncEvent)
   },
 
   createSyncEvent(event: SyncEvent) {

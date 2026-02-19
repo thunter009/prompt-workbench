@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { findPlaceholders, getPlaceholderLabel } from '@/lib/raycast/placeholder-parser'
 import type { ParsedPlaceholder } from '@/lib/raycast/placeholder-parser'
@@ -87,6 +87,8 @@ function buildFields(text: string, snippets: { name: string; text: string }[]): 
   return fields
 }
 
+const EMPTY: Record<string, string> = {}
+
 interface TestValueInputsProps {
   snippetId: string
   text: string
@@ -95,7 +97,7 @@ interface TestValueInputsProps {
 export function TestValueInputs({ snippetId, text }: TestValueInputsProps) {
   const snippets = useSnippetStore((s) => s.snippets)
   const setTestValue = usePlaygroundStore((s) => s.setTestValue)
-  const testValues = usePlaygroundStore((s) => s.getTestValues(snippetId))
+  const testValues = usePlaygroundStore((s) => s.testValues[snippetId]) ?? EMPTY
 
   const fields = useMemo(
     () => buildFields(text, snippets),
@@ -103,7 +105,7 @@ export function TestValueInputs({ snippetId, text }: TestValueInputsProps) {
   )
 
   // Auto-fill defaults for fields that don't have stored values
-  useMemo(() => {
+  useEffect(() => {
     for (const f of fields) {
       if (testValues[f.key] === undefined) {
         const val = f.defaultValue()

@@ -113,7 +113,7 @@ function ModelMultiSelect({
 }
 
 export function PlaygroundPanel() {
-  const snippet = useSnippetStore((s) => s.getSelectedSnippet())
+  const snippet = useSnippetStore((s) => s.snippets.find((sn) => sn.id === s.selectedId))
   const snippets = useSnippetStore((s) => s.snippets)
   const isRunning = usePlaygroundStore((s) => s.isRunning)
   const isComparing = usePlaygroundStore((s) => s.isComparing)

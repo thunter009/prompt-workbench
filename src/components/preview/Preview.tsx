@@ -7,9 +7,7 @@ import rehypeRaw from 'rehype-raw'
 import { Eye, EyeOff, Link, Unlink, Layers, Layers2 } from 'lucide-react'
 import { remarkRaycastPlaceholders } from '@/lib/remark-raycast-placeholders'
 import { PlaceholderPill } from './PlaceholderPill'
-import { PlaygroundPanel } from '@/components/playground/PlaygroundPanel'
 import { useSnippetStore } from '@/lib/store'
-import { usePlaygroundStore } from '@/lib/playground-store'
 import { resolveSnippetIncludes, type ResolutionError } from '@/lib/raycast/snippet-resolver'
 import { findPlaceholders } from '@/lib/raycast/placeholder-parser'
 import type { ParsedPlaceholder } from '@/lib/raycast/placeholder-parser'
@@ -265,30 +263,7 @@ function ResolvedPreview({ content, snippets }: { content: string; snippets: { i
   )
 }
 
-function TabBar() {
-  const activeTab = usePlaygroundStore((s) => s.activeTab)
-  const setActiveTab = usePlaygroundStore((s) => s.setActiveTab)
-
-  return (
-    <div className="flex gap-0.5">
-      {(['preview', 'playground'] as const).map((tab) => (
-        <button
-          key={tab}
-          onClick={() => setActiveTab(tab)}
-          className={`px-2 py-0.5 text-xs font-medium rounded transition-colors ${
-            activeTab === tab
-              ? 'text-foreground bg-accent'
-              : 'text-muted-foreground hover:text-secondary-foreground'
-          }`}
-        >
-          {tab === 'preview' ? 'Preview' : 'Playground'}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function PreviewToolbar() {
+export function PreviewToolbar() {
   const previewValues = useSnippetStore((s) => s.previewValues)
   const togglePreviewValues = useSnippetStore((s) => s.togglePreviewValues)
   const syncScroll = useSnippetStore((s) => s.syncScroll)
@@ -335,7 +310,6 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const resolveIncludes = useSnippetStore((s) => s.resolveIncludes)
   const snippets = useSnippetStore((s) => s.snippets)
-  const activeTab = usePlaygroundStore((s) => s.activeTab)
 
   // Debounce content updates
   useEffect(() => {
@@ -367,24 +341,9 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
     return matches.some((m) => m.placeholder.type === 'snippet' && m.placeholder.snippetRef)
   }, [debouncedContent])
 
-  if (activeTab === 'playground') {
-    return (
-      <div className="h-full flex flex-col bg-muted">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-          <TabBar />
-        </div>
-        <PlaygroundPanel />
-      </div>
-    )
-  }
-
   if (!debouncedContent) {
     return (
       <div className="h-full flex flex-col bg-muted">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-          <TabBar />
-          <PreviewToolbar />
-        </div>
         <div data-testid="empty-state" className="flex-1 flex items-center justify-center">
           <span className="text-muted-foreground text-sm">Nothing to preview</span>
         </div>
@@ -394,10 +353,6 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
 
   return (
     <div className="h-full flex flex-col bg-muted">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-        <TabBar />
-        <PreviewToolbar />
-      </div>
       <div ref={scrollContainerRef} className="flex-1 overflow-auto p-4">
         {resolveIncludes && hasIncludes ? (
           <ResolvedPreview content={debouncedContent} snippets={snippets} />

@@ -107,9 +107,9 @@ function HistoryItem({
 
 export function RunHistory({ snippetId }: { snippetId: string }) {
   const [open, setOpen] = useState(false)
-  const history = usePlaygroundStore((s) => s.getHistory(snippetId))
+  const history = usePlaygroundStore((s) => s.runHistory[snippetId])
 
-  if (history.length === 0) return null
+  if (!history || history.length === 0) return null
 
   return (
     <div className="space-y-1">

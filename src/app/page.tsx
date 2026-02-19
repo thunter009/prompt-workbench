@@ -14,6 +14,7 @@ import { PlaygroundPanel } from '@/components/playground/PlaygroundPanel'
 import { EditorDynamic, preloadEditor } from '@/components/editor/EditorDynamic'
 import { EditorPanelHeader } from '@/components/editor/EditorPanel'
 import { PreviewDynamic, preloadPreview } from '@/components/preview/PreviewDynamic'
+import { PreviewToolbar } from '@/components/preview'
 import { Sidebar } from '@/components/Sidebar'
 import { SidebarRail } from '@/components/SidebarRail'
 import { ValidationDialog } from '@/components/ValidationDialog'
@@ -969,6 +970,7 @@ export default function HomePage() {
                         Playground
                       </button>
                       <div className="ml-auto flex items-center pr-2">
+                        {activeTab === 'preview' && <PreviewToolbar />}
                         <PaneThemeToggle />
                       </div>
                     </div>
