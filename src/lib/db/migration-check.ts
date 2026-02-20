@@ -17,8 +17,6 @@ const LS_KEYS = {
   compareModels: 'prompt-workbench-compare-models',
   expandedFolders: 'prompt-workbench-expanded-folders',
   searchSettings: 'prompt-workbench-search-settings',
-  editorTheme: 'editorTheme',
-  previewTheme: 'previewTheme',
   keywordExceptions: 'prompt-workbench-keyword-exceptions',
   consolidatedState: 'prompt-workbench-state',
 } as const
@@ -90,12 +88,6 @@ export async function checkAndMigrate(): Promise<{ migrated: boolean; counts?: R
 
   const searchSettings = safeParse<unknown>(LS_KEYS.searchSettings, null)
   if (searchSettings) settingsPayload.searchSettings = searchSettings
-
-  const editorTheme = localStorage.getItem(LS_KEYS.editorTheme)
-  if (editorTheme) settingsPayload.editorTheme = editorTheme
-
-  const previewTheme = localStorage.getItem(LS_KEYS.previewTheme)
-  if (previewTheme) settingsPayload.previewTheme = previewTheme
 
   const keywordExceptions = safeParse<unknown>(LS_KEYS.keywordExceptions, null)
   if (keywordExceptions) settingsPayload.keywordExceptions = keywordExceptions

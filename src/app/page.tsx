@@ -1,19 +1,21 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useTransition, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { toast } from 'sonner'
-import { useTheme } from 'next-themes'
 import { Group, Panel, Separator, useDefaultLayout, usePanelRef } from 'react-resizable-panels'
-import { useFileWatcher, type FileChangeEvent } from '@/hooks/useFileWatcher'
-import { useTitleInference } from '@/hooks/useTitleInference'
-import { useAISettingsStore } from '@/lib/ai-settings-store'
+import { useFileSync } from '@/hooks/useFileSync'
+import { useEditorSync } from '@/hooks/useEditorSync'
+import { useExportSync } from '@/hooks/useExportSync'
+import { useAppKeyboard } from '@/hooks/useAppKeyboard'
+import { useAppCommands } from '@/hooks/useAppCommands'
+import { useDeleteDialog } from '@/hooks/useDeleteDialog'
+import { AppHeader } from '@/components/AppHeader'
 import { usePlaygroundStore } from '@/lib/playground-store'
 import { cn } from '@/lib/utils'
 import { PlaygroundPanel } from '@/components/playground/PlaygroundPanel'
-import { EditorDynamic, preloadEditor } from '@/components/editor/EditorDynamic'
+import { EditorDynamic } from '@/components/editor/EditorDynamic'
 import { EditorPanelHeader } from '@/components/editor/EditorPanel'
-import { PreviewDynamic, preloadPreview } from '@/components/preview/PreviewDynamic'
+import { PreviewDynamic } from '@/components/preview/PreviewDynamic'
 import { PreviewToolbar } from '@/components/preview'
 import { Sidebar } from '@/components/Sidebar'
 import { SidebarRail } from '@/components/SidebarRail'
@@ -21,63 +23,28 @@ import { ValidationDialog } from '@/components/ValidationDialog'
 import { ConflictPanel } from '@/components/ConflictPanel'
 import { SearchPalette } from '@/components/SearchPalette'
 import { CommandPalette } from '@/components/CommandPalette'
-import { useCommands } from '@/lib/commands'
 import { CrossSnippetSearch } from '@/components/CrossSnippetSearch'
 import { VersionHistorySidebar } from '@/components/VersionHistorySidebar'
 import { SettingsModal } from '@/components/SettingsModal'
 import { ImportModal } from '@/components/ImportModal'
 import { HotkeyCheatsheet } from '@/components/HotkeyCheatsheet'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { PaneThemeProvider, PaneThemeToggle } from '@/components/PaneTheme'
-import { checkAndMigrate } from '@/lib/db/migration-check'
+import { useAppInit } from '@/hooks/useAppInit'
 import { useSnippetStore } from '@/lib/store'
-import { useUndoStore } from '@/lib/undo-store'
-import { useConflictStore } from '@/lib/conflict-store'
-import { useSyncSettingsStore } from '@/lib/sync-settings-store'
-import { useSyncHistoryStore } from '@/lib/sync-history-store'
-import { useVersionStore } from '@/lib/version-store'
-import { detectConflicts } from '@/lib/sync/conflict-detection'
-import {
-  exportSnippets,
-  quickExportSnippets,
-  hasValidExportHandle,
-  getStoredExportPath,
-  supportsFileSystemAccess,
-  getDefaultExportPath,
-} from '@/lib/raycast/export'
-import { validateSnippets, type ValidationResult } from '@/lib/raycast/validation'
-import { useImprovePrompt, ImprovePromptButton, ImprovePromptReview } from '@/components/ImprovePrompt'
-import { PanelRight, PanelRightClose, Download, Upload, Settings, Zap, AlertTriangle, History, Check, Loader2, RefreshCw, HelpCircle, ChevronDown, Menu, X, Eye, EyeOff } from 'lucide-react'
-import type { EditorView } from '@codemirror/view'
-import { togglePreviewEffect, previewEnabledField } from '@/components/editor/raycast-placeholder-language'
-import { InlineDiffView, type DiffComparison } from '@/components/editor/InlineDiffView'
-import type { Snippet } from '@/types'
+import { ImprovePromptButton, ImprovePromptReview } from '@/components/ImprovePrompt'
+import { Check, Loader2, Eye, EyeOff } from 'lucide-react'
+import { InlineDiffView } from '@/components/editor/InlineDiffView'
 
-const AUTOSAVE_DEBOUNCE_MS = 500
-
-type SaveStatus = 'idle' | 'saving' | 'saved'
 
 export default function HomePage() {
-  const [content, setContent] = useState('')
-  const [mounted, setMounted] = useState(false)
+  const { mounted } = useAppInit()
+  const editor = useEditorSync()
+  const exportSync = useExportSync(editor.content)
+  const deleteDialog = useDeleteDialog()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
-  const [pendingExport, setPendingExport] = useState<Snippet[] | null>(null)
-  const [exportMenuOpen, setExportMenuOpen] = useState(false)
-  const exportMenuRef = useRef<HTMLDivElement>(null)
-  const [scrollProgress, setScrollProgress] = useState(0)
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
-
-  const editorViewRef = useRef<EditorView | null>(null)
-  const [inlinePreviewsOn, setInlinePreviewsOn] = useState(false)
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const savedIndicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const keyboardHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {})
   const sidebarPanelRef = usePanelRef()
   const previewPanelRef = usePanelRef()
-  const [, startTransition] = useTransition()
 
-  // UI state - grouped to reduce re-renders
+  // UI state
   const { previewVisible, setPreviewVisible, syncScroll } = useSnippetStore(
     useShallow((s) => ({
       previewVisible: s.previewVisible,
@@ -86,42 +53,12 @@ export default function HomePage() {
     }))
   )
 
-  // Export state
-  const { exportSettings, setExportSettings, markExported } = useSnippetStore(
-    useShallow((s) => ({
-      exportSettings: s.exportSettings,
-      setExportSettings: s.setExportSettings,
-      markExported: s.markExported,
-    }))
-  )
-
-  // Snippet CRUD
-  const {
-    snippets, selectedId, selectedIds, getSelectedSnippet,
-    createSnippet, updateSnippet, selectSnippet,
-    deleteSnippets, duplicateSnippet, folders, createFolder,
-    selectAllSnippets, clearSelection,
-  } = useSnippetStore(
+  const { snippets, selectedId } = useSnippetStore(
     useShallow((s) => ({
       snippets: s.snippets,
       selectedId: s.selectedId,
-      selectedIds: s.selectedIds,
-      getSelectedSnippet: s.getSelectedSnippet,
-      createSnippet: s.createSnippet,
-      updateSnippet: s.updateSnippet,
-      selectSnippet: s.selectSnippet,
-      deleteSnippets: s.deleteSnippets,
-      duplicateSnippet: s.duplicateSnippet,
-      folders: s.folders,
-      createFolder: s.createFolder,
-      selectAllSnippets: s.selectAllSnippets,
-      clearSelection: s.clearSelection,
     }))
   )
-
-  // Undo
-  const pushUndoAction = useUndoStore((s) => s.pushAction)
-  const undo = useUndoStore((s) => s.undo)
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
@@ -130,167 +67,14 @@ export default function HomePage() {
   const [importOpen, setImportOpen] = useState(false)
   const [hotkeySheetOpen, setHotkeySheetOpen] = useState(false)
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
-  const [activeDiff, setActiveDiff] = useState<DiffComparison | null>(null)
-  const [deleteDialogIds, setDeleteDialogIds] = useState<string[]>([])
-  const deleteDialogRef = useRef<HTMLDialogElement>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
-  // Conflict state
-  const { addConflicts, conflictCount, openConflictPanel } = useConflictStore(
-    useShallow((s) => ({
-      addConflicts: s.addConflicts,
-      conflictCount: s.conflicts.length,
-      openConflictPanel: s.openPanel,
-    }))
-  )
-
-  // Sync history
-  const addSyncEvent = useSyncHistoryStore((s) => s.addEvent)
-
-  // Sync settings
-  const fileWatcherEnabled = useSyncSettingsStore((s) => s.fileWatcherEnabled)
-
   // Playground
   const activeTab = usePlaygroundStore((s) => s.activeTab)
-  const playgroundRun = usePlaygroundStore((s) => s.run)
   const playgroundSetActiveTab = usePlaygroundStore((s) => s.setActiveTab)
 
-  // Theme
-  const { resolvedTheme, setTheme } = useTheme()
-
-  // Title inference handler
-  const handleTitleInferred = useCallback((title: string) => {
-    if (selectedId) {
-      updateSnippet(selectedId, { name: title })
-    }
-  }, [selectedId, updateSnippet])
-
-  const { scheduleInference, cancelInference } = useTitleInference({
-    onTitleInferred: handleTitleInferred,
-  })
-
-  // File watcher for Raycast sync
-  const handleFileChanges = useCallback(async (events: FileChangeEvent[]) => {
-    // Fetch file contents from server
-    const paths = events.filter((e) => e.type !== 'unlink').map((e) => e.path)
-    if (paths.length === 0) return
-
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10000)
-
-    try {
-      const res = await fetch('/api/read-files', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paths }),
-        signal: controller.signal,
-      })
-      if (!res.ok) {
-        toast.error(`Failed to read sync files: ${res.status} ${res.statusText}`)
-        return
-      }
-
-      const { files } = await res.json()
-      const fileContents = new Map<string, string>()
-      for (const [path, content] of Object.entries(files)) {
-        if (content) fileContents.set(path, content as string)
-      }
-
-      // Detect conflicts with current local snippets
-      const conflicts = detectConflicts(events, fileContents, snippets)
-
-      // Log file change event
-      addSyncEvent('pull', 'file_change', events.length, {
-        filePath: events[0]?.path,
-      })
-
-      if (conflicts.length > 0) {
-        addConflicts(conflicts)
-
-        // Log conflict detection
-        addSyncEvent('conflict', 'conflict_detected', conflicts.length, {
-          conflictCount: conflicts.length,
-          snippetNames: conflicts.map((c) => c.remoteSnippet?.name || c.localSnippet?.name || 'Unknown').filter(Boolean),
-        })
-
-        toast.warning(`${conflicts.length} conflict${conflicts.length > 1 ? 's' : ''} detected`, {
-          description: 'Raycast snippets differ from local',
-          action: {
-            label: 'Review',
-            onClick: openConflictPanel,
-          },
-        })
-      } else {
-        toast(`${events.length} file${events.length > 1 ? 's' : ''} changed`, {
-          description: 'No conflicts with local snippets',
-          duration: 3000,
-        })
-      }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        toast.error('File sync timed out. Is Ollama running?')
-      } else {
-        toast.error(`Failed to check for conflicts: ${err instanceof Error ? err.message : 'unknown error'}`)
-      }
-    } finally {
-      clearTimeout(timeout)
-    }
-  }, [snippets, addConflicts, openConflictPanel, addSyncEvent])
-
-  useFileWatcher({ onChanges: handleFileChanges, enabled: fileWatcherEnabled })
-
-  // Migrate localStorage → SQLite, then hydrate all stores
-  useEffect(() => {
-    async function init() {
-      // Auto-migrate from localStorage if DB is empty
-      const migration = await checkAndMigrate()
-      if (migration.migrated) {
-        toast.success('Data migrated from browser to SQLite', {
-          description: `${migration.counts?.snippets ?? 0} snippets, ${migration.counts?.folders ?? 0} folders`,
-        })
-      }
-
-      // Hydrate all stores from SQLite
-      await Promise.all([
-        useSnippetStore.getState().hydrate(),
-        useVersionStore.getState().hydrate(),
-        usePlaygroundStore.getState().hydrate(),
-        useSyncSettingsStore.getState().hydrate(),
-        useSyncHistoryStore.getState().hydrate(),
-        useAISettingsStore.getState().hydrate(),
-      ])
-
-      // Load export settings (uses browser APIs, keep as-is)
-      const storedPath = getStoredExportPath()
-      if (storedPath) {
-        hasValidExportHandle().then((valid) => {
-          setExportSettings({ defaultPath: storedPath, hasDirectoryHandle: valid })
-        })
-      } else if (!supportsFileSystemAccess()) {
-        setExportSettings({ defaultPath: getDefaultExportPath(), hasDirectoryHandle: true })
-      }
-
-      setMounted(true)
-    }
-    init()
-  }, [setExportSettings])
-
-  // Sync editor content with selected snippet
-  useEffect(() => {
-    const snippet = getSelectedSnippet()
-    setContent(snippet?.text ?? '')
-    setActiveDiff(null) // clear diff on snippet switch
-  }, [selectedId, getSelectedSnippet])
-
-  // Cleanup timers on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-      if (savedIndicatorTimerRef.current) clearTimeout(savedIndicatorTimerRef.current)
-      cancelInference()
-    }
-  }, [cancelInference])
+  useFileSync()
 
   // Auto-expand preview panel when switching to Playground tab while collapsed
   useEffect(() => {
@@ -301,311 +85,20 @@ export default function HomePage() {
     }
   }, [activeTab, mounted, previewPanelRef])
 
-  // Manage delete snippet dialog
-  useEffect(() => {
-    const dialog = deleteDialogRef.current
-    if (!dialog) return
-    if (deleteDialogIds.length > 0) {
-      dialog.showModal()
-    } else {
-      dialog.close()
-    }
-  }, [deleteDialogIds])
 
-  const handleDeleteConfirm = useCallback(() => {
-    if (deleteDialogIds.length === 0) return
-    const deleted = deleteSnippets(deleteDialogIds)
-    if (deleted.length > 0) {
-      pushUndoAction({ type: 'snippetDelete', deletedSnippets: deleted })
-      toast.success(`Deleted ${deleted.length} snippet${deleted.length > 1 ? 's' : ''}`, {
-        duration: 5000,
-        action: { label: 'Undo', onClick: () => undo() },
-      })
-    }
-    setDeleteDialogIds([])
-  }, [deleteDialogIds, deleteSnippets, pushUndoAction, undo])
 
-  const handleAcceptImproved = useCallback((improved: string) => {
-    setContent(improved)
-    if (selectedId) {
-      updateSnippet(selectedId, { text: improved })
-    }
-  }, [selectedId, updateSnippet])
-
-  const improve = useImprovePrompt(content, handleAcceptImproved)
-
-  const handleEditorViewReady = useCallback((view: EditorView | null) => {
-    editorViewRef.current = view
-    if (view) {
-      setInlinePreviewsOn(view.state.field(previewEnabledField))
-    }
-  }, [])
-
-  const toggleInlinePreviews = useCallback(() => {
-    const view = editorViewRef.current
-    if (!view) return
-    const next = !view.state.field(previewEnabledField)
-    view.dispatch({ effects: togglePreviewEffect.of(next) })
-    setInlinePreviewsOn(next)
-  }, [])
-
-  const handleEditorScroll = useCallback((progress: number) => {
-    if (syncScroll) {
-      startTransition(() => {
-        setScrollProgress(progress)
-      })
-    }
-  }, [syncScroll])
-
-  // Auto-save handler with debounce
-  const handleContentChange = useCallback((value: string) => {
-    setContent(value)
-
-    // Clear existing timers
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    if (savedIndicatorTimerRef.current) clearTimeout(savedIndicatorTimerRef.current)
-
-    // Show saving indicator
-    setSaveStatus('saving')
-
-    // Debounced save
-    saveTimerRef.current = setTimeout(() => {
-      if (selectedId) {
-        // Update existing snippet
-        updateSnippet(selectedId, { text: value })
-
-        // Schedule title inference for untitled snippets
-        const snippet = getSelectedSnippet()
-        if (snippet?.name === 'Untitled') {
-          scheduleInference('Untitled', value)
-        }
-      } else if (value.trim()) {
-        // Create new snippet when typing in empty editor
-        createSnippet({ name: 'Untitled', text: value })
-        // New snippet gets selected, will infer on next edit
-      }
-
-      // Show saved indicator briefly
-      setSaveStatus('saved')
-      savedIndicatorTimerRef.current = setTimeout(() => {
-        setSaveStatus('idle')
-      }, 3000)
-    }, AUTOSAVE_DEBOUNCE_MS)
-  }, [selectedId, updateSnippet, createSnippet, getSelectedSnippet, scheduleInference])
-
-  const doExport = useCallback(async (toExport: Snippet[], quick = false, autoImportToRaycast = false) => {
-    try {
-      let path: string
-      let autoImportTriggered = false
-
-      if (quick) {
-        const result = await quickExportSnippets(toExport, { autoImportToRaycast }, snippets)
-        path = result.path
-        autoImportTriggered = result.autoImportTriggered ?? false
-      } else {
-        path = await exportSnippets(toExport, snippets)
-      }
-
-      markExported(toExport.map((s) => s.id))
-
-      // Log export to history
-      addSyncEvent('push', 'export', toExport.length, {
-        snippetNames: toExport.map((s) => s.name),
-        filePath: path,
-      })
-
-      if (autoImportTriggered) {
-        toast.success(`Exported & importing to Raycast`, {
-          description: `${toExport.length} snippet${toExport.length > 1 ? 's' : ''} → ${path}`,
-        })
-      } else {
-        toast.success(`Exported ${toExport.length} snippet${toExport.length > 1 ? 's' : ''} to ${path}`)
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') return
-      if (err instanceof Error && err.message === 'No default export path set') {
-        toast.error('Set a default export path first')
-        return
-      }
-      toast.error('Export failed')
-    }
-  }, [markExported, addSyncEvent, snippets])
-
-  const handleExport = useCallback(() => {
-    // Use store snippets if available, otherwise create one from current editor content
-    const toExport = snippets.length > 0
-      ? snippets
-      : [{ id: '1', name: 'Untitled', text: content, tags: [], createdAt: Date.now(), updatedAt: Date.now(), version: 1 }]
-
-    if (toExport.length === 0 || (toExport.length === 1 && !toExport[0].text.trim())) {
-      toast.error('Nothing to export')
-      return
-    }
-
-    // Validate before export
-    const result = validateSnippets(toExport)
-    if (result.issues.length > 0) {
-      setValidationResult(result)
-      setPendingExport(toExport)
-      return
-    }
-
-    // No issues, export directly
-    doExport(toExport)
-  }, [snippets, content, doExport])
-
-  const handleQuickExport = useCallback((autoImportToRaycast = false) => {
-    const toExport = snippets.length > 0
-      ? snippets
-      : [{ id: '1', name: 'Untitled', text: content, tags: [], createdAt: Date.now(), updatedAt: Date.now(), version: 1 }]
-
-    if (toExport.length === 0 || (toExport.length === 1 && !toExport[0].text.trim())) {
-      toast.error('Nothing to export')
-      return
-    }
-
-    const result = validateSnippets(toExport)
-    if (result.issues.length > 0) {
-      setValidationResult(result)
-      setPendingExport(toExport)
-      return
-    }
-
-    doExport(toExport, true, autoImportToRaycast)
-  }, [snippets, content, doExport])
-
-  // Export and auto-import to Raycast
-  const handleSyncToRaycast = useCallback(() => {
-    handleQuickExport(true)
-  }, [handleQuickExport])
-
-  const handleValidationClose = useCallback(() => {
-    setValidationResult(null)
-    setPendingExport(null)
-  }, [])
-
-  const handleValidationProceed = useCallback(() => {
-    if (pendingExport) {
-      doExport(pendingExport)
-    }
-    setValidationResult(null)
-    setPendingExport(null)
-  }, [pendingExport, doExport])
-
-  const handleNavigateToSnippet = useCallback((snippetId: string) => {
-    selectSnippet(snippetId)
-  }, [selectSnippet])
-
-  // Keep keyboard handler ref updated without rebinding listener
-  keyboardHandlerRef.current = (e: KeyboardEvent) => {
-    // Cmd+K for command palette
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault()
-      setCommandPaletteOpen(true)
-    }
-    // Cmd+P for search palette
-    if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
-      e.preventDefault()
-      setSearchOpen(true)
-    }
-    // Cmd+\ to toggle preview panel
-    if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
-      e.preventDefault()
-      const panel = previewPanelRef.current
-      if (panel) {
-        if (panel.isCollapsed()) {
-          panel.expand()
-        } else {
-          panel.collapse()
-        }
-      }
-    }
-    // Cmd+Shift+F for cross-snippet search
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
-      e.preventDefault()
-      setGlobalSearchOpen(true)
-    }
-    // Cmd+Shift+E for quick export
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
-      e.preventDefault()
-      handleQuickExport(false)
-    }
-    // Cmd+Shift+S for sync to Raycast (export + auto-import)
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 's') {
-      e.preventDefault()
-      handleSyncToRaycast()
-    }
-    // Cmd+Shift+R for run/re-run in playground
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'r') {
-      e.preventDefault()
-      const s = getSelectedSnippet()
-      if (s) {
-        playgroundSetActiveTab('playground')
-        playgroundRun({
-          text: s.text,
-          snippetId: s.id,
-          ollamaUrl: useAISettingsStore.getState().ollamaUrl,
-          model: useAISettingsStore.getState().ollamaModel,
-          snippets,
-        })
-      }
-    }
-    // Cmd+, for settings modal
-    if ((e.metaKey || e.ctrlKey) && e.key === ',') {
-      e.preventDefault()
-      setSettingsOpen(true)
-    }
-    // Cmd+? or Cmd+/ for hotkey cheatsheet
-    if ((e.metaKey || e.ctrlKey) && (e.key === '?' || e.key === '/')) {
-      e.preventDefault()
-      setHotkeySheetOpen(true)
-    }
-
-    // Snippet CRUD shortcuts — skip when typing in inputs or editor
-    const inInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
-    const inEditor = (e.target as HTMLElement)?.closest?.('.cm-editor')
-    if (inInput || inEditor) return
-
-    // Cmd+N: new snippet
-    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'n') {
-      e.preventDefault()
-      createSnippet({ name: 'New Snippet', text: '' })
-    }
-    // Cmd+Shift+N: new folder
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'n') {
-      e.preventDefault()
-      const maxOrder = folders.reduce((max, f) => (!f.parentId ? Math.max(max, f.orderIndex) : max), -1)
-      createFolder({ name: 'New Folder', orderIndex: maxOrder + 1 })
-    }
-    // Delete/Backspace: delete selected snippet(s) with confirmation
-    if ((e.key === 'Delete' || e.key === 'Backspace') && !e.metaKey && !e.ctrlKey) {
-      if (selectedIds.size > 0) {
-        e.preventDefault()
-        setDeleteDialogIds(Array.from(selectedIds))
-      }
-    }
-    // Cmd+D: duplicate selected snippet
-    if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
-      const id = selectedIds.size > 0 ? Array.from(selectedIds)[0] : selectedId
-      if (id) {
-        e.preventDefault()
-        const copy = duplicateSnippet(id)
-        if (copy) toast.success(`Duplicated "${copy.name}"`)
-      }
-    }
-    // Cmd+A: select all visible snippets
-    if ((e.metaKey || e.ctrlKey) && e.key === 'a') { // select all
-      e.preventDefault()
-      selectAllSnippets()
-    }
-    // Escape: clear selection
-    if (e.key === 'Escape') {
-      if (selectedIds.size > 0) {
-        e.preventDefault()
-        clearSelection()
-      }
-    }
-  }
+  useAppKeyboard({
+    previewPanelRef,
+    setSearchOpen,
+    setCommandPaletteOpen,
+    setGlobalSearchOpen,
+    setSettingsOpen,
+    setHotkeySheetOpen,
+    setDeleteDialogIds: deleteDialog.setDeleteDialogIds,
+    handleQuickExport: exportSync.handleQuickExport,
+    handleSyncToRaycast: exportSync.handleSyncToRaycast,
+    handleImprove: editor.improve.handleImprove,
+  })
 
   // Track viewport width for responsive layout
   useEffect(() => {
@@ -616,24 +109,17 @@ export default function HomePage() {
     return () => mq.removeEventListener('change', handler)
   }, [])
 
-  // Bind keyboard listener once on mount
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => keyboardHandlerRef.current(e)
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [])
-
   // Close export menu on outside click
   useEffect(() => {
-    if (!exportMenuOpen) return
+    if (!exportSync.exportMenuOpen) return
     const handler = (e: MouseEvent) => {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-        setExportMenuOpen(false)
+      if (exportSync.exportMenuRef.current && !exportSync.exportMenuRef.current.contains(e.target as Node)) {
+        exportSync.setExportMenuOpen(false)
       }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [exportMenuOpen])
+  }, [exportSync.exportMenuOpen, exportSync.exportMenuRef, exportSync.setExportMenuOpen])
 
   // Persist panel layout across reloads (SSR-safe storage)
   const ssrSafeStorage = useMemo(() => ({
@@ -645,54 +131,16 @@ export default function HomePage() {
     storage: ssrSafeStorage,
   })
 
-  // Command palette commands
-  const appCommands = useCommands({
-    createSnippet: () => createSnippet({ name: 'New Snippet', text: '' }),
-    createFolder: () => {
-      const maxOrder = folders.reduce((max, f) => (!f.parentId ? Math.max(max, f.orderIndex) : max), -1)
-      createFolder({ name: 'New Folder', orderIndex: maxOrder + 1 })
-    },
-    duplicateSelected: () => {
-      const id = selectedIds.size > 0 ? Array.from(selectedIds)[0] : selectedId
-      if (id) {
-        const copy = duplicateSnippet(id)
-        if (copy) toast.success(`Duplicated "${copy.name}"`)
-      }
-    },
-    deleteSelected: () => {
-      if (selectedIds.size > 0) setDeleteDialogIds(Array.from(selectedIds))
-    },
-    renameSelected: () => {
-      // Rename is handled in the sidebar — focus it
-      toast('Select snippet in sidebar and press F2 to rename')
-    },
-    togglePreview: () => {
-      const panel = previewPanelRef.current
-      if (panel) { if (panel.isCollapsed()) { panel.expand() } else { panel.collapse() } }
-    },
-    toggleSidebar: () => {
-      const panel = sidebarPanelRef.current
-      if (panel) { if (panel.isCollapsed()) { panel.expand() } else { panel.collapse() } }
-    },
-    openSearch: () => setSearchOpen(true),
-    togglePlayground: () => {
-      playgroundSetActiveTab(activeTab === 'playground' ? 'preview' : 'playground')
-      const panel = previewPanelRef.current
-      if (panel?.isCollapsed()) panel.expand()
-    },
-    improvePrompt: () => improve.handleImprove(),
-    suggestKeywords: () => toast('Use the sidebar context menu to suggest keywords'),
-    suggestFolder: () => toast('Use the sidebar context menu to suggest a folder'),
-    reorganizeFolders: () => {
-      // Dispatch a custom event the Sidebar can listen for
-      window.dispatchEvent(new CustomEvent('command:reorganize-folders'))
-    },
-    syncToRaycast: handleSyncToRaycast,
-    importFromRaycast: () => setImportOpen(true),
-    openSettings: () => setSettingsOpen(true),
-    toggleDarkMode: () => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark'),
-    openShortcuts: () => setHotkeySheetOpen(true),
-    hasSelection: selectedIds.size > 0 || !!selectedId,
+  const appCommands = useAppCommands({
+    sidebarPanelRef,
+    previewPanelRef,
+    setSearchOpen,
+    setImportOpen,
+    setSettingsOpen,
+    setHotkeySheetOpen,
+    setDeleteDialogIds: deleteDialog.setDeleteDialogIds,
+    handleSyncToRaycast: exportSync.handleSyncToRaycast,
+    handleImprove: editor.improve.handleImprove,
   })
 
   const togglePreviewPanel = useCallback(() => {
@@ -709,135 +157,18 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="h-screen flex flex-col">
-        <header className="border-b border-border px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {isMobile && (
-              <button
-                data-testid="sidebar-toggle"
-                onClick={() => setMobileSidebarOpen((v) => !v)}
-                className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-                aria-label={mobileSidebarOpen ? 'Close sidebar' : 'Menu'}
-              >
-                {mobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
-            )}
-            <h1 className="text-lg font-medium">Prompt Workbench</h1>
-          </div>
-          <div className="flex items-center gap-1">
-            {conflictCount > 0 && (
-              <button
-                onClick={openConflictPanel}
-                className="p-2 rounded hover:bg-accent transition-colors text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300 relative"
-                title={`${conflictCount} conflict${conflictCount > 1 ? 's' : ''} - click to review`}
-                aria-label={`${conflictCount} conflict${conflictCount > 1 ? 's' : ''} - click to review`}
-              >
-                <AlertTriangle className="w-5 h-5" />
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 text-[10px] font-medium bg-amber-500 text-black rounded-full flex items-center justify-center">
-                  {conflictCount}
-                </span>
-              </button>
-            )}
-            <button
-              onClick={handleSyncToRaycast}
-              className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-              title="Sync to Raycast - export & auto-import (⌘⇧S)"
-              aria-label="Sync to Raycast"
-            >
-              <RefreshCw className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setImportOpen(true)}
-              className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-              title="Import from Raycast"
-              aria-label="Import from Raycast"
-            >
-              <Upload className="w-5 h-5" />
-            </button>
-            <div className="relative" ref={exportMenuRef}>
-              <div className="flex items-center">
-                <button
-                  onClick={() => handleQuickExport(false)}
-                  className="p-2 rounded-l hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-                  title={`Export to ${exportSettings.defaultPath || '~/.prompt-workbench'} (⌘⇧E)`}
-                  aria-label="Quick export"
-                >
-                  <Download className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setExportMenuOpen((v) => !v)}
-                  className="p-2 -ml-1 rounded-r hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-                  title="More export options"
-                  aria-label="More export options"
-                  aria-expanded={exportMenuOpen}
-                >
-                  <ChevronDown className="w-3 h-3" />
-                </button>
-              </div>
-              {exportMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 w-56 bg-accent border border-border rounded-lg shadow-xl z-50 py-1">
-                  <button
-                    onClick={() => { handleQuickExport(false); setExportMenuOpen(false) }}
-                    className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
-                  >
-                    <Zap className="w-4 h-4 text-muted-foreground" />
-                    Quick export
-                    <span className="ml-auto text-xs text-muted-foreground">⌘⇧E</span>
-                  </button>
-                  <button
-                    onClick={() => { handleExport(); setExportMenuOpen(false) }}
-                    className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors flex items-center gap-2"
-                  >
-                    <Download className="w-4 h-4 text-muted-foreground" />
-                    Export to file picker...
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
-              data-testid="history-toggle-btn"
-              onClick={() => setHistoryOpen((v) => !v)}
-              className={`p-2 rounded hover:bg-accent transition-colors ${historyOpen ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Version history"
-              aria-label="Version history"
-              aria-expanded={historyOpen}
-            >
-              <History className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setSettingsOpen(true)}
-              className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-              title="Settings (⌘,)"
-              aria-label="Settings"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setHotkeySheetOpen(true)}
-              className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-              title="Keyboard shortcuts (⌘?)"
-              aria-label="Keyboard shortcuts"
-            >
-              <HelpCircle className="w-5 h-5" />
-            </button>
-            <ThemeToggle />
-            {!isMobile && (
-              <button
-                onClick={togglePreviewPanel}
-                onMouseEnter={previewVisible ? preloadEditor : preloadPreview}
-                className="p-2 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-                title={previewVisible ? 'Hide preview (⌘\\)' : 'Show preview (⌘\\)'}
-                aria-label={previewVisible ? 'Hide preview' : 'Show preview'}
-                aria-expanded={previewVisible}
-              >
-                {previewVisible ? (
-                  <PanelRightClose className="w-5 h-5" />
-                ) : (
-                  <PanelRight className="w-5 h-5" />
-                )}
-              </button>
-            )}
-          </div>
-        </header>
+        <AppHeader
+          isMobile={isMobile}
+          mobileSidebarOpen={mobileSidebarOpen}
+          setMobileSidebarOpen={setMobileSidebarOpen}
+          historyOpen={historyOpen}
+          setHistoryOpen={setHistoryOpen}
+          setSettingsOpen={setSettingsOpen}
+          setHotkeySheetOpen={setHotkeySheetOpen}
+          setImportOpen={setImportOpen}
+          togglePreviewPanel={togglePreviewPanel}
+          exportSync={exportSync}
+        />
         <div className="flex-1 flex overflow-hidden relative">
           {/* Mobile sidebar overlay */}
           {isMobile && mobileSidebarOpen && (
@@ -882,31 +213,30 @@ export default function HomePage() {
 
                 {/* Editor panel */}
                 <Panel id="editor" defaultSize="50%" minSize="20%">
-                  <PaneThemeProvider pane="editor" className="flex flex-col h-full overflow-hidden">
-                    {!activeDiff && (
+                  <div className="flex flex-col h-full overflow-hidden">
+                    {!editor.activeDiff && (
                       <div className="flex items-center border-b border-border">
                         <EditorPanelHeader />
                         <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
                           <button
-                            onClick={toggleInlinePreviews}
+                            onClick={editor.toggleInlinePreviews}
                             className={cn(
                               'p-1.5 rounded hover:bg-accent transition-colors',
-                              inlinePreviewsOn ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+                              editor.inlinePreviewsOn ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
                             )}
-                            title={inlinePreviewsOn ? 'Hide placeholder previews' : 'Show placeholder previews'}
+                            title={editor.inlinePreviewsOn ? 'Hide placeholder previews' : 'Show placeholder previews'}
                           >
-                            {inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                            {editor.inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                           </button>
-                          <PaneThemeToggle />
-                          <ImprovePromptButton disabled={improve.disabled} loading={improve.status === 'loading'} onImprove={improve.handleImprove} />
+                          <ImprovePromptButton disabled={editor.improve.disabled} loading={editor.improve.status === 'loading'} onImprove={editor.improve.handleImprove} />
                           <span data-testid="save-indicator" className="flex items-center gap-1">
-                            {saveStatus === 'saving' && (
+                            {editor.saveStatus === 'saving' && (
                               <>
                                 <Loader2 className="w-3 h-3 animate-spin" />
                                 <span>Saving...</span>
                               </>
                             )}
-                            {saveStatus === 'saved' && (
+                            {editor.saveStatus === 'saved' && (
                               <>
                                 <Check className="w-3 h-3 text-green-500" />
                                 <span className="text-green-500">Saved</span>
@@ -917,20 +247,20 @@ export default function HomePage() {
                       </div>
                     )}
                     <div className="flex-1 overflow-auto relative">
-                      {!selectedId && !activeDiff ? (
+                      {!selectedId && !editor.activeDiff ? (
                         <div data-testid="empty-state" className="flex-1 flex items-center justify-center h-full">
                           <span className="text-sm text-muted-foreground">Select a snippet to start editing</span>
                         </div>
-                      ) : activeDiff ? (
-                        <InlineDiffView {...activeDiff} />
+                      ) : editor.activeDiff ? (
+                        <InlineDiffView {...editor.activeDiff} />
                       ) : (
                         <>
-                          <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} onViewReady={handleEditorViewReady} />
-                          <ImprovePromptReview status={improve.status} improved={improve.improved} error={improve.error} onAccept={improve.accept} onReject={improve.reject} />
+                          <EditorDynamic value={editor.content} onChange={editor.handleContentChange} onScrollProgress={editor.handleEditorScroll} onViewReady={editor.handleEditorViewReady} />
+                          <ImprovePromptReview status={editor.improve.status} improved={editor.improve.improved} error={editor.improve.error} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
                         </>
                       )}
                     </div>
-                  </PaneThemeProvider>
+                  </div>
                 </Panel>
                 <Separator className="w-1 bg-border hover:bg-blue-500 transition-colors data-[active]:bg-blue-500" />
 
@@ -944,7 +274,7 @@ export default function HomePage() {
                   collapsedSize="0%"
                   onResize={(size) => setPreviewVisible(size.asPercentage > 0)}
                 >
-                  <PaneThemeProvider pane="preview" className="h-full flex flex-col overflow-hidden">
+                  <div className="h-full flex flex-col overflow-hidden">
                     {/* Tab bar: Preview | Playground */}
                     <div className="flex border-b border-border shrink-0">
                       <button
@@ -971,17 +301,16 @@ export default function HomePage() {
                       </button>
                       <div className="ml-auto flex items-center pr-2">
                         {activeTab === 'preview' && <PreviewToolbar />}
-                        <PaneThemeToggle />
                       </div>
                     </div>
                     {activeTab === 'preview' ? (
                       <div className="flex-1 overflow-auto">
-                        <PreviewDynamic content={content} scrollProgress={syncScroll ? scrollProgress : undefined} />
+                        <PreviewDynamic content={editor.content} scrollProgress={syncScroll ? editor.scrollProgress : undefined} />
                       </div>
                     ) : (
                       <PlaygroundPanel />
                     )}
-                  </PaneThemeProvider>
+                  </div>
                 </Panel>
               </Group>
             </>
@@ -990,29 +319,29 @@ export default function HomePage() {
           {/* Mobile editor (full-width, no preview) */}
           {isMobile && (
             <div className="flex-1 flex flex-col h-full overflow-hidden">
-              {!activeDiff && (
+              {!editor.activeDiff && (
                 <div className="flex items-center border-b border-border">
                   <EditorPanelHeader />
                   <div className="ml-auto px-4 py-2 flex items-center gap-2 text-xs text-muted-foreground">
                     <button
-                      onClick={toggleInlinePreviews}
+                      onClick={editor.toggleInlinePreviews}
                       className={cn(
                         'p-1.5 rounded hover:bg-accent transition-colors',
-                        inlinePreviewsOn ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
+                        editor.inlinePreviewsOn ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground hover:text-secondary-foreground'
                       )}
-                      title={inlinePreviewsOn ? 'Hide placeholder previews' : 'Show placeholder previews'}
+                      title={editor.inlinePreviewsOn ? 'Hide placeholder previews' : 'Show placeholder previews'}
                     >
-                      {inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      {editor.inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </button>
-                    <ImprovePromptButton disabled={improve.disabled} loading={improve.status === 'loading'} onImprove={improve.handleImprove} />
+                    <ImprovePromptButton disabled={editor.improve.disabled} loading={editor.improve.status === 'loading'} onImprove={editor.improve.handleImprove} />
                     <span data-testid="save-indicator" className="flex items-center gap-1">
-                      {saveStatus === 'saving' && (
+                      {editor.saveStatus === 'saving' && (
                         <>
                           <Loader2 className="w-3 h-3 animate-spin" />
                           <span>Saving...</span>
                         </>
                       )}
-                      {saveStatus === 'saved' && (
+                      {editor.saveStatus === 'saved' && (
                         <>
                           <Check className="w-3 h-3 text-green-500" />
                           <span className="text-green-500">Saved</span>
@@ -1023,19 +352,19 @@ export default function HomePage() {
                 </div>
               )}
               <div className="flex-1 overflow-auto relative">
-                {activeDiff ? (
-                  <InlineDiffView {...activeDiff} />
+                {editor.activeDiff ? (
+                  <InlineDiffView {...editor.activeDiff} />
                 ) : (
                   <>
-                    <EditorDynamic value={content} onChange={handleContentChange} onScrollProgress={handleEditorScroll} onViewReady={handleEditorViewReady} />
-                    <ImprovePromptReview status={improve.status} improved={improve.improved} error={improve.error} onAccept={improve.accept} onReject={improve.reject} />
+                    <EditorDynamic value={editor.content} onChange={editor.handleContentChange} onScrollProgress={editor.handleEditorScroll} onViewReady={editor.handleEditorViewReady} />
+                    <ImprovePromptReview status={editor.improve.status} improved={editor.improve.improved} error={editor.improve.error} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
                   </>
                 )}
               </div>
             </div>
           )}
 
-          <VersionHistorySidebar open={historyOpen} onOpenChange={setHistoryOpen} onDiffChange={setActiveDiff} />
+          <VersionHistorySidebar open={historyOpen} onOpenChange={setHistoryOpen} onDiffChange={editor.setActiveDiff} />
         </div>
       </div>
 
@@ -1045,13 +374,13 @@ export default function HomePage() {
       <SearchPalette open={searchOpen} onOpenChange={setSearchOpen} />
       <CrossSnippetSearch open={globalSearchOpen} onOpenChange={setGlobalSearchOpen} />
 
-      {validationResult && (
+      {exportSync.validationResult && (
         <ValidationDialog
-          result={validationResult}
-          open={!!validationResult}
-          onClose={handleValidationClose}
-          onProceed={handleValidationProceed}
-          onNavigateToSnippet={handleNavigateToSnippet}
+          result={exportSync.validationResult}
+          open={!!exportSync.validationResult}
+          onClose={exportSync.handleValidationClose}
+          onProceed={exportSync.handleValidationProceed}
+          onNavigateToSnippet={exportSync.handleNavigateToSnippet}
         />
       )}
 
@@ -1060,28 +389,28 @@ export default function HomePage() {
       <HotkeyCheatsheet open={hotkeySheetOpen} onClose={() => setHotkeySheetOpen(false)} />
 
       {/* Delete Snippet Confirmation (keyboard shortcut) */}
-      {deleteDialogIds.length > 0 && (
+      {deleteDialog.deleteDialogIds.length > 0 && (
         <dialog
-          ref={deleteDialogRef}
-          onClick={(e) => { if (e.target === deleteDialogRef.current) setDeleteDialogIds([]) }}
+          ref={deleteDialog.deleteDialogRef}
+          onClick={(e) => { if (e.target === deleteDialog.deleteDialogRef.current) deleteDialog.setDeleteDialogIds([]) }}
           className="backdrop:bg-black/50 bg-transparent p-0 max-w-sm w-full"
         >
           <div className="bg-muted border border-border rounded-lg shadow-xl p-4 mx-4">
             <h3 className="text-lg font-medium text-foreground mb-2">
-              Delete {deleteDialogIds.length === 1 ? 'Snippet' : `${deleteDialogIds.length} Snippets`}?
+              Delete {deleteDialog.deleteDialogIds.length === 1 ? 'Snippet' : `${deleteDialog.deleteDialogIds.length} Snippets`}?
             </h3>
             <div className="text-sm text-muted-foreground mb-4">
-              {deleteDialogIds.length === 1
-                ? <p>&ldquo;{snippets.find((s) => s.id === deleteDialogIds[0])?.name}&rdquo; will be permanently deleted.</p>
+              {deleteDialog.deleteDialogIds.length === 1
+                ? <p>&ldquo;{snippets.find((s) => s.id === deleteDialog.deleteDialogIds[0])?.name}&rdquo; will be permanently deleted.</p>
                 : (
                   <>
-                    <p className="mb-2">{deleteDialogIds.length} snippets will be permanently deleted:</p>
+                    <p className="mb-2">{deleteDialog.deleteDialogIds.length} snippets will be permanently deleted:</p>
                     <ul className="list-disc pl-4 space-y-0.5">
-                      {deleteDialogIds.slice(0, 5).map((id) => (
+                      {deleteDialog.deleteDialogIds.slice(0, 5).map((id) => (
                         <li key={id} className="truncate">{snippets.find((s) => s.id === id)?.name}</li>
                       ))}
-                      {deleteDialogIds.length > 5 && (
-                        <li className="text-muted-foreground/70">+ {deleteDialogIds.length - 5} more</li>
+                      {deleteDialog.deleteDialogIds.length > 5 && (
+                        <li className="text-muted-foreground/70">+ {deleteDialog.deleteDialogIds.length - 5} more</li>
                       )}
                     </ul>
                   </>
@@ -1090,14 +419,14 @@ export default function HomePage() {
             </div>
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setDeleteDialogIds([])}
+                onClick={() => deleteDialog.setDeleteDialogIds([])}
                 data-testid="kbd-delete-cancel"
                 className="px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={handleDeleteConfirm}
+                onClick={deleteDialog.handleDeleteConfirm}
                 data-testid="kbd-delete-confirm"
                 className="px-3 py-1.5 text-sm text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
               >
