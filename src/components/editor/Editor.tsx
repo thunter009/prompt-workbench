@@ -38,6 +38,9 @@ export function Editor({ value = '', onChange, onScrollProgress, onViewReady }: 
 
   // Sync external value changes to editor (for snippet selection)
   useEffect(() => {
+    // Always keep valueRef in sync so the mount effect uses the latest value
+    valueRef.current = value
+
     const view = viewRef.current
     if (!view) return
 
@@ -46,7 +49,6 @@ export function Editor({ value = '', onChange, onScrollProgress, onViewReady }: 
     if (value !== currentContent) {
       // Mark as external update to prevent onChange firing
       isExternalUpdateRef.current = true
-      valueRef.current = value
       view.dispatch({
         changes: { from: 0, to: currentContent.length, insert: value },
       })

@@ -120,4 +120,40 @@ test.describe('Basic Workflows', () => {
     })
     expect(selectedName2).toBe('Second')
   })
+
+  test('selecting snippet renders content in CodeMirror editor', async ({ page }) => {
+    // Wait for hydration to complete (snippets loaded from DB)
+    await page.waitForFunction(() => {
+      const store = window.__snippetStore
+      return store && store.getState().snippets.length > 0
+    }, { timeout: 10000 })
+
+    // Seed a snippet with unique content
+    const id = await page.evaluate(() => {
+      const store = window.__snippetStore!
+      return store.getState().createSnippet({ name: 'EditorTest', text: 'unique-editor-test-99999' }).id
+    })
+
+    // Select snippet via store and wait for store to confirm
+    await page.evaluate((id) => {
+      window.__snippetStore!.getState().selectSnippet(id)
+    }, id)
+    await page.waitForFunction((expectedId) => {
+      return window.__snippetStore?.getState().selectedId === expectedId
+    }, id, { timeout: 5000 })
+
+    const editor = page.locator('.cm-content')
+    await expect(editor).toBeVisible({ timeout: 5000 })
+    await expect(editor).toContainText('unique-editor-test-99999', { timeout: 5000 })
+
+    // Verify switching snippets updates editor content
+    const id2 = await page.evaluate(() => {
+      const store = window.__snippetStore!
+      return store.getState().createSnippet({ name: 'EditorTest2', text: 'switched-content-88888' }).id
+    })
+    await page.evaluate((id) => {
+      window.__snippetStore!.getState().selectSnippet(id)
+    }, id2)
+    await expect(editor).toContainText('switched-content-88888', { timeout: 5000 })
+  })
 })
