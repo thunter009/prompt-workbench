@@ -30,7 +30,7 @@ import { ImportModal } from '@/components/ImportModal'
 import { HotkeyCheatsheet } from '@/components/HotkeyCheatsheet'
 import { useAppInit } from '@/hooks/useAppInit'
 import { useSnippetStore } from '@/lib/store'
-import { ImprovePromptButton, ImprovePromptDiffReview } from '@/components/ImprovePrompt'
+import { ImprovePromptButton, ImprovePromptDiffReview, ImprovePromptStreamingView } from '@/components/ImprovePrompt'
 import { Check, Loader2, Eye, EyeOff } from 'lucide-react'
 import { InlineDiffView } from '@/components/editor/InlineDiffView'
 
@@ -229,7 +229,7 @@ export default function HomePage() {
                           >
                             {editor.inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                           </button>
-                          <ImprovePromptButton disabled={editor.improve.disabled} loading={editor.improve.status === 'loading'} onImprove={editor.improve.handleImprove} />
+                          <ImprovePromptButton disabled={editor.improve.disabled} loading={editor.improve.status === 'loading' || editor.improve.status === 'streaming'} onImprove={editor.improve.handleImprove} />
                           <span data-testid="save-indicator" className="flex items-center gap-1">
                             {editor.saveStatus === 'saving' && (
                               <>
@@ -257,6 +257,7 @@ export default function HomePage() {
                       ) : (
                         <>
                           <EditorDynamic value={editor.content} onChange={editor.handleContentChange} onScrollProgress={editor.handleEditorScroll} onViewReady={editor.handleEditorViewReady} />
+                          <ImprovePromptStreamingView status={editor.improve.status} improved={editor.improve.improved} onCancel={editor.improve.cancel} />
                           <ImprovePromptDiffReview status={editor.improve.status} original={editor.improve.original} improved={editor.improve.improved} error={editor.improve.error} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
                         </>
                       )}
@@ -334,7 +335,7 @@ export default function HomePage() {
                     >
                       {editor.inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </button>
-                    <ImprovePromptButton disabled={editor.improve.disabled} loading={editor.improve.status === 'loading'} onImprove={editor.improve.handleImprove} />
+                    <ImprovePromptButton disabled={editor.improve.disabled} loading={editor.improve.status === 'loading' || editor.improve.status === 'streaming'} onImprove={editor.improve.handleImprove} />
                     <span data-testid="save-indicator" className="flex items-center gap-1">
                       {editor.saveStatus === 'saving' && (
                         <>
@@ -358,6 +359,7 @@ export default function HomePage() {
                 ) : (
                   <>
                     <EditorDynamic value={editor.content} onChange={editor.handleContentChange} onScrollProgress={editor.handleEditorScroll} onViewReady={editor.handleEditorViewReady} />
+                    <ImprovePromptStreamingView status={editor.improve.status} improved={editor.improve.improved} onCancel={editor.improve.cancel} />
                     <ImprovePromptDiffReview status={editor.improve.status} original={editor.improve.original} improved={editor.improve.improved} error={editor.improve.error} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
                   </>
                 )}

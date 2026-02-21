@@ -9,8 +9,14 @@ interface ImprovePromptRequest {
   model?: string
 }
 
-interface OllamaGenerateResponse {
-  response: string
+interface OllamaGenerateChunk {
+  response?: string
+  done?: boolean
+  error?: string
+}
+
+function encodeSseEvent(encoder: TextEncoder, event: string, payload: Record<string, unknown>) {
+  return encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`)
 }
 
 export async function POST(request: NextRequest) {
@@ -35,9 +41,9 @@ export async function POST(request: NextRequest) {
         model: selectedModel,
         system: systemPrompt,
         prompt: text,
-        stream: false,
+        stream: true,
       }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(60000),
     })
 
     if (!response.ok) {
@@ -45,14 +51,96 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 502 })
     }
 
-    const data = (await response.json()) as OllamaGenerateResponse
-    const improved = data.response?.trim() || ''
-
-    if (!improved) {
-      return NextResponse.json({ error: 'Empty response from model' }, { status: 502 })
+    if (!response.body) {
+      return NextResponse.json({ error: 'No response body from model' }, { status: 502 })
     }
 
-    return NextResponse.json({ improved, model: selectedModel })
+    const reader = response.body.getReader()
+    const encoder = new TextEncoder()
+    const decoder = new TextDecoder()
+
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        let buffer = ''
+        let improved = ''
+
+        const emit = (event: string, payload: Record<string, unknown>) => {
+          controller.enqueue(encodeSseEvent(encoder, event, payload))
+        }
+
+        const handleLine = (rawLine: string) => {
+          const line = rawLine.trim()
+          if (!line) return
+
+          let parsed: OllamaGenerateChunk
+          try {
+            parsed = JSON.parse(line) as OllamaGenerateChunk
+          } catch {
+            return
+          }
+
+          if (parsed.error) {
+            throw new Error(parsed.error)
+          }
+
+          if (parsed.response) {
+            improved += parsed.response
+            emit('token', {
+              text: parsed.response,
+              totalChars: improved.length,
+            })
+          }
+        }
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() ?? ''
+
+            for (const line of lines) {
+              handleLine(line)
+            }
+          }
+
+          buffer += decoder.decode()
+          if (buffer) {
+            const remaining = buffer.split('\n')
+            for (const line of remaining) {
+              handleLine(line)
+            }
+          }
+
+          const trimmed = improved.trim()
+          if (!trimmed) {
+            emit('error', { error: 'Empty response from model' })
+            controller.close()
+            return
+          }
+
+          emit('done', { improved: trimmed, model: selectedModel })
+          controller.close()
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Improve prompt stream failed'
+          emit('error', { error: message })
+          controller.close()
+        }
+      },
+      cancel() {
+        void reader.cancel()
+      },
+    })
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Improve prompt failed'
     return NextResponse.json({ error: message }, { status: 500 })
