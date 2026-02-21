@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createLLMAdapter, type LLMProvider } from '@/lib/llm'
 
 export const dynamic = 'force-dynamic'
 
 interface ImprovePromptRequest {
   text: string
   systemPrompt: string
-  ollamaUrl?: string
+  provider?: LLMProvider
   model?: string
+  ollamaUrl?: string
+  openaiBaseUrl?: string
+  openaiApiKey?: string
+  anthropicBaseUrl?: string
+  anthropicApiKey?: string
 }
 
-interface OllamaGenerateChunk {
-  response?: string
-  done?: boolean
-  error?: string
+function getDefaultModel(provider: LLMProvider): string {
+  if (provider === 'openai') return 'gpt-4o-mini'
+  if (provider === 'anthropic') return 'claude-3-5-haiku-latest'
+  return 'llama3.2'
 }
 
 function encodeSseEvent(encoder: TextEncoder, event: string, payload: Record<string, unknown>) {
@@ -21,8 +27,18 @@ function encodeSseEvent(encoder: TextEncoder, event: string, payload: Record<str
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as ImprovePromptRequest
-    const { text, systemPrompt, ollamaUrl, model } = body
+    const body = (await request.json()) as ImprovePromptRequest
+    const {
+      text,
+      systemPrompt,
+      provider = 'ollama',
+      model,
+      ollamaUrl,
+      openaiBaseUrl,
+      openaiApiKey,
+      anthropicBaseUrl,
+      anthropicApiKey,
+    } = body
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'Text required' }, { status: 400 })
@@ -31,87 +47,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'systemPrompt required' }, { status: 400 })
     }
 
-    const url = ollamaUrl || 'http://localhost:11434'
-    const selectedModel = model || 'llama3.2'
+    const selectedModel = model || getDefaultModel(provider)
 
-    const response = await fetch(`${url}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: selectedModel,
-        system: systemPrompt,
-        prompt: text,
-        stream: true,
-      }),
-      signal: AbortSignal.timeout(60000),
-    })
-
-    if (!response.ok) {
-      const msg = await response.text().catch(() => 'Ollama request failed')
-      return NextResponse.json({ error: msg }, { status: 502 })
+    let adapter
+    try {
+      adapter = createLLMAdapter({
+        provider,
+        ollamaUrl,
+        openaiBaseUrl,
+        openaiApiKey,
+        anthropicBaseUrl,
+        anthropicApiKey,
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Invalid LLM provider configuration'
+      return NextResponse.json({ error: message }, { status: 400 })
     }
 
-    if (!response.body) {
-      return NextResponse.json({ error: 'No response body from model' }, { status: 502 })
-    }
-
-    const reader = response.body.getReader()
     const encoder = new TextEncoder()
-    const decoder = new TextDecoder()
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
-        let buffer = ''
         let improved = ''
 
         const emit = (event: string, payload: Record<string, unknown>) => {
           controller.enqueue(encodeSseEvent(encoder, event, payload))
         }
 
-        const handleLine = (rawLine: string) => {
-          const line = rawLine.trim()
-          if (!line) return
+        try {
+          for await (const chunk of adapter.generate({
+            prompt: text,
+            systemPrompt,
+            model: selectedModel,
+            signal: request.signal,
+          })) {
+            if (!chunk) continue
 
-          let parsed: OllamaGenerateChunk
-          try {
-            parsed = JSON.parse(line) as OllamaGenerateChunk
-          } catch {
-            return
-          }
-
-          if (parsed.error) {
-            throw new Error(parsed.error)
-          }
-
-          if (parsed.response) {
-            improved += parsed.response
+            improved += chunk
             emit('token', {
-              text: parsed.response,
+              text: chunk,
               totalChars: improved.length,
             })
-          }
-        }
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() ?? ''
-
-            for (const line of lines) {
-              handleLine(line)
-            }
-          }
-
-          buffer += decoder.decode()
-          if (buffer) {
-            const remaining = buffer.split('\n')
-            for (const line of remaining) {
-              handleLine(line)
-            }
           }
 
           const trimmed = improved.trim()
@@ -121,16 +97,22 @@ export async function POST(request: NextRequest) {
             return
           }
 
-          emit('done', { improved: trimmed, model: selectedModel })
+          emit('done', {
+            improved: trimmed,
+            model: selectedModel,
+            provider,
+          })
           controller.close()
         } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            controller.close()
+            return
+          }
+
           const message = err instanceof Error ? err.message : 'Improve prompt stream failed'
           emit('error', { error: message })
           controller.close()
         }
-      },
-      cancel() {
-        void reader.cancel()
       },
     })
 

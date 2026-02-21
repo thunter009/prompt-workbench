@@ -24,8 +24,15 @@ export function useImprovePrompt(text: string, onAccept: (improved: string) => v
   const [error, setError] = useState('')
   const abortRef = useRef<AbortController | null>(null)
 
+  const provider = useAISettingsStore((s) => s.provider)
   const ollamaUrl = useAISettingsStore((s) => s.ollamaUrl)
   const ollamaModel = useAISettingsStore((s) => s.ollamaModel)
+  const openaiBaseUrl = useAISettingsStore((s) => s.openaiBaseUrl)
+  const openaiApiKey = useAISettingsStore((s) => s.openaiApiKey)
+  const openaiModel = useAISettingsStore((s) => s.openaiModel)
+  const anthropicBaseUrl = useAISettingsStore((s) => s.anthropicBaseUrl)
+  const anthropicApiKey = useAISettingsStore((s) => s.anthropicApiKey)
+  const anthropicModel = useAISettingsStore((s) => s.anthropicModel)
   const metaSystemPrompt = useAISettingsStore((s) => s.metaSystemPrompt)
 
   const disabled = text.length < MIN_TEXT_LENGTH
@@ -70,6 +77,12 @@ export function useImprovePrompt(text: string, onAccept: (improved: string) => v
       .filter(Boolean)
       .join('\n\n')
 
+    const selectedModel = provider === 'openai'
+      ? openaiModel
+      : provider === 'anthropic'
+      ? anthropicModel
+      : ollamaModel
+
     try {
       const res = await fetch('/api/improve-prompt', {
         method: 'POST',
@@ -77,8 +90,13 @@ export function useImprovePrompt(text: string, onAccept: (improved: string) => v
         body: JSON.stringify({
           text: sourceText,
           systemPrompt,
+          provider,
+          model: selectedModel,
           ollamaUrl,
-          model: ollamaModel,
+          openaiBaseUrl,
+          openaiApiKey,
+          anthropicBaseUrl,
+          anthropicApiKey,
         }),
         signal: controller.signal,
       })
@@ -218,7 +236,18 @@ export function useImprovePrompt(text: string, onAccept: (improved: string) => v
         abortRef.current = null
       }
     }
-  }, [metaSystemPrompt, ollamaUrl, ollamaModel])
+  }, [
+    metaSystemPrompt,
+    provider,
+    ollamaUrl,
+    ollamaModel,
+    openaiBaseUrl,
+    openaiApiKey,
+    openaiModel,
+    anthropicBaseUrl,
+    anthropicApiKey,
+    anthropicModel,
+  ])
 
   const handleImprove = useCallback(async (strategy?: ImproveStrategyChoice) => {
     if (disabled) return
