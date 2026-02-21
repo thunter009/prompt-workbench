@@ -53,13 +53,21 @@ export function useEditorSync() {
   }, [selectedId, updateSnippet])
 
   const improve = useImprovePrompt(content, handleAcceptImproved)
+  const runImprove = improve.handleImprove
+  const resetImprove = improve.reset
+
+  const handleImprove = useCallback(() => {
+    setActiveDiff(null)
+    runImprove()
+  }, [runImprove])
 
   // Sync editor content with selected snippet
   useEffect(() => {
     const snippet = getSelectedSnippet()
     setContent(snippet?.text ?? '')
     setActiveDiff(null)
-  }, [selectedId, getSelectedSnippet])
+    resetImprove()
+  }, [selectedId, getSelectedSnippet, resetImprove])
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -131,6 +139,6 @@ export function useEditorSync() {
     handleEditorScroll,
     handleEditorViewReady,
     toggleInlinePreviews,
-    improve,
+    improve: { ...improve, handleImprove },
   }
 }

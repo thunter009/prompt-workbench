@@ -30,7 +30,7 @@ import { ImportModal } from '@/components/ImportModal'
 import { HotkeyCheatsheet } from '@/components/HotkeyCheatsheet'
 import { useAppInit } from '@/hooks/useAppInit'
 import { useSnippetStore } from '@/lib/store'
-import { ImprovePromptButton, ImprovePromptReview } from '@/components/ImprovePrompt'
+import { ImprovePromptButton, ImprovePromptDiffReview } from '@/components/ImprovePrompt'
 import { Check, Loader2, Eye, EyeOff } from 'lucide-react'
 import { InlineDiffView } from '@/components/editor/InlineDiffView'
 
@@ -257,7 +257,7 @@ export default function HomePage() {
                       ) : (
                         <>
                           <EditorDynamic value={editor.content} onChange={editor.handleContentChange} onScrollProgress={editor.handleEditorScroll} onViewReady={editor.handleEditorViewReady} />
-                          <ImprovePromptReview status={editor.improve.status} improved={editor.improve.improved} error={editor.improve.error} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
+                          <ImprovePromptDiffReview status={editor.improve.status} original={editor.improve.original} improved={editor.improve.improved} error={editor.improve.error} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
                         </>
                       )}
                     </div>
@@ -358,7 +358,7 @@ export default function HomePage() {
                 ) : (
                   <>
                     <EditorDynamic value={editor.content} onChange={editor.handleContentChange} onScrollProgress={editor.handleEditorScroll} onViewReady={editor.handleEditorViewReady} />
-                    <ImprovePromptReview status={editor.improve.status} improved={editor.improve.improved} error={editor.improve.error} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
+                    <ImprovePromptDiffReview status={editor.improve.status} original={editor.improve.original} improved={editor.improve.improved} error={editor.improve.error} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
                   </>
                 )}
               </div>
