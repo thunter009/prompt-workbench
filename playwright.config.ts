@@ -8,7 +8,7 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: 'PROMPT_WORKBENCH_DB_PATH=.prompt-workbench-e2e.db npm run db:push && PROMPT_WORKBENCH_DB_PATH=.prompt-workbench-e2e.db PW_ENABLE_TEST_API=1 pnpm dev --port 3002',
+    command: 'PROMPT_WORKBENCH_DB_PATH=.prompt-workbench-e2e.db pnpm run db:push && PROMPT_WORKBENCH_DB_PATH=.prompt-workbench-e2e.db PW_ENABLE_TEST_API=1 pnpm dev --port 3002',
     port: 3002,
     reuseExistingServer: false,
     timeout: 60000,
