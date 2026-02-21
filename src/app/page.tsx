@@ -45,9 +45,8 @@ export default function HomePage() {
   const previewPanelRef = usePanelRef()
 
   // UI state
-  const { previewVisible, setPreviewVisible, syncScroll } = useSnippetStore(
+  const { setPreviewVisible, syncScroll } = useSnippetStore(
     useShallow((s) => ({
-      previewVisible: s.previewVisible,
       setPreviewVisible: s.setPreviewVisible,
       syncScroll: s.syncScroll,
     }))
@@ -109,17 +108,19 @@ export default function HomePage() {
     return () => mq.removeEventListener('change', handler)
   }, [])
 
+  const { exportMenuOpen, exportMenuRef, setExportMenuOpen } = exportSync
+
   // Close export menu on outside click
   useEffect(() => {
-    if (!exportSync.exportMenuOpen) return
+    if (!exportMenuOpen) return
     const handler = (e: MouseEvent) => {
-      if (exportSync.exportMenuRef.current && !exportSync.exportMenuRef.current.contains(e.target as Node)) {
-        exportSync.setExportMenuOpen(false)
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false)
       }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [exportSync.exportMenuOpen, exportSync.exportMenuRef, exportSync.setExportMenuOpen])
+  }, [exportMenuOpen, exportMenuRef, setExportMenuOpen])
 
   // Persist panel layout across reloads (SSR-safe storage)
   const ssrSafeStorage = useMemo(() => ({
