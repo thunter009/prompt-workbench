@@ -88,6 +88,7 @@ const PREVIEW_STORAGE_KEY = "pw-inline-previews";
 
 function readPreviewEnabledFromStorage(): boolean {
   if (typeof window === "undefined") return false;
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") return false;
   const storage = window.localStorage as Partial<Storage> | undefined;
   if (!storage || typeof storage.getItem !== "function") return false;
   try {
@@ -99,6 +100,7 @@ function readPreviewEnabledFromStorage(): boolean {
 
 function writePreviewEnabledToStorage(enabled: boolean) {
   if (typeof window === "undefined") return;
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") return;
   const storage = window.localStorage as Partial<Storage> | undefined;
   if (!storage || typeof storage.setItem !== "function") return;
   try {
