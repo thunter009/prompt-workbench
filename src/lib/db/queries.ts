@@ -21,6 +21,10 @@ export function deleteSnippets(ids: string[]) {
   return getDb().delete(schema.snippets).where(inArray(schema.snippets.id, ids)).returning().all()
 }
 
+export function deleteAllSnippets() {
+  return getDb().delete(schema.snippets).run()
+}
+
 // ── Folders ──
 
 export function getAllFolders() {
@@ -37,6 +41,10 @@ export function updateFolder(id: string, data: Partial<Omit<typeof schema.folder
 
 export function deleteFolder(id: string) {
   return getDb().delete(schema.folders).where(eq(schema.folders.id, id)).returning().get()
+}
+
+export function deleteAllFolders() {
+  return getDb().delete(schema.folders).run()
 }
 
 // ── Versions ──
@@ -64,6 +72,10 @@ export function deleteVersion(id: string) {
 
 export function deleteVersionsBySnippet(snippetId: string) {
   return getDb().delete(schema.versions).where(eq(schema.versions.snippetId, snippetId)).returning().all()
+}
+
+export function deleteAllVersions() {
+  return getDb().delete(schema.versions).run()
 }
 
 export function pruneVersions(snippetId: string, keepCount: number) {
@@ -102,6 +114,10 @@ export function upsertSettings(entries: Array<{ key: string; value: unknown }>) 
   }
 }
 
+export function deleteAllSettings() {
+  return getDb().delete(schema.settings).run()
+}
+
 // ── Playground Runs ──
 
 export function getPlaygroundRuns(snippetId: string, limit = 5) {
@@ -124,6 +140,10 @@ export function getAllPlaygroundRuns() {
 
 export function createPlaygroundRun(data: typeof schema.playgroundRuns.$inferInsert) {
   return getDb().insert(schema.playgroundRuns).values(data).returning().get()
+}
+
+export function deleteAllPlaygroundRuns() {
+  return getDb().delete(schema.playgroundRuns).run()
 }
 
 // ── Sync History ──
