@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, Sparkles, X } from 'lucide-react'
+import { Loader2, X } from 'lucide-react'
 import { useAISettingsStore } from '@/lib/ai-settings-store'
 import { InlineDiffView } from '@/components/editor/InlineDiffView'
-import { cn } from '@/lib/utils'
+import { IMPROVE_STRATEGY_TEMPLATES, StrategyPicker, type ImproveStrategyChoice } from '@/components/StrategyPicker'
 
 const MIN_TEXT_LENGTH = 20
 
@@ -33,7 +33,7 @@ export function useImprovePrompt(text: string, onAccept: (improved: string) => v
     setError('')
   }, [])
 
-  const handleImprove = useCallback(async () => {
+  const handleImprove = useCallback(async (strategy?: ImproveStrategyChoice) => {
     if (disabled) return
 
     abortRef.current?.abort()
@@ -45,13 +45,21 @@ export function useImprovePrompt(text: string, onAccept: (improved: string) => v
     setImproved('')
     setError('')
 
+    const strategyInstruction = strategy?.id === 'custom'
+      ? strategy.customInstruction?.trim() ?? ''
+      : IMPROVE_STRATEGY_TEMPLATES[strategy?.id ?? 'detailed']
+
+    const systemPrompt = [metaSystemPrompt.trim(), strategyInstruction ? `Additional strategy:\n${strategyInstruction}` : '']
+      .filter(Boolean)
+      .join('\n\n')
+
     try {
       const res = await fetch('/api/improve-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text,
-          systemPrompt: metaSystemPrompt,
+          systemPrompt,
           ollamaUrl,
           model: ollamaModel,
         }),
@@ -209,27 +217,9 @@ export function ImprovePromptButton({
 }: {
   disabled: boolean
   loading: boolean
-  onImprove: () => void
+  onImprove: (strategy?: ImproveStrategyChoice) => void
 }) {
-  return (
-    <button
-      onClick={onImprove}
-      disabled={disabled || loading}
-      title={disabled ? 'Text too short (<20 chars)' : 'Improve prompt with AI'}
-      className={cn(
-        'p-1.5 rounded transition-colors',
-        disabled || loading
-          ? 'opacity-40 cursor-not-allowed text-muted-foreground'
-          : 'hover:bg-accent text-muted-foreground hover:text-purple-400'
-      )}
-    >
-      {loading ? (
-        <Loader2 className="w-4 h-4 animate-spin" />
-      ) : (
-        <Sparkles className="w-4 h-4" />
-      )}
-    </button>
-  )
+  return <StrategyPicker disabled={disabled} loading={loading} onSelect={onImprove} />
 }
 
 /** Streaming overlay while model tokens are arriving */
