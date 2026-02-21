@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { ImprovePromptDiffReview } from '../ImprovePrompt'
+import { ImprovePromptDiffReview, ImprovePromptStreamingView } from '../ImprovePrompt'
 
 vi.mock('@/components/editor/InlineDiffView', () => ({
   InlineDiffView: ({
@@ -69,6 +69,47 @@ describe('ImprovePromptDiffReview', () => {
         error=""
         onAccept={vi.fn()}
         onReject={vi.fn()}
+      />
+    )
+
+    expect(container.innerHTML).toBe('')
+  })
+})
+
+describe('ImprovePromptStreamingView', () => {
+  it('renders loading message while request is starting', () => {
+    render(
+      <ImprovePromptStreamingView
+        status="loading"
+        improved=""
+        onCancel={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('Starting improve stream...')).toBeTruthy()
+    expect(screen.getByText('Connecting to model...')).toBeTruthy()
+  })
+
+  it('renders streamed text and character count while streaming', () => {
+    render(
+      <ImprovePromptStreamingView
+        status="streaming"
+        improved="improved text"
+        onCancel={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('Streaming improve response...')).toBeTruthy()
+    expect(screen.getByText('13 chars')).toBeTruthy()
+    expect(screen.getByText('improved text')).toBeTruthy()
+  })
+
+  it('does not render outside loading/streaming statuses', () => {
+    const { container } = render(
+      <ImprovePromptStreamingView
+        status="review"
+        improved="final"
+        onCancel={vi.fn()}
       />
     )
 
