@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { ImprovePromptDiffReview, ImprovePromptStreamingView } from '../ImprovePrompt'
 
 vi.mock('@/components/editor/InlineDiffView', () => ({
@@ -31,7 +31,11 @@ describe('ImprovePromptDiffReview', () => {
         status="review"
         original="old prompt"
         improved="new prompt"
+        versionStack={[{ text: 'new prompt' }]}
+        currentVersion={0}
         error=""
+        onImproveAgain={vi.fn()}
+        onGoToVersion={vi.fn()}
         onAccept={vi.fn()}
         onReject={vi.fn()}
       />
@@ -39,8 +43,35 @@ describe('ImprovePromptDiffReview', () => {
 
     expect(screen.getByTestId('inline-diff-view')).toBeTruthy()
     expect(screen.getByText('Current:old prompt')).toBeTruthy()
-    expect(screen.getByText('Improved:new prompt')).toBeTruthy()
+    expect(screen.getByText('Improved v1/1:new prompt')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Accept' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Improve again' })).toBeTruthy()
+  })
+
+  it('sends optional instruction to improve again', () => {
+    const onImproveAgain = vi.fn()
+
+    render(
+      <ImprovePromptDiffReview
+        status="review"
+        original="old prompt"
+        improved="new prompt"
+        versionStack={[{ text: 'new prompt' }]}
+        currentVersion={0}
+        error=""
+        onImproveAgain={onImproveAgain}
+        onGoToVersion={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+      />
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('Optional instruction for improve again...'), {
+      target: { value: ' tighten wording ' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Improve again' }))
+
+    expect(onImproveAgain).toHaveBeenCalledWith(' tighten wording ')
   })
 
   it('renders error state with dismiss action', () => {
@@ -49,7 +80,11 @@ describe('ImprovePromptDiffReview', () => {
         status="error"
         original=""
         improved=""
+        versionStack={[]}
+        currentVersion={-1}
         error="bad request"
+        onImproveAgain={vi.fn()}
+        onGoToVersion={vi.fn()}
         onAccept={vi.fn()}
         onReject={vi.fn()}
       />
@@ -66,7 +101,11 @@ describe('ImprovePromptDiffReview', () => {
         status="idle"
         original=""
         improved=""
+        versionStack={[]}
+        currentVersion={-1}
         error=""
+        onImproveAgain={vi.fn()}
+        onGoToVersion={vi.fn()}
         onAccept={vi.fn()}
         onReject={vi.fn()}
       />

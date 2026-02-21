@@ -10,10 +10,17 @@ const MIN_TEXT_LENGTH = 20
 
 type Status = 'idle' | 'loading' | 'streaming' | 'review' | 'error'
 
+interface ImproveVersion {
+  text: string
+  instruction?: string
+}
+
 export function useImprovePrompt(text: string, onAccept: (improved: string) => void) {
   const [status, setStatus] = useState<Status>('idle')
   const [original, setOriginal] = useState('')
   const [improved, setImproved] = useState('')
+  const [versionStack, setVersionStack] = useState<ImproveVersion[]>([])
+  const [currentVersion, setCurrentVersion] = useState(-1)
   const [error, setError] = useState('')
   const abortRef = useRef<AbortController | null>(null)
 
@@ -30,26 +37,36 @@ export function useImprovePrompt(text: string, onAccept: (improved: string) => v
     setStatus('idle')
     setOriginal('')
     setImproved('')
+    setVersionStack([])
+    setCurrentVersion(-1)
     setError('')
   }, [])
 
-  const handleImprove = useCallback(async (strategy?: ImproveStrategyChoice) => {
-    if (disabled) return
+  const runImprove = useCallback(async ({
+    sourceText,
+    instruction,
+    resetVersions,
+  }: {
+    sourceText: string
+    instruction?: string
+    resetVersions: boolean
+  }) => {
+    if (sourceText.length < MIN_TEXT_LENGTH) return
 
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
 
     setStatus('loading')
-    setOriginal(text)
+    if (resetVersions) {
+      setOriginal(sourceText)
+      setVersionStack([])
+      setCurrentVersion(-1)
+    }
     setImproved('')
     setError('')
 
-    const strategyInstruction = strategy?.id === 'custom'
-      ? strategy.customInstruction?.trim() ?? ''
-      : IMPROVE_STRATEGY_TEMPLATES[strategy?.id ?? 'detailed']
-
-    const systemPrompt = [metaSystemPrompt.trim(), strategyInstruction ? `Additional strategy:\n${strategyInstruction}` : '']
+    const systemPrompt = [metaSystemPrompt.trim(), instruction ? `Additional strategy:\n${instruction}` : '']
       .filter(Boolean)
       .join('\n\n')
 
@@ -58,7 +75,7 @@ export function useImprovePrompt(text: string, onAccept: (improved: string) => v
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text,
+          text: sourceText,
           systemPrompt,
           ollamaUrl,
           model: ollamaModel,
@@ -86,6 +103,30 @@ export function useImprovePrompt(text: string, onAccept: (improved: string) => v
       let buffer = ''
       let streamed = ''
       let completed = false
+
+      const commitVersion = (finalText: string) => {
+        const trimmedText = finalText.trim()
+        if (!trimmedText) {
+          setError('Empty response from model')
+          setStatus('error')
+          completed = true
+          return
+        }
+
+        const normalizedInstruction = instruction?.trim() || undefined
+        let nextIndex = -1
+        setVersionStack((previous) => {
+          const base = resetVersions ? [] : previous
+          const next = [...base, { text: trimmedText, instruction: normalizedInstruction }]
+          nextIndex = next.length - 1
+          return next
+        })
+
+        setCurrentVersion(nextIndex)
+        setImproved(trimmedText)
+        setStatus('review')
+        completed = true
+      }
 
       const handleEvent = (rawEvent: string) => {
         let eventType = 'message'
@@ -120,15 +161,7 @@ export function useImprovePrompt(text: string, onAccept: (improved: string) => v
 
         if (eventType === 'done') {
           const finalText = typeof payload.improved === 'string' ? payload.improved : streamed
-          if (!finalText.trim()) {
-            setError('Empty response from model')
-            setStatus('error')
-            completed = true
-            return
-          }
-          setImproved(finalText)
-          setStatus('review')
-          completed = true
+          commitVersion(finalText)
           return
         }
 
@@ -166,8 +199,7 @@ export function useImprovePrompt(text: string, onAccept: (improved: string) => v
       }
 
       if (!completed && streamed.trim()) {
-        setImproved(streamed)
-        setStatus('review')
+        commitVersion(streamed)
       } else if (!completed) {
         setError('Stream ended before completion')
         setStatus('error')
@@ -186,12 +218,45 @@ export function useImprovePrompt(text: string, onAccept: (improved: string) => v
         abortRef.current = null
       }
     }
-  }, [text, disabled, metaSystemPrompt, ollamaUrl, ollamaModel])
+  }, [metaSystemPrompt, ollamaUrl, ollamaModel])
+
+  const handleImprove = useCallback(async (strategy?: ImproveStrategyChoice) => {
+    if (disabled) return
+
+    const strategyInstruction = strategy?.id === 'custom'
+      ? strategy.customInstruction?.trim() ?? ''
+      : IMPROVE_STRATEGY_TEMPLATES[strategy?.id ?? 'detailed']
+
+    await runImprove({
+      sourceText: text,
+      instruction: strategyInstruction,
+      resetVersions: true,
+    })
+  }, [text, disabled, runImprove])
+
+  const improveAgain = useCallback(async (instruction?: string) => {
+    const baseText = versionStack[currentVersion]?.text ?? improved
+    if (!baseText) return
+
+    await runImprove({
+      sourceText: baseText,
+      instruction: instruction?.trim(),
+      resetVersions: false,
+    })
+  }, [versionStack, currentVersion, improved, runImprove])
+
+  const goToVersion = useCallback((index: number) => {
+    if (index < 0 || index >= versionStack.length) return
+    setCurrentVersion(index)
+    setImproved(versionStack[index].text)
+    setStatus('review')
+  }, [versionStack])
 
   const accept = useCallback(() => {
-    onAccept(improved)
+    const selectedVersion = versionStack[currentVersion]
+    onAccept(selectedVersion?.text ?? improved)
     reset()
-  }, [improved, onAccept, reset])
+  }, [versionStack, currentVersion, improved, onAccept, reset])
 
   const reject = useCallback(() => {
     reset()
@@ -206,7 +271,22 @@ export function useImprovePrompt(text: string, onAccept: (improved: string) => v
     return () => abortRef.current?.abort()
   }, [])
 
-  return { status, original, improved, error, disabled, handleImprove, accept, reject, cancel, reset }
+  return {
+    status,
+    original,
+    improved,
+    versionStack,
+    currentVersion,
+    error,
+    disabled,
+    handleImprove,
+    improveAgain,
+    goToVersion,
+    accept,
+    reject,
+    cancel,
+    reset,
+  }
 }
 
 /** Sparkle button for the toolbar */
@@ -269,29 +349,85 @@ export function ImprovePromptDiffReview({
   status,
   original,
   improved,
+  versionStack,
+  currentVersion,
   error,
+  onImproveAgain,
+  onGoToVersion,
   onAccept,
   onReject,
 }: {
   status: Status
   original: string
   improved: string
+  versionStack: ImproveVersion[]
+  currentVersion: number
   error: string
+  onImproveAgain: (instruction?: string) => void
+  onGoToVersion: (index: number) => void
   onAccept: () => void
   onReject: () => void
 }) {
+  const [instruction, setInstruction] = useState('')
+
+  useEffect(() => {
+    if (status !== 'review') {
+      setInstruction('')
+      return
+    }
+    setInstruction(versionStack[currentVersion]?.instruction ?? '')
+  }, [status, currentVersion, versionStack])
+
   if (status === 'review') {
+    const hasVersions = versionStack.length > 0
+    const versionLabel = hasVersions ? `${currentVersion + 1}/${versionStack.length}` : '0/0'
+
     return (
-      <div className="absolute inset-0 z-20 bg-background/95">
-        <InlineDiffView
-          original={original}
-          modified={improved}
-          originalLabel="Current"
-          modifiedLabel="Improved"
-          onRestore={onAccept}
-          restoreLabel="Accept"
-          onClose={onReject}
-        />
+      <div className="absolute inset-0 z-20 bg-background/95 flex flex-col">
+        <div className="border-b border-border bg-muted/60 px-3 py-2 flex items-center gap-2">
+          <button
+            onClick={() => onGoToVersion(currentVersion - 1)}
+            disabled={!hasVersions || currentVersion <= 0}
+            className="px-2 py-1 rounded text-xs transition-colors bg-muted hover:bg-accent text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Previous version"
+          >
+            Prev
+          </button>
+          <span className="text-[11px] text-muted-foreground tabular-nums min-w-[5ch] text-center">v{versionLabel}</span>
+          <button
+            onClick={() => onGoToVersion(currentVersion + 1)}
+            disabled={!hasVersions || currentVersion >= versionStack.length - 1}
+            className="px-2 py-1 rounded text-xs transition-colors bg-muted hover:bg-accent text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Next version"
+          >
+            Next
+          </button>
+          <input
+            value={instruction}
+            onChange={(event) => setInstruction(event.target.value)}
+            placeholder="Optional instruction for improve again..."
+            className="ml-1 flex-1 min-w-0 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <button
+            onClick={() => onImproveAgain(instruction)}
+            className="px-2.5 py-1 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+            title="Improve again"
+          >
+            Improve again
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0">
+          <InlineDiffView
+            original={original}
+            modified={improved}
+            originalLabel="Current"
+            modifiedLabel={`Improved v${versionLabel}`}
+            onRestore={onAccept}
+            restoreLabel="Accept"
+            onClose={onReject}
+          />
+        </div>
       </div>
     )
   }

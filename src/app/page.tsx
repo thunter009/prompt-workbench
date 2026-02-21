@@ -258,7 +258,7 @@ export default function HomePage() {
                         <>
                           <EditorDynamic value={editor.content} onChange={editor.handleContentChange} onScrollProgress={editor.handleEditorScroll} onViewReady={editor.handleEditorViewReady} />
                           <ImprovePromptStreamingView status={editor.improve.status} improved={editor.improve.improved} onCancel={editor.improve.cancel} />
-                          <ImprovePromptDiffReview status={editor.improve.status} original={editor.improve.original} improved={editor.improve.improved} error={editor.improve.error} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
+                          <ImprovePromptDiffReview status={editor.improve.status} original={editor.improve.original} improved={editor.improve.improved} versionStack={editor.improve.versionStack} currentVersion={editor.improve.currentVersion} error={editor.improve.error} onImproveAgain={editor.improve.improveAgain} onGoToVersion={editor.improve.goToVersion} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
                         </>
                       )}
                     </div>
@@ -360,7 +360,7 @@ export default function HomePage() {
                   <>
                     <EditorDynamic value={editor.content} onChange={editor.handleContentChange} onScrollProgress={editor.handleEditorScroll} onViewReady={editor.handleEditorViewReady} />
                     <ImprovePromptStreamingView status={editor.improve.status} improved={editor.improve.improved} onCancel={editor.improve.cancel} />
-                    <ImprovePromptDiffReview status={editor.improve.status} original={editor.improve.original} improved={editor.improve.improved} error={editor.improve.error} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
+                    <ImprovePromptDiffReview status={editor.improve.status} original={editor.improve.original} improved={editor.improve.improved} versionStack={editor.improve.versionStack} currentVersion={editor.improve.currentVersion} error={editor.improve.error} onImproveAgain={editor.improve.improveAgain} onGoToVersion={editor.improve.goToVersion} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
                   </>
                 )}
               </div>
