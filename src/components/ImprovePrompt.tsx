@@ -15,6 +15,19 @@ interface ImproveVersion {
   instruction?: string
 }
 
+function matchPlaceholders(value: string): string[] {
+  const placeholderMatches = value.match(/\{\{[^{}]+\}\}/g) ?? []
+  return Array.from(new Set(placeholderMatches))
+}
+
+function checkPlaceholderWarning(originalValue: string, improvedValue: string): string[] {
+  const originalPlaceholders = matchPlaceholders(originalValue)
+  if (originalPlaceholders.length === 0) return []
+
+  const improvedPlaceholderSet = new Set(matchPlaceholders(improvedValue))
+  return originalPlaceholders.filter((placeholder) => !improvedPlaceholderSet.has(placeholder))
+}
+
 export function useImprovePrompt(text: string, onAccept: (improved: string) => void) {
   const [status, setStatus] = useState<Status>('idle')
   const [original, setOriginal] = useState('')
@@ -410,6 +423,10 @@ export function ImprovePromptDiffReview({
   if (status === 'review') {
     const hasVersions = versionStack.length > 0
     const versionLabel = hasVersions ? `${currentVersion + 1}/${versionStack.length}` : '0/0'
+    const missingPlaceholders = checkPlaceholderWarning(original, improved)
+    const placeholderWarning = missingPlaceholders.length > 0
+      ? `Warning: missing placeholders ${missingPlaceholders.join(', ')}`
+      : null
 
     return (
       <div className="absolute inset-0 z-20 bg-background/95 flex flex-col">
@@ -445,6 +462,12 @@ export function ImprovePromptDiffReview({
             Improve again
           </button>
         </div>
+
+        {placeholderWarning && (
+          <div className="border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+            {placeholderWarning}
+          </div>
+        )}
 
         <div className="flex-1 min-h-0">
           <InlineDiffView

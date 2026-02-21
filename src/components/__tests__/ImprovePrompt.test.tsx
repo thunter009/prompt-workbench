@@ -74,6 +74,25 @@ describe('ImprovePromptDiffReview', () => {
     expect(onImproveAgain).toHaveBeenCalledWith(' tighten wording ')
   })
 
+  it('shows warning when improved text drops placeholders', () => {
+    render(
+      <ImprovePromptDiffReview
+        status="review"
+        original="Hello {{name}} from {{role}}"
+        improved="Hello there"
+        versionStack={[{ text: 'Hello there' }]}
+        currentVersion={0}
+        error=""
+        onImproveAgain={vi.fn()}
+        onGoToVersion={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('Warning: missing placeholders {{name}}, {{role}}')).toBeTruthy()
+  })
+
   it('renders error state with dismiss action', () => {
     render(
       <ImprovePromptDiffReview
