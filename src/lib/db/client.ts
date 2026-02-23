@@ -296,6 +296,19 @@ export const dbClient = {
     return rows.map(toPlaygroundRun)
   },
 
+  async getPlaygroundRunHistory(limitPerSnippet = 5): Promise<Record<string, PlaygroundRun[]>> {
+    const rows = await json<DrizzlePlaygroundRun[]>(`${BASE}/playground`)
+    const grouped: Record<string, PlaygroundRun[]> = {}
+
+    for (const row of rows) {
+      const existing = grouped[row.snippetId] ?? []
+      if (existing.length >= limitPerSnippet) continue
+      grouped[row.snippetId] = [...existing, toPlaygroundRun(row)]
+    }
+
+    return grouped
+  },
+
   createPlaygroundRun(snippetId: string, run: PlaygroundRun) {
     post(`${BASE}/playground`, {
       id: crypto.randomUUID(),

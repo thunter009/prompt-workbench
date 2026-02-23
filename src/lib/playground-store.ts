@@ -268,15 +268,18 @@ export const usePlaygroundStore = create<PlaygroundStore>((set, get) => ({
 
   hydrate: async () => {
     try {
-      const settings = await dbClient.getSettings([
-        'playgroundActiveTab', 'playgroundTestValues', 'playgroundCompareModels',
+      const [settings, runHistory] = await Promise.all([
+        dbClient.getSettings([
+          'playgroundActiveTab', 'playgroundTestValues', 'playgroundCompareModels',
+        ]),
+        dbClient.getPlaygroundRunHistory(MAX_RUNS),
       ])
-      // TODO: hydrate runHistory from dbClient.getPlaygroundRuns() when snippet_id grouping added
 
       set({
         activeTab: (settings.playgroundActiveTab as ActiveTab) ?? 'preview',
         testValues: (settings.playgroundTestValues as TestValues) ?? {},
         compareModels: (settings.playgroundCompareModels as string[]) ?? [],
+        runHistory,
       })
     } catch {
       // DB not available
