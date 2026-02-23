@@ -1,15 +1,17 @@
 import { defineConfig } from '@playwright/test'
 
+const E2E_PORT = 3002
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30000,
   use: {
-    baseURL: 'http://localhost:3002',
+    baseURL: `http://localhost:${E2E_PORT}`,
     headless: true,
   },
   webServer: {
-    command: 'PROMPT_WORKBENCH_DB_PATH=.prompt-workbench-e2e.db pnpm run db:push && PROMPT_WORKBENCH_DB_PATH=.prompt-workbench-e2e.db PW_ENABLE_TEST_API=1 pnpm dev --port 3002',
-    port: 3002,
+    command: 'pnpm run db:e2e:reset && pnpm run db:push:e2e && pnpm run dev:e2e',
+    port: E2E_PORT,
     reuseExistingServer: false,
     timeout: 60000,
   },
