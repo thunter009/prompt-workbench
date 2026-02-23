@@ -269,7 +269,7 @@ test.describe('US-4: Reassign Snippet', () => {
 
     // Both snippets should be in the target folder
     const targetFolder = state.folders.find((f: { name: string }) => f.name === targetName)
-    const inTarget = state.snippets.filter((s: { folderId: string | null }) => s.folderId === targetFolder!.id)
+    const inTarget = state.snippets.filter((s: { folderId?: string }) => s.folderId === targetFolder!.id)
     expect(inTarget).toHaveLength(2)
   })
 })
