@@ -204,6 +204,12 @@ export function Sidebar() {
   const deleteSnippetDialogRef = useRef<HTMLDialogElement>(null)
   const deleteFolderDialogRef = useRef<HTMLDialogElement>(null)
 
+  useEffect(() => {
+    const handleReorgCommand = () => setReorgOpen(true)
+    window.addEventListener('command:reorganize-folders', handleReorgCommand)
+    return () => window.removeEventListener('command:reorganize-folders', handleReorgCommand)
+  }, [])
+
   // Initialize expanded folders from DB
   const [expandedFoldersInitialized, setExpandedFoldersInitialized] = useState(false)
   useEffect(() => {

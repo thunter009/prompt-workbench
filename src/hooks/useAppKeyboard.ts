@@ -8,21 +8,18 @@ import type { PanelImperativeHandle } from 'react-resizable-panels'
 
 interface UseAppKeyboardDeps {
   previewPanelRef: React.RefObject<PanelImperativeHandle | null>
-  setSearchOpen: (v: boolean) => void
-  setCommandPaletteOpen: (v: boolean) => void
-  setGlobalSearchOpen: (v: boolean) => void
+  openPalette: (initialQuery?: string) => void
   setSettingsOpen: (v: boolean) => void
   setHotkeySheetOpen: (v: boolean) => void
   setDeleteDialogIds: (ids: string[]) => void
   handleQuickExport: (autoImport: boolean) => void
   handleSyncToRaycast: () => void
-  handleImprove: () => void
 }
 
 export function useAppKeyboard(deps: UseAppKeyboardDeps): void {
   const {
     previewPanelRef,
-    setSearchOpen, setCommandPaletteOpen, setGlobalSearchOpen,
+    openPalette,
     setSettingsOpen, setHotkeySheetOpen, setDeleteDialogIds,
     handleQuickExport, handleSyncToRaycast,
   } = deps
@@ -54,11 +51,11 @@ export function useAppKeyboard(deps: UseAppKeyboardDeps): void {
   handlerRef.current = (e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault()
-      setCommandPaletteOpen(true)
+      openPalette()
     }
     if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
       e.preventDefault()
-      setSearchOpen(true)
+      openPalette()
     }
     if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
       e.preventDefault()
@@ -67,9 +64,13 @@ export function useAppKeyboard(deps: UseAppKeyboardDeps): void {
         if (panel.isCollapsed()) { panel.expand() } else { panel.collapse() }
       }
     }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') {
+      e.preventDefault()
+      openPalette('>ai ')
+    }
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
       e.preventDefault()
-      setGlobalSearchOpen(true)
+      openPalette('/ ')
     }
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
       e.preventDefault()

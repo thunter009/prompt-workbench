@@ -21,9 +21,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { SidebarRail } from '@/components/SidebarRail'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ConflictPanel } from '@/components/ConflictPanel'
-import { SearchPalette } from '@/components/SearchPalette'
-import { CommandPalette } from '@/components/CommandPalette'
-import { CrossSnippetSearch } from '@/components/CrossSnippetSearch'
+import { UnifiedPalette } from '@/components/UnifiedPalette'
 import { VersionHistorySidebar } from '@/components/VersionHistorySidebar'
 import { SettingsModal } from '@/components/SettingsModal'
 import { ImportModal } from '@/components/ImportModal'
@@ -59,15 +57,19 @@ export default function HomePage() {
     }))
   )
 
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [paletteInitialQuery, setPaletteInitialQuery] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [hotkeySheetOpen, setHotkeySheetOpen] = useState(false)
-  const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+
+  const openPalette = useCallback((initialQuery: string = '') => {
+    setPaletteInitialQuery(initialQuery)
+    setPaletteOpen(true)
+  }, [])
 
   // Playground
   const activeTab = usePlaygroundStore((s) => s.activeTab)
@@ -88,15 +90,12 @@ export default function HomePage() {
 
   useAppKeyboard({
     previewPanelRef,
-    setSearchOpen,
-    setCommandPaletteOpen,
-    setGlobalSearchOpen,
+    openPalette,
     setSettingsOpen,
     setHotkeySheetOpen,
     setDeleteDialogIds: deleteDialog.setDeleteDialogIds,
     handleQuickExport: exportSync.handleQuickExport,
     handleSyncToRaycast: exportSync.handleSyncToRaycast,
-    handleImprove: editor.improve.handleImprove,
   })
 
   // Track viewport width for responsive layout
@@ -135,7 +134,7 @@ export default function HomePage() {
   const appCommands = useAppCommands({
     sidebarPanelRef,
     previewPanelRef,
-    setSearchOpen,
+    openPalette,
     setImportOpen,
     setSettingsOpen,
     setHotkeySheetOpen,
@@ -187,7 +186,7 @@ export default function HomePage() {
               {sidebarCollapsed && (
                 <SidebarRail
                   onExpand={() => sidebarPanelRef.current?.expand()}
-                  onOpenSearch={() => setSearchOpen(true)}
+                  onOpenSearch={() => openPalette()}
                 />
               )}
               <Group
@@ -373,9 +372,14 @@ export default function HomePage() {
 
       <ConflictPanel />
 
-      <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} commands={appCommands} />
-      <SearchPalette open={searchOpen} onOpenChange={setSearchOpen} />
-      <CrossSnippetSearch open={globalSearchOpen} onOpenChange={setGlobalSearchOpen} />
+      <UnifiedPalette
+        open={paletteOpen}
+        initialQuery={paletteInitialQuery}
+        onOpenChange={setPaletteOpen}
+        commands={appCommands}
+        onImprovePrompt={editor.improve.handleImprove}
+        onOpenReorganize={() => window.dispatchEvent(new CustomEvent('command:reorganize-folders'))}
+      />
 
       {exportSync.validationResult && (
         <ValidationDialog

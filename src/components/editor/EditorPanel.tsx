@@ -155,25 +155,6 @@ export function EditorPanelHeader() {
     }
   }, [snippet, snippets])
 
-  // ⌘K keyboard shortcut
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        // Don't trigger if in an input/textarea other than keyword input
-        const target = e.target as HTMLElement
-        if (target.tagName === 'TEXTAREA') return
-        if (target.tagName === 'INPUT' && target.getAttribute('placeholder') !== '!keyword') return
-
-        e.preventDefault()
-        if (selectedId && snippet) {
-          fetchSuggestions()
-        }
-      }
-    }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [selectedId, snippet, fetchSuggestions])
-
   // Close popover on click outside
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -252,7 +233,7 @@ export function EditorPanelHeader() {
             ref={buttonRef}
             onClick={fetchSuggestions}
             disabled={loading}
-            title="Suggest keyword (⌘K)"
+            title="Suggest keyword"
             className={cn(
               'p-1.5 rounded transition-colors',
               loading
