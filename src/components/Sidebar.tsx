@@ -1242,7 +1242,7 @@ export function Sidebar() {
           'grid transition-[grid-template-rows] duration-150 ease-out',
           isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
         )}>
-          <ul data-testid="folder-children" className="space-y-0.5 overflow-hidden">
+          <ul data-testid="folder-children" className="sidebar-long-list space-y-0.5 overflow-hidden">
             {childFolders.map((child) => renderFolder(child, depth + 1))}
             {folderSnippets.map((snippet) => renderSnippet(snippet, depth + 1))}
             {isEmpty && (
@@ -1423,13 +1423,13 @@ export function Sidebar() {
                   Recent
                 </button>
                 {recentExpanded && (
-                  <ul className="space-y-0.5">
+                  <ul className="sidebar-long-list space-y-0.5">
                     {recentSnippets.map((snippet) => renderSnippet(snippet))}
                   </ul>
                 )}
               </div>
             )}
-            <ul ref={sidebarListRef} className="space-y-0.5" role="listbox" aria-label="Snippets and folders">
+            <ul ref={sidebarListRef} className="sidebar-long-list space-y-0.5" role="listbox" aria-label="Snippets and folders">
               {rootFolders.map((folder) => renderFolder(folder))}
               {filteredRootSnippets.map((snippet) => renderSnippet(snippet))}
             </ul>
