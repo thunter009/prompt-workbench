@@ -21,9 +21,17 @@ const LS_KEYS = {
   consolidatedState: 'prompt-workbench-state',
 } as const
 
-function safeParse<T>(key: string, fallback: T): T {
+function readSnapshot(keys: readonly string[]): Record<string, string | null> {
+  const snapshot: Record<string, string | null> = {}
+  for (const key of keys) {
+    snapshot[key] = localStorage.getItem(key)
+  }
+  return snapshot
+}
+
+function safeParseFromSnapshot<T>(snapshot: Record<string, string | null>, key: string, fallback: T): T {
   try {
-    const val = localStorage.getItem(key)
+    const val = snapshot[key]
     return val ? JSON.parse(val) : fallback
   } catch {
     return fallback
@@ -33,9 +41,11 @@ function safeParse<T>(key: string, fallback: T): T {
 export async function checkAndMigrate(): Promise<{ migrated: boolean; counts?: Record<string, number> }> {
   if (typeof window === 'undefined') return { migrated: false }
 
+  const snapshot = readSnapshot(Object.values(LS_KEYS))
+
   // Check if localStorage has snippet data
-  const snippets = safeParse<unknown[]>(LS_KEYS.snippets, [])
-  const folders = safeParse<unknown[]>(LS_KEYS.folders, [])
+  const snippets = safeParseFromSnapshot<unknown[]>(snapshot, LS_KEYS.snippets, [])
+  const folders = safeParseFromSnapshot<unknown[]>(snapshot, LS_KEYS.folders, [])
   const hasLocalData = snippets.length > 0 || folders.length > 0
 
   if (!hasLocalData) return { migrated: false }
@@ -50,50 +60,50 @@ export async function checkAndMigrate(): Promise<{ migrated: boolean; counts?: R
   }
 
   // Build migration payload
-  const versions = safeParse<unknown[]>(LS_KEYS.versions, [])
+  const versions = safeParseFromSnapshot<unknown[]>(snapshot, LS_KEYS.versions, [])
 
   // Collect settings from various localStorage keys
   const settingsPayload: Record<string, unknown> = {}
 
-  const syncSettings = safeParse<unknown>(LS_KEYS.syncSettings, null)
+  const syncSettings = safeParseFromSnapshot<unknown>(snapshot, LS_KEYS.syncSettings, null)
   if (syncSettings) settingsPayload.syncSettings = syncSettings
 
-  const aiSettings = safeParse<unknown>(LS_KEYS.aiSettings, null)
+  const aiSettings = safeParseFromSnapshot<unknown>(snapshot, LS_KEYS.aiSettings, null)
   if (aiSettings) settingsPayload.aiSettings = aiSettings
 
-  const keywordStyle = safeParse<unknown>(LS_KEYS.keywordStyle, null)
+  const keywordStyle = safeParseFromSnapshot<unknown>(snapshot, LS_KEYS.keywordStyle, null)
   if (keywordStyle) settingsPayload.keywordStylePrefs = keywordStyle
 
-  const methodology = safeParse<unknown>(LS_KEYS.methodology, null)
+  const methodology = safeParseFromSnapshot<unknown>(snapshot, LS_KEYS.methodology, null)
   if (methodology) {
     // Zustand persist wraps in { state: ..., version: ... }
     const inner = (methodology as { state?: unknown }).state ?? methodology
     settingsPayload.folderMethodology = inner
   }
 
-  const playground = safeParse<unknown>(LS_KEYS.playground, null)
+  const playground = safeParseFromSnapshot<unknown>(snapshot, LS_KEYS.playground, null)
   if (playground) {
     const tab = (playground as { activeTab?: string }).activeTab
     if (tab) settingsPayload.playgroundActiveTab = tab
   }
 
-  const testValues = safeParse<unknown>(LS_KEYS.testValues, null)
+  const testValues = safeParseFromSnapshot<unknown>(snapshot, LS_KEYS.testValues, null)
   if (testValues) settingsPayload.playgroundTestValues = testValues
 
-  const compareModels = safeParse<unknown>(LS_KEYS.compareModels, null)
+  const compareModels = safeParseFromSnapshot<unknown>(snapshot, LS_KEYS.compareModels, null)
   if (compareModels) settingsPayload.playgroundCompareModels = compareModels
 
-  const expandedFolders = safeParse<unknown>(LS_KEYS.expandedFolders, null)
+  const expandedFolders = safeParseFromSnapshot<unknown>(snapshot, LS_KEYS.expandedFolders, null)
   if (expandedFolders) settingsPayload.expandedFolders = expandedFolders
 
-  const searchSettings = safeParse<unknown>(LS_KEYS.searchSettings, null)
+  const searchSettings = safeParseFromSnapshot<unknown>(snapshot, LS_KEYS.searchSettings, null)
   if (searchSettings) settingsPayload.searchSettings = searchSettings
 
-  const keywordExceptions = safeParse<unknown>(LS_KEYS.keywordExceptions, null)
+  const keywordExceptions = safeParseFromSnapshot<unknown>(snapshot, LS_KEYS.keywordExceptions, null)
   if (keywordExceptions) settingsPayload.keywordExceptions = keywordExceptions
 
   // Also migrate previewVisible from consolidated state
-  const consolidated = safeParse<{ previewVisible?: boolean }>(LS_KEYS.consolidatedState, {})
+  const consolidated = safeParseFromSnapshot<{ previewVisible?: boolean }>(snapshot, LS_KEYS.consolidatedState, {})
   if (consolidated.previewVisible !== undefined) {
     settingsPayload.previewVisible = consolidated.previewVisible
   }
