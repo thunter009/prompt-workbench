@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Tag & Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine next version
+        id: version
+        run: |
+          # Get latest tag or default to v0.0.0
+          LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest=$LATEST"
+
+          # Parse current version
+          VERSION=${LATEST#v}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          # Analyze commits since last tag
+          COMMITS=$(git log "${LATEST}..HEAD" --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s")
+
+          if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-z]+!:"; then
+            MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+            echo "bump=major"
+          elif echo "$COMMITS" | grep -qiE "^feat"; then
+            MINOR=$((MINOR + 1)); PATCH=0
+            echo "bump=minor"
+          elif echo "$COMMITS" | grep -qiE "^fix|^perf|^refactor"; then
+            PATCH=$((PATCH + 1))
+            echo "bump=patch"
+          else
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No releasable commits since $LATEST — skipping"
+            exit 0
+          fi
+
+          NEXT="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "Bumping $LATEST → $NEXT"
+
+      - name: Create release
+        if: steps.version.outputs.next
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.next }}" \
+            --target main \
+            --title "${{ steps.version.outputs.next }}" \
+            --generate-notes
