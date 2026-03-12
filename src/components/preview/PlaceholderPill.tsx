@@ -111,10 +111,10 @@ export function PlaceholderPill({ placeholder, className }: PlaceholderPillProps
         <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-accent" />
 
         {/* Content */}
-        <div className="flex flex-col gap-0.5">
+        <span className="flex flex-col gap-0.5">
           <code className="text-[10px] text-muted-foreground font-mono">{placeholder.raw}</code>
           <span className="text-secondary-foreground">{description}</span>
-        </div>
+        </span>
       </span>
     </span>
   )

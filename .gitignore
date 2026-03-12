@@ -37,6 +37,7 @@ pnpm-debug.log*
 # Testing
 coverage/
 .nyc_output/
+.prompt-workbench-e2e.db*
 
 # Supabase local data
 supabase/.env

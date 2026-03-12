@@ -57,3 +57,10 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .sidebar-long-list > :nth-child(n + 20) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 36px;
+  }
+}

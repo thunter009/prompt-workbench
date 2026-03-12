@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import rehypeRaw from 'rehype-raw'
 import { Eye, EyeOff, Link, Unlink, Layers, Layers2 } from 'lucide-react'
 import { remarkRaycastPlaceholders } from '@/lib/remark-raycast-placeholders'
 import { PlaceholderPill } from './PlaceholderPill'
@@ -238,7 +237,7 @@ function ResolvedPreview({ content, snippets }: { content: string; snippets: { i
               <div className="prose dark:prose-invert max-w-none">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
-                  rehypePlugins={[rehypeRaw]}
+    
                   components={markdownComponents}
                 >
                   {seg.content}
@@ -251,7 +250,7 @@ function ResolvedPreview({ content, snippets }: { content: string; snippets: { i
           <div key={i} className="prose dark:prose-invert max-w-none">
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
-              rehypePlugins={[rehypeRaw]}
+
               components={markdownComponents}
             >
               {seg.content}
@@ -360,7 +359,7 @@ export function Preview({ content, scrollProgress }: PreviewProps) {
           <div className="prose dark:prose-invert max-w-none">
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkRaycastPlaceholders]}
-              rehypePlugins={[rehypeRaw]}
+
               components={markdownComponents}
             >
               {debouncedContent}

@@ -30,11 +30,19 @@ export function remarkRaycastPlaceholders() {
           })
         }
 
-        // The placeholder as a custom node
-        // We use html node type for custom rendering
+        // The placeholder as a custom MDAST node with hName/hProperties
+        // so remark-rehype converts it to a <raycast-placeholder> hast element
+        // without needing rehype-raw (which would also render user XML tags)
         newNodes.push({
-          type: 'html',
-          value: `<raycast-placeholder raw="${escapeAttr(match.placeholder.raw)}" parsed="${escapeAttr(JSON.stringify(match.placeholder))}"></raycast-placeholder>`,
+          type: 'text',
+          value: '',
+          data: {
+            hName: 'raycast-placeholder',
+            hProperties: {
+              raw: match.placeholder.raw,
+              parsed: JSON.stringify(match.placeholder),
+            },
+          },
         } as PhrasingContent)
 
         lastEnd = match.end
@@ -52,12 +60,4 @@ export function remarkRaycastPlaceholders() {
       parent.children.splice(index, 1, ...newNodes)
     })
   }
-}
-
-function escapeAttr(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
 }

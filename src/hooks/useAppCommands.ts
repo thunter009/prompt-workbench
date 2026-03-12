@@ -9,7 +9,7 @@ import type { PanelImperativeHandle } from 'react-resizable-panels'
 interface UseAppCommandsDeps {
   sidebarPanelRef: React.RefObject<PanelImperativeHandle | null>
   previewPanelRef: React.RefObject<PanelImperativeHandle | null>
-  setSearchOpen: (v: boolean) => void
+  openPalette: (initialQuery?: string) => void
   setImportOpen: (v: boolean) => void
   setSettingsOpen: (v: boolean) => void
   setHotkeySheetOpen: (v: boolean) => void
@@ -21,7 +21,7 @@ interface UseAppCommandsDeps {
 export function useAppCommands(deps: UseAppCommandsDeps): Command[] {
   const {
     sidebarPanelRef, previewPanelRef,
-    setSearchOpen, setImportOpen, setSettingsOpen, setHotkeySheetOpen,
+    openPalette, setImportOpen, setSettingsOpen, setHotkeySheetOpen,
     setDeleteDialogIds, handleSyncToRaycast, handleImprove,
   } = deps
 
@@ -70,15 +70,15 @@ export function useAppCommands(deps: UseAppCommandsDeps): Command[] {
       const panel = sidebarPanelRef.current
       if (panel) { if (panel.isCollapsed()) { panel.expand() } else { panel.collapse() } }
     },
-    openSearch: () => setSearchOpen(true),
+    openSearch: () => openPalette(),
     togglePlayground: () => {
       playgroundSetActiveTab(activeTab === 'playground' ? 'preview' : 'playground')
       const panel = previewPanelRef.current
       if (panel?.isCollapsed()) panel.expand()
     },
     improvePrompt: () => handleImprove(),
-    suggestKeywords: () => toast('Use the sidebar context menu to suggest keywords'),
-    suggestFolder: () => toast('Use the sidebar context menu to suggest a folder'),
+    suggestKeywords: () => openPalette('>ai '),
+    suggestFolder: () => openPalette('>ai '),
     reorganizeFolders: () => {
       window.dispatchEvent(new CustomEvent('command:reorganize-folders'))
     },

@@ -1,53 +1,35 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createRoot, Root } from 'react-dom/client'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { cleanup, render, waitFor } from '@testing-library/react'
 import { Editor } from '../Editor'
 
+afterEach(() => {
+  cleanup()
+})
+
 describe('Editor', () => {
-  let container: HTMLDivElement
-  let root: Root
-
-  beforeEach(() => {
-    container = document.createElement('div')
-    document.body.appendChild(container)
-    root = createRoot(container)
-  })
-
-  afterEach(() => {
-    root.unmount()
-    container.remove()
-  })
-
   it('renders the editor container', async () => {
-    root.render(<Editor />)
+    const { container } = render(<Editor />)
 
-    // Wait for effects to run
-    await new Promise((resolve) => setTimeout(resolve, 100))
-
-    // Check that a CodeMirror container was created
-    const cmContent = container.querySelector('.cm-editor')
-    expect(cmContent).toBeTruthy()
+    await waitFor(() => {
+      expect(container.querySelector('.cm-editor')).toBeTruthy()
+    }, { timeout: 2000 })
   })
 
   it('initializes with provided value', async () => {
     const initialText = '# Hello World'
-    root.render(<Editor value={initialText} />)
+    const { container } = render(<Editor value={initialText} />)
 
-    // Wait for effects to run
-    await new Promise((resolve) => setTimeout(resolve, 100))
-
-    const cmContent = container.querySelector('.cm-content')
-    expect(cmContent?.textContent).toContain('Hello World')
+    await waitFor(() => {
+      expect(container.querySelector('.cm-content')?.textContent).toContain('Hello World')
+    }, { timeout: 2000 })
   })
 
   it('mounts the editor when given an onChange handler', async () => {
     const onChange = vi.fn()
-    root.render(<Editor onChange={onChange} />)
+    const { container } = render(<Editor onChange={onChange} />)
 
-    // Wait for effects to run
-    await new Promise((resolve) => setTimeout(resolve, 100))
-
-    // The editor should be mounted
-    const cmEditor = container.querySelector('.cm-editor')
-    expect(cmEditor).toBeTruthy()
+    await waitFor(() => {
+      expect(container.querySelector('.cm-editor')).toBeTruthy()
+    }, { timeout: 2000 })
   })
 })

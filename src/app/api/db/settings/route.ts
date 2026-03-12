@@ -10,7 +10,18 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const { entries } = await req.json() as { entries: Array<{ key: string; value: unknown }> }
+  let payload: unknown
+  try {
+    payload = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const entries = (payload as { entries?: Array<{ key: string; value: unknown }> }).entries
+  if (!Array.isArray(entries)) {
+    return NextResponse.json({ error: 'entries must be an array' }, { status: 400 })
+  }
+
   q.upsertSettings(entries)
   return NextResponse.json({ ok: true })
 }

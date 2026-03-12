@@ -11,15 +11,16 @@ interface HotkeyCheatsheetProps {
 const HOTKEYS = [
   { section: 'General', keys: [
     { key: '⌘ ,', description: 'Open settings' },
-    { key: '⌘ P', description: 'Search snippets' },
+    { key: '⌘ K', description: 'Open unified palette' },
+    { key: '⌘ P', description: 'Open unified palette' },
+    { key: '⌘ J', description: 'Open AI assist mode' },
     { key: '⌘ ?', description: 'Show this cheatsheet' },
   ]},
   { section: 'Editor', keys: [
     { key: '⌘ \\', description: 'Toggle preview panel' },
-    { key: '⌘ K', description: 'Suggest keyword' },
     { key: '⌘ F', description: 'Find in editor' },
     { key: '⌘ H', description: 'Find & replace in editor' },
-    { key: '⌘ ⇧ F', description: 'Search across all snippets' },
+    { key: '⌘ ⇧ F', description: 'Search content mode in palette' },
   ]},
   { section: 'Snippets', keys: [
     { key: '⌘ N', description: 'New snippet' },

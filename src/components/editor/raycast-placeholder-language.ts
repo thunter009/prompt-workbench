@@ -86,6 +86,30 @@ export const raycastPlaceholderPlugin = ViewPlugin.fromClass(
 
 const PREVIEW_STORAGE_KEY = "pw-inline-previews";
 
+function readPreviewEnabledFromStorage(): boolean {
+  if (typeof window === "undefined") return false;
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") return false;
+  const storage = window.localStorage as Partial<Storage> | undefined;
+  if (!storage || typeof storage.getItem !== "function") return false;
+  try {
+    return storage.getItem(PREVIEW_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function writePreviewEnabledToStorage(enabled: boolean) {
+  if (typeof window === "undefined") return;
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") return;
+  const storage = window.localStorage as Partial<Storage> | undefined;
+  if (!storage || typeof storage.setItem !== "function") return;
+  try {
+    storage.setItem(PREVIEW_STORAGE_KEY, String(enabled));
+  } catch {
+    // Ignore storage errors in test/private contexts.
+  }
+}
+
 class PreviewWidget extends WidgetType {
   constructor(readonly text: string) {
     super();
@@ -113,15 +137,12 @@ export const togglePreviewEffect = StateEffect.define<boolean>();
 /** State field: whether inline previews are enabled */
 export const previewEnabledField = StateField.define<boolean>({
   create() {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem(PREVIEW_STORAGE_KEY) === "true";
+    return readPreviewEnabledFromStorage();
   },
   update(value, tr) {
     for (const e of tr.effects) {
       if (e.is(togglePreviewEffect)) {
-        if (typeof window !== "undefined") {
-          localStorage.setItem(PREVIEW_STORAGE_KEY, String(e.value));
-        }
+        writePreviewEnabledToStorage(e.value);
         return e.value;
       }
     }

@@ -178,16 +178,6 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
     }
   }, [])
 
-  const useExistingExport = useCallback(() => {
-    if (!existingExport?.snippets) return
-
-    setPreview({
-      snippets: existingExport.snippets,
-      filename: existingExport.path?.split('/').pop() || 'raycast-snippets.json',
-    })
-    setSelected(new Set(existingExport.snippets.map((_, i) => i)))
-  }, [existingExport])
-
   const processFile = useCallback(async (file: File) => {
     if (!file.name.endsWith('.json')) {
       toast.error('Please select a JSON file')

@@ -20,6 +20,7 @@ export interface DiffComparison {
   originalLabel: string
   modifiedLabel: string
   onRestore?: () => void
+  restoreLabel?: string
   onClose: () => void
 }
 
@@ -30,7 +31,7 @@ export function restoreFromDiff(onRestore: (() => void) | undefined) {
 
 type DiffLayout = 'unified' | 'split'
 
-export function InlineDiffView({ original, modified, originalLabel, modifiedLabel, onRestore, onClose }: DiffComparison) {
+export function InlineDiffView({ original, modified, originalLabel, modifiedLabel, onRestore, restoreLabel, onClose }: DiffComparison) {
   const [layout, setLayout] = useState<DiffLayout>('unified')
   const diffViewRef = useRef<EditorView | null>(null)
   const [hunkCount, setHunkCount] = useState(0)
@@ -151,9 +152,10 @@ export function InlineDiffView({ original, modified, originalLabel, modifiedLabe
             <button
               onClick={() => restoreFromDiff(onRestore)}
               className="flex items-center gap-1 ml-2 px-2 py-0.5 text-xs text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 rounded hover:bg-accent transition-colors"
+              title={restoreLabel ?? 'Restore'}
             >
               <RotateCcw className="w-3 h-3" />
-              Restore
+              {restoreLabel ?? 'Restore'}
             </button>
           )}
           <button

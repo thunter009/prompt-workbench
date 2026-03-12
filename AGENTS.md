@@ -4,6 +4,12 @@ This project uses **br** (beads_rust) for issue tracking.
 
 **Note:** `br` never executes git commands. After `br sync --flush-only`, manually run `git add .beads/ && git commit`.
 
+### `.beads` Sync Cadence
+
+- During multi-commit feature work, batch `.beads/issues.jsonl` updates and commit once per completed feature slice (or end of session), not after every single task transition.
+- Keep `.beads` sync in a dedicated commit (`chore(beads): sync issue state`) unless a code commit must include a specific issue transition for traceability.
+- Before push, run `br sync --flush-only` and ensure latest issue status is committed.
+
 ## Quick Reference
 
 ```bash
@@ -12,6 +18,10 @@ br show <id>          # View issue details
 br update <id> --status in_progress  # Claim work
 br close <id>         # Complete work
 ```
+
+## Repository Layout
+
+- `ralph-tui` is tracked as a git submodule; keep `.gitmodules` aligned with that path.
 
 ## Landing the Plane (Session Completion)
 
@@ -40,4 +50,3 @@ br close <id>         # Complete work
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
-

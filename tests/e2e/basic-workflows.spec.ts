@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Basic Workflows', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, request }) => {
+    const cleanupResponse = await request.delete('/api/db/test-cleanup')
+    expect(cleanupResponse.ok()).toBeTruthy()
     await page.goto('/')
     await page.evaluate(() => localStorage.clear())
     await page.reload()
@@ -122,10 +124,9 @@ test.describe('Basic Workflows', () => {
   })
 
   test('selecting snippet renders content in CodeMirror editor', async ({ page }) => {
-    // Wait for hydration to complete (snippets loaded from DB)
+    // Wait for store hydration to complete
     await page.waitForFunction(() => {
-      const store = window.__snippetStore
-      return store && store.getState().snippets.length > 0
+      return window.__snippetStore?.getState().hydrated === true
     }, { timeout: 10000 })
 
     // Seed a snippet with unique content

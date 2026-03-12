@@ -21,16 +21,14 @@ import { Sidebar } from '@/components/Sidebar'
 import { SidebarRail } from '@/components/SidebarRail'
 import { ValidationDialog } from '@/components/ValidationDialog'
 import { ConflictPanel } from '@/components/ConflictPanel'
-import { SearchPalette } from '@/components/SearchPalette'
-import { CommandPalette } from '@/components/CommandPalette'
-import { CrossSnippetSearch } from '@/components/CrossSnippetSearch'
+import { UnifiedPalette } from '@/components/UnifiedPalette'
 import { VersionHistorySidebar } from '@/components/VersionHistorySidebar'
 import { SettingsModal } from '@/components/SettingsModal'
 import { ImportModal } from '@/components/ImportModal'
 import { HotkeyCheatsheet } from '@/components/HotkeyCheatsheet'
 import { useAppInit } from '@/hooks/useAppInit'
 import { useSnippetStore } from '@/lib/store'
-import { ImprovePromptButton, ImprovePromptReview } from '@/components/ImprovePrompt'
+import { ImprovePromptButton, ImprovePromptDiffReview, ImprovePromptStreamingView } from '@/components/ImprovePrompt'
 import { Check, Loader2, Eye, EyeOff } from 'lucide-react'
 import { InlineDiffView } from '@/components/editor/InlineDiffView'
 
@@ -45,9 +43,8 @@ export default function HomePage() {
   const previewPanelRef = usePanelRef()
 
   // UI state
-  const { previewVisible, setPreviewVisible, syncScroll } = useSnippetStore(
+  const { setPreviewVisible, syncScroll } = useSnippetStore(
     useShallow((s) => ({
-      previewVisible: s.previewVisible,
       setPreviewVisible: s.setPreviewVisible,
       syncScroll: s.syncScroll,
     }))
@@ -60,15 +57,19 @@ export default function HomePage() {
     }))
   )
 
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [paletteInitialQuery, setPaletteInitialQuery] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [hotkeySheetOpen, setHotkeySheetOpen] = useState(false)
-  const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+
+  const openPalette = useCallback((initialQuery: string = '') => {
+    setPaletteInitialQuery(initialQuery)
+    setPaletteOpen(true)
+  }, [])
 
   // Playground
   const activeTab = usePlaygroundStore((s) => s.activeTab)
@@ -89,15 +90,12 @@ export default function HomePage() {
 
   useAppKeyboard({
     previewPanelRef,
-    setSearchOpen,
-    setCommandPaletteOpen,
-    setGlobalSearchOpen,
+    openPalette,
     setSettingsOpen,
     setHotkeySheetOpen,
     setDeleteDialogIds: deleteDialog.setDeleteDialogIds,
     handleQuickExport: exportSync.handleQuickExport,
     handleSyncToRaycast: exportSync.handleSyncToRaycast,
-    handleImprove: editor.improve.handleImprove,
   })
 
   // Track viewport width for responsive layout
@@ -109,17 +107,19 @@ export default function HomePage() {
     return () => mq.removeEventListener('change', handler)
   }, [])
 
+  const { exportMenuOpen, exportMenuRef, setExportMenuOpen } = exportSync
+
   // Close export menu on outside click
   useEffect(() => {
-    if (!exportSync.exportMenuOpen) return
+    if (!exportMenuOpen) return
     const handler = (e: MouseEvent) => {
-      if (exportSync.exportMenuRef.current && !exportSync.exportMenuRef.current.contains(e.target as Node)) {
-        exportSync.setExportMenuOpen(false)
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false)
       }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [exportSync.exportMenuOpen, exportSync.exportMenuRef, exportSync.setExportMenuOpen])
+  }, [exportMenuOpen, exportMenuRef, setExportMenuOpen])
 
   // Persist panel layout across reloads (SSR-safe storage)
   const ssrSafeStorage = useMemo(() => ({
@@ -134,7 +134,7 @@ export default function HomePage() {
   const appCommands = useAppCommands({
     sidebarPanelRef,
     previewPanelRef,
-    setSearchOpen,
+    openPalette,
     setImportOpen,
     setSettingsOpen,
     setHotkeySheetOpen,
@@ -180,13 +180,13 @@ export default function HomePage() {
             </>
           )}
 
-          {/* Desktop layout with resizable panels */}
-          {!isMobile && (
+          {/* Desktop layout with resizable panels (gated on mounted to avoid SSR/client layout mismatch from localStorage) */}
+          {!isMobile && mounted && (
             <>
               {sidebarCollapsed && (
                 <SidebarRail
                   onExpand={() => sidebarPanelRef.current?.expand()}
-                  onOpenSearch={() => setSearchOpen(true)}
+                  onOpenSearch={() => openPalette()}
                 />
               )}
               <Group
@@ -228,7 +228,7 @@ export default function HomePage() {
                           >
                             {editor.inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                           </button>
-                          <ImprovePromptButton disabled={editor.improve.disabled} loading={editor.improve.status === 'loading'} onImprove={editor.improve.handleImprove} />
+                          <ImprovePromptButton disabled={editor.improve.disabled} loading={editor.improve.status === 'loading' || editor.improve.status === 'streaming'} onImprove={editor.improve.handleImprove} />
                           <span data-testid="save-indicator" className="flex items-center gap-1">
                             {editor.saveStatus === 'saving' && (
                               <>
@@ -256,7 +256,8 @@ export default function HomePage() {
                       ) : (
                         <>
                           <EditorDynamic value={editor.content} onChange={editor.handleContentChange} onScrollProgress={editor.handleEditorScroll} onViewReady={editor.handleEditorViewReady} />
-                          <ImprovePromptReview status={editor.improve.status} improved={editor.improve.improved} error={editor.improve.error} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
+                          <ImprovePromptStreamingView status={editor.improve.status} improved={editor.improve.improved} onCancel={editor.improve.cancel} />
+                          <ImprovePromptDiffReview status={editor.improve.status} original={editor.improve.original} improved={editor.improve.improved} versionStack={editor.improve.versionStack} currentVersion={editor.improve.currentVersion} error={editor.improve.error} onImproveAgain={editor.improve.improveAgain} onGoToVersion={editor.improve.goToVersion} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
                         </>
                       )}
                     </div>
@@ -333,7 +334,7 @@ export default function HomePage() {
                     >
                       {editor.inlinePreviewsOn ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </button>
-                    <ImprovePromptButton disabled={editor.improve.disabled} loading={editor.improve.status === 'loading'} onImprove={editor.improve.handleImprove} />
+                    <ImprovePromptButton disabled={editor.improve.disabled} loading={editor.improve.status === 'loading' || editor.improve.status === 'streaming'} onImprove={editor.improve.handleImprove} />
                     <span data-testid="save-indicator" className="flex items-center gap-1">
                       {editor.saveStatus === 'saving' && (
                         <>
@@ -357,7 +358,8 @@ export default function HomePage() {
                 ) : (
                   <>
                     <EditorDynamic value={editor.content} onChange={editor.handleContentChange} onScrollProgress={editor.handleEditorScroll} onViewReady={editor.handleEditorViewReady} />
-                    <ImprovePromptReview status={editor.improve.status} improved={editor.improve.improved} error={editor.improve.error} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
+                    <ImprovePromptStreamingView status={editor.improve.status} improved={editor.improve.improved} onCancel={editor.improve.cancel} />
+                    <ImprovePromptDiffReview status={editor.improve.status} original={editor.improve.original} improved={editor.improve.improved} versionStack={editor.improve.versionStack} currentVersion={editor.improve.currentVersion} error={editor.improve.error} onImproveAgain={editor.improve.improveAgain} onGoToVersion={editor.improve.goToVersion} onAccept={editor.improve.accept} onReject={editor.improve.reject} />
                   </>
                 )}
               </div>
@@ -370,9 +372,14 @@ export default function HomePage() {
 
       <ConflictPanel />
 
-      <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} commands={appCommands} />
-      <SearchPalette open={searchOpen} onOpenChange={setSearchOpen} />
-      <CrossSnippetSearch open={globalSearchOpen} onOpenChange={setGlobalSearchOpen} />
+      <UnifiedPalette
+        open={paletteOpen}
+        initialQuery={paletteInitialQuery}
+        onOpenChange={setPaletteOpen}
+        commands={appCommands}
+        onImprovePrompt={editor.improve.handleImprove}
+        onOpenReorganize={() => window.dispatchEvent(new CustomEvent('command:reorganize-folders'))}
+      />
 
       {exportSync.validationResult && (
         <ValidationDialog

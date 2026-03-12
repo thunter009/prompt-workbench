@@ -5,7 +5,13 @@ import { toast } from 'sonner'
 import { X, RefreshCw, Loader2, CheckCircle, XCircle, Search, Plus } from 'lucide-react'
 import { useSnippetStore } from '@/lib/store'
 import { useSyncSettingsStore, SYNC_INTERVALS, type SyncInterval } from '@/lib/sync-settings-store'
-import { useAISettingsStore, DEFAULT_OLLAMA_URL, DEFAULT_META_SYSTEM_PROMPT } from '@/lib/ai-settings-store'
+import {
+  useAISettingsStore,
+  DEFAULT_OLLAMA_URL,
+  DEFAULT_OPENAI_BASE_URL,
+  DEFAULT_ANTHROPIC_BASE_URL,
+  DEFAULT_META_SYSTEM_PROMPT,
+} from '@/lib/ai-settings-store'
 import { useIntervalSync } from '@/hooks/useIntervalSync'
 import { SyncHistory } from '@/components/SyncHistory'
 import { KeywordAuditModal } from '@/components/KeywordAuditModal'
@@ -39,6 +45,9 @@ const CASE_OPTIONS: { value: CasePreference; label: string }[] = [
   { value: 'camelCase', label: 'camelCase' },
 ]
 
+const OPENAI_MODEL_OPTIONS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini']
+const ANTHROPIC_MODEL_OPTIONS = ['claude-3-5-haiku-latest', 'claude-3-7-sonnet-latest']
+
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
   const [ollamaModels, setOllamaModels] = useState<string[]>([])
@@ -50,10 +59,24 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const exportSettings = useSnippetStore((s) => s.exportSettings)
   const setExportSettings = useSnippetStore((s) => s.setExportSettings)
 
+  const provider = useAISettingsStore((s) => s.provider)
   const ollamaUrl = useAISettingsStore((s) => s.ollamaUrl)
   const ollamaModel = useAISettingsStore((s) => s.ollamaModel)
+  const openaiBaseUrl = useAISettingsStore((s) => s.openaiBaseUrl)
+  const openaiApiKey = useAISettingsStore((s) => s.openaiApiKey)
+  const openaiModel = useAISettingsStore((s) => s.openaiModel)
+  const anthropicBaseUrl = useAISettingsStore((s) => s.anthropicBaseUrl)
+  const anthropicApiKey = useAISettingsStore((s) => s.anthropicApiKey)
+  const anthropicModel = useAISettingsStore((s) => s.anthropicModel)
+  const setProvider = useAISettingsStore((s) => s.setProvider)
   const setOllamaUrl = useAISettingsStore((s) => s.setOllamaUrl)
   const setOllamaModel = useAISettingsStore((s) => s.setOllamaModel)
+  const setOpenAIBaseUrl = useAISettingsStore((s) => s.setOpenAIBaseUrl)
+  const setOpenAIApiKey = useAISettingsStore((s) => s.setOpenAIApiKey)
+  const setOpenAIModel = useAISettingsStore((s) => s.setOpenAIModel)
+  const setAnthropicBaseUrl = useAISettingsStore((s) => s.setAnthropicBaseUrl)
+  const setAnthropicApiKey = useAISettingsStore((s) => s.setAnthropicApiKey)
+  const setAnthropicModel = useAISettingsStore((s) => s.setAnthropicModel)
   const metaSystemPrompt = useAISettingsStore((s) => s.metaSystemPrompt)
   const setMetaSystemPrompt = useAISettingsStore((s) => s.setMetaSystemPrompt)
   const loadAISettings = useAISettingsStore((s) => s.hydrate)
@@ -141,10 +164,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   }, [open, setExportSettings, loadAISettings, loadKeywordPrefs])
 
   useEffect(() => {
-    if (open && ollamaUrl) {
+    if (open && provider === 'ollama' && ollamaUrl) {
       fetchOllamaModels(ollamaUrl)
     }
-  }, [open, ollamaUrl, fetchOllamaModels])
+  }, [open, provider, ollamaUrl, fetchOllamaModels])
 
   // Focus trap: keep Tab cycling within modal, close on Escape
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -353,59 +376,156 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           <section className="border-t border-border pt-6">
             <h3 className="text-sm font-medium text-secondary-foreground mb-4">AI Settings</h3>
 
-            {/* Ollama URL */}
             <div className="mb-4">
-              <label className="text-sm text-muted-foreground block mb-1.5">Ollama URL</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={ollamaUrl}
-                  onChange={(e) => setOllamaUrl(e.target.value)}
-                  placeholder={DEFAULT_OLLAMA_URL}
-                  className="flex-1 bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground placeholder:text-muted-foreground"
-                />
-                <button
-                  onClick={testOllamaConnection}
-                  disabled={connectionStatus === 'testing'}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-accent hover:bg-accent-foreground/10 disabled:opacity-50 rounded text-sm font-medium transition-colors"
-                >
-                  {connectionStatus === 'testing' ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : connectionStatus === 'connected' ? (
-                    <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-                  ) : connectionStatus === 'failed' ? (
-                    <XCircle className="w-3.5 h-3.5 text-red-500" />
-                  ) : null}
-                  Test
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                Used for auto-generating snippet titles
-              </p>
-            </div>
-
-            {/* Model selection */}
-            <div>
-              <label className="text-sm text-muted-foreground block mb-1.5">Model</label>
+              <label className="text-sm text-muted-foreground block mb-1.5">Provider</label>
               <select
-                value={ollamaModel}
-                onChange={(e) => setOllamaModel(e.target.value)}
-                disabled={modelsLoading || ollamaModels.length === 0}
-                className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground disabled:opacity-50"
+                value={provider}
+                onChange={(e) => setProvider(e.target.value as 'ollama' | 'openai' | 'anthropic')}
+                className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground"
               >
-                {modelsLoading ? (
-                  <option>Loading models...</option>
-                ) : ollamaModels.length === 0 ? (
-                  <option>No models available</option>
-                ) : (
-                  ollamaModels.map((model) => (
-                    <option key={model} value={model}>
-                      {model}
-                    </option>
-                  ))
-                )}
+                <option value="ollama">Ollama</option>
+                <option value="openai">OpenAI-compatible</option>
+                <option value="anthropic">Anthropic</option>
               </select>
             </div>
+
+            {provider === 'ollama' && (
+              <>
+                <div className="mb-4">
+                  <label className="text-sm text-muted-foreground block mb-1.5">Ollama URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={ollamaUrl}
+                      onChange={(e) => setOllamaUrl(e.target.value)}
+                      placeholder={DEFAULT_OLLAMA_URL}
+                      className="flex-1 bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground placeholder:text-muted-foreground"
+                    />
+                    <button
+                      onClick={testOllamaConnection}
+                      disabled={connectionStatus === 'testing'}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-accent hover:bg-accent-foreground/10 disabled:opacity-50 rounded text-sm font-medium transition-colors"
+                    >
+                      {connectionStatus === 'testing' ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : connectionStatus === 'connected' ? (
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                      ) : connectionStatus === 'failed' ? (
+                        <XCircle className="w-3.5 h-3.5 text-red-500" />
+                      ) : null}
+                      Test
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Used for local model access
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm text-muted-foreground block mb-1.5">Model</label>
+                  <select
+                    value={ollamaModel}
+                    onChange={(e) => setOllamaModel(e.target.value)}
+                    disabled={modelsLoading || ollamaModels.length === 0}
+                    className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground disabled:opacity-50"
+                  >
+                    {modelsLoading ? (
+                      <option>Loading models...</option>
+                    ) : ollamaModels.length === 0 ? (
+                      <option>No models available</option>
+                    ) : (
+                      ollamaModels.map((model) => (
+                        <option key={model} value={model}>
+                          {model}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              </>
+            )}
+
+            {provider === 'openai' && (
+              <>
+                <div className="mb-4">
+                  <label className="text-sm text-muted-foreground block mb-1.5">Base URL</label>
+                  <input
+                    type="text"
+                    value={openaiBaseUrl}
+                    onChange={(e) => setOpenAIBaseUrl(e.target.value)}
+                    placeholder={DEFAULT_OPENAI_BASE_URL}
+                    className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground placeholder:text-muted-foreground"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="text-sm text-muted-foreground block mb-1.5">API Key</label>
+                  <input
+                    type="password"
+                    value={openaiApiKey}
+                    onChange={(e) => setOpenAIApiKey(e.target.value)}
+                    placeholder="sk-..."
+                    className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground placeholder:text-muted-foreground"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-muted-foreground block mb-1.5">Model</label>
+                  <select
+                    value={openaiModel}
+                    onChange={(e) => setOpenAIModel(e.target.value)}
+                    className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground"
+                  >
+                    {OPENAI_MODEL_OPTIONS.map((model) => (
+                      <option key={model} value={model}>
+                        {model}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
+            {provider === 'anthropic' && (
+              <>
+                <div className="mb-4">
+                  <label className="text-sm text-muted-foreground block mb-1.5">Base URL</label>
+                  <input
+                    type="text"
+                    value={anthropicBaseUrl}
+                    onChange={(e) => setAnthropicBaseUrl(e.target.value)}
+                    placeholder={DEFAULT_ANTHROPIC_BASE_URL}
+                    className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground placeholder:text-muted-foreground"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="text-sm text-muted-foreground block mb-1.5">API Key</label>
+                  <input
+                    type="password"
+                    value={anthropicApiKey}
+                    onChange={(e) => setAnthropicApiKey(e.target.value)}
+                    placeholder="sk-ant-..."
+                    className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground placeholder:text-muted-foreground"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-muted-foreground block mb-1.5">Model</label>
+                  <select
+                    value={anthropicModel}
+                    onChange={(e) => setAnthropicModel(e.target.value)}
+                    className="w-full bg-accent border border-border rounded px-3 py-2 text-sm text-secondary-foreground"
+                  >
+                    {ANTHROPIC_MODEL_OPTIONS.map((model) => (
+                      <option key={model} value={model}>
+                        {model}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
           </section>
 
           {/* Prompt Improvement */}
