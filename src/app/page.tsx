@@ -180,8 +180,8 @@ export default function HomePage() {
             </>
           )}
 
-          {/* Desktop layout with resizable panels */}
-          {!isMobile && (
+          {/* Desktop layout with resizable panels (gated on mounted to avoid SSR/client layout mismatch from localStorage) */}
+          {!isMobile && mounted && (
             <>
               {sidebarCollapsed && (
                 <SidebarRail
