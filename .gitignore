@@ -50,3 +50,6 @@ package-lock.json
 yarn.lock
 .playwright-cli/
 test-results/
+
+# bv (beads viewer) local config and caches
+.bv/
